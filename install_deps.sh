@@ -49,6 +49,10 @@ echo "Install home_robot ROS..."
 python -m pip install -e src/home_robot_hw
 
 echo ""
+echo "Submodule checks"
+git submodule update -f src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
+
+echo ""
 echo "Install habitat dependencies..."
 git submodule update --init --recursive src/third_party/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-lab
@@ -70,6 +74,11 @@ echo "Download DETIC checkpoint..."
 cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic
 mkdir models
 wget --no-check-certificate https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+
+echo ""
+echo "Download MiDaS checkpoint..."
+cd $HOME_ROBOT_ROOT/src/third_party/MiDaS/weights
+wget https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt
 
 cd $HOME_ROBOT_ROOT
 echo ""

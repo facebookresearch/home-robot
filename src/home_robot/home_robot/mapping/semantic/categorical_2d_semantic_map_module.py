@@ -22,6 +22,7 @@ import home_robot.utils.pose as pu
 import home_robot.utils.rotation as ru
 from home_robot.mapping.instance import InstanceMemory
 from home_robot.mapping.semantic.constants import MapConstants as MC
+from home_robot.utils.spot import draw_circle_segment, fill_convex_hull
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False
@@ -66,6 +67,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         dilate_obstacles: bool = True,
         dilate_iter: int = 1,
         dilate_size: int = 3,
+        target_blacklisting_radius: int = None,
         record_instance_ids: bool = False,
         evaluate_instance_tracking: bool = False,
         instance_memory: Optional[InstanceMemory] = None,
@@ -73,6 +75,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         instance_association: str = "map_overlap",
         dilation_for_instances: int = 5,
         padding_for_instance_overlap: int = 5,
+        exploration_type="default",
+        gaze_width=30,
+        gaze_distance=3,
     ):
         """
         Arguments:
@@ -89,6 +94,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             explored_radius: radius (in centimeters) of region of the visual cone
              that will be marked as explored
             been_close_to_radius: radius (in centimeters) of been close to region
+            target_blacklisting_radius: radius (in centimeters) of region
+             around target that will be blacklisted (if invalid target)
             global_downscaling: ratio of global over local map
             du_scale: frame downscaling before projecting to point cloud
             cat_pred_threshold: number of depth points to be in bin to
@@ -100,6 +107,9 @@ class Categorical2DSemanticMapModule(nn.Module):
             must_explore_close: reduce the distance we need to get to things to make them work
             min_obs_height_cm: minimum height of obstacles (in centimetres)
             record_instance_ids: whether to record instance ids in the 2d semantic map
+            exploration_type: how to define explored area
+            gaze_width: hfov in degrees for use with the gaze based exploration
+            gaze_distance: depth to be considered explored with gaze based exploration
         """
         super().__init__()
 
@@ -122,6 +132,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.vision_range = vision_range
         self.explored_radius = explored_radius
         self.been_close_to_radius = been_close_to_radius
+        if target_blacklisting_radius is not None:
+            self.target_blacklisting_radius = target_blacklisting_radius
         self.du_scale = du_scale
         self.cat_pred_threshold = cat_pred_threshold
         self.exp_pred_threshold = exp_pred_threshold
@@ -153,6 +165,9 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.instance_memory = instance_memory
         self.max_instances = max_instances
         self.evaluate_instance_tracking = evaluate_instance_tracking
+        self.exploration_type = exploration_type
+        self.gaze_width = gaze_width
+        self.gaze_distance = gaze_distance
 
     @torch.no_grad()
     def forward(
@@ -168,6 +183,10 @@ class Categorical2DSemanticMapModule(nn.Module):
         init_global_pose: Tensor,
         init_lmb: Tensor,
         init_origins: Tensor,
+        seq_obstacle_locations: Optional[Tensor] = None,
+        seq_free_locations: Optional[Tensor] = None,
+        blacklist_target: bool = False,
+        semantic_max_val: Optional[int] = None,
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, IntTensor, Tensor]:
         """Update maps and poses with a sequence of observations and generate map
         features at each time step.
@@ -259,6 +278,14 @@ class Categorical2DSemanticMapModule(nn.Module):
                 local_map,
                 local_pose,
                 seq_camera_poses,
+                origins,
+                lmb,
+                seq_obstacle_locations[:, t]
+                if seq_obstacle_locations is not None
+                else None,
+                seq_free_locations[:, t] if seq_free_locations is not None else None,
+                blacklist_target,
+                semantic_max_val=semantic_max_val,
             )
             for e in range(batch_size):
                 if seq_update_global[e, t]:
@@ -271,7 +298,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             seq_lmb[:, t] = lmb
             seq_origins[:, t] = origins
             seq_map_features[:, t] = self._get_map_features(local_map, global_map)
-
         return (
             seq_map_features,
             local_map,
@@ -367,14 +393,20 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         return curr_map
 
-    def _update_local_map_and_pose(
+    def _update_local_map_and_pose(  # noqa: C901
         self,
         obs: Tensor,
         pose_delta: Tensor,
         prev_map: Tensor,
         prev_pose: Tensor,
         camera_pose: Tensor,
+        origins: Tensor,
+        lmb: Tensor,
+        obstacle_locations: Optional[Tensor] = None,
+        free_locations: Optional[Tensor] = None,
+        blacklist_target: bool = False,
         debug: bool = False,
+        semantic_max_val: Optional[int] = None,
     ) -> Tuple[Tensor, Tensor]:
         """Update local map and sensor pose given a new observation using parameter-free
         differentiable projective geometry.
@@ -393,6 +425,8 @@ class Categorical2DSemanticMapModule(nn.Module):
              and location of shape (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
             current_pose: current pose updated with pose delta of shape (batch_size, 3)
         """
+        if semantic_max_val is None:
+            semantic_max_val = self.num_sem_categories
         batch_size, obs_channels, h, w = obs.size()
         device, dtype = obs.device, obs.dtype
         if camera_pose is not None:
@@ -402,11 +436,16 @@ class Categorical2DSemanticMapModule(nn.Module):
             angles = torch.Tensor(
                 [tra.euler_from_matrix(p[:3, :3].cpu(), "rzyx") for p in camera_pose]
             )
+
             # For habitat - pull x angle
             # tilt = angles[:, -1]
             # For real robot
             tilt = angles[:, 1]
-
+            # angles gives roll, pitch, yaw
+            yaw = angles[:, -1]
+            roll = angles[:, 0]
+            camera_x = camera_pose[:, 0, 3] * -100
+            camera_y = camera_pose[:, 1, 3] * -100
             # Get the agent pose
             # hab_agent_height = camera_pose[:, 1, 3] * 100
             agent_pos = camera_pose[:, :3, 3] * 100
@@ -417,9 +456,14 @@ class Categorical2DSemanticMapModule(nn.Module):
                 print("agent_height", agent_height)
                 print()
         else:
+            yaw = 0
+            roll = 0
+            camera_x = None
+            camera_y = None
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
 
+        yaw = torch.tensor(yaw)
         depth = obs[:, 3, :, :].float()
         depth[depth > self.max_depth] = 0
 
@@ -501,6 +545,10 @@ class Categorical2DSemanticMapModule(nn.Module):
 
         semantic_channels = obs[:, 4 : 4 + self.num_sem_categories, :, :]
 
+        current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
+
+        current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
+
         if self.record_instance_ids:
             instance_channels = obs[
                 :,
@@ -511,12 +559,27 @@ class Categorical2DSemanticMapModule(nn.Module):
                 :,
                 :,
             ]
+            global_pose = current_pose + origins
+
+            if camera_x is None:
+                camera_x = global_pose[:, 0]
+            if camera_y is None:
+                camera_y = global_pose[:, 1]
+            global_pose = np.array([camera_x.item(), camera_y.item(), roll.item()])
+            absolute_point_cloud = du.transform_pose_t(
+                point_cloud_base_coords, global_pose, device
+            )
+
             if num_instance_channels > 0:
                 self.instance_memory.process_instances(
                     instance_channels,
-                    point_cloud_t,
+                    absolute_point_cloud,
+                    torch.concat([current_pose + origins, lmb], axis=1)
+                    .cpu()
+                    .float(),  # store the global pose
                     image=obs[:, :3, :, :],
                     semantic_channels=semantic_channels,
+                    background_class_labels=[0, semantic_max_val],
                 )
 
         feat[:, 1:, :] = nn.AvgPool2d(self.du_scale)(obs[:, 4:, :, :]).view(
@@ -552,9 +615,62 @@ class Categorical2DSemanticMapModule(nn.Module):
         all_height_proj = voxels.sum(4)
 
         fp_map_pred = agent_height_proj[:, 0:1, :, :]
-        fp_exp_pred = all_height_proj[:, 0:1, :, :]
+
+        # +rows is away from the camera, with the camra origin at row 0
+        # +cols is to the right of the image frame, the camera origin is at num_cols/2
+        # so the camera origin is at [0,num_cols/2]
+
+        # self.local_map_size_cm
+        # plt.imshow(fp_exp_pred[0,0].cpu())
+        # plt.pause(0.01)
+
         fp_map_pred = fp_map_pred / self.map_pred_threshold
-        fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        # uses depth point projections but limits the fov and distance
+        if self.exploration_type == "default":
+            fp_exp_pred = all_height_proj[:, 0:1, :, :]
+            fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+        elif self.exploration_type == "hull":
+            fp_exp_pred = all_height_proj[:, 0:1, :, :]
+            fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+            fp_exp_pred = fp_exp_pred.clip(0, 1)
+            # set the current agent position as 1
+            fp_exp_pred[:, :, 0, fp_exp_pred.shape[-1] // 2] = 1
+
+            # fill convex hull
+            filled = fill_convex_hull(fp_exp_pred[0, 0].cpu())
+            assert fp_exp_pred.shape[:2] == (1, 1)
+            fp_exp_pred[0, 0] = torch.tensor(filled)
+
+        # uses a fixed cone infront of the camerea
+        elif self.exploration_type == "gaze":
+            fp_exp_pred = torch.zeros_like(fp_map_pred)
+            view_image = torch.zeros(fp_map_pred.shape[-2:])
+            # get the desired radius in cells
+            dist = self.gaze_distance * 100 / self.resolution
+            view_image = draw_circle_segment(
+                view_image, (0, fp_exp_pred.shape[-1] // 2), dist, 0, self.gaze_width
+            )
+            fp_exp_pred[..., :, :] = view_image
+        # uses depth point projections but limits the fov and distance using the code
+        elif self.exploration_type == "gaze_projected":
+            fp_exp_pred = all_height_proj[:, 0:1, :, :]
+            fp_exp_pred = fp_exp_pred / self.exp_pred_threshold
+            view_image = torch.zeros(fp_map_pred.shape[-2:])
+            # get the desired radius in cells
+            dist = self.gaze_distance * 100 / self.resolution
+            view_image = (
+                draw_circle_segment(
+                    view_image,
+                    (0, fp_exp_pred.shape[-1] // 2),
+                    dist,
+                    0,
+                    self.gaze_width,
+                )
+                / 255
+            )
+            fp_exp_pred *= view_image.to(fp_exp_pred.device)
+        else:
+            raise Exception("not implemented")
 
         num_channels = MC.NON_SEM_CHANNELS + self.num_sem_categories
         if self.record_instance_ids:
@@ -602,9 +718,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             all_height_proj[:, 1:] / self.cat_pred_threshold
         )
 
-        current_pose = pu.get_new_pose_batch(prev_pose.clone(), pose_delta)
         st_pose = current_pose.clone().detach()
-
         st_pose[:, :2] = -(
             (
                 st_pose[:, :2] * 100.0 / self.xy_resolution
@@ -614,12 +728,19 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
         st_pose[:, 2] = 90.0 - (st_pose[:, 2])
 
-        rot_mat, trans_mat = ru.get_grid(st_pose, agent_view.size(), dtype)
+        # st_pose is current pose, last term in degrees
+        # account for camera yaw here by rotating the new map based on camera yaw
+        st_pose_adjusted = st_pose.clone()
+        # yaw has to be inverted here, below rotates the map clockwise
+        st_pose_adjusted[:, 2] -= yaw.to(st_pose_adjusted.device) * 180 / np.pi
+
+        rot_mat, trans_mat = ru.get_grid(st_pose_adjusted, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
+        plt.imshow(rotated[0, 0].cpu())
 
         # Clamp to [0, 1] after transform agent view to map coordinates
-        translated = torch.clamp(translated, min=0.0, max=1.0)
+        translated = torch.clamp(translated, min=0.0, max=1.0).float()
 
         # update instance channels
         if self.record_instance_ids:
@@ -627,9 +748,45 @@ class Categorical2DSemanticMapModule(nn.Module):
                 translated, num_instance_channels
             )
 
-        maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
+        # Remove people from the last map if people are detected
+        # TODO Handle people more cleanly
+        if translated[:, MC.NON_SEM_CHANNELS + 11, :, :].sum() > 0.99:
+            print("Detected a person, removing previous people from the map")
+            prev_map[:, MC.NON_SEM_CHANNELS + 11, :, :] = 0
 
+        # Update obstacles in current map
+        # TODO Implement this properly for num_environments > 1
+        if obstacle_locations is not None:
+            translated[
+                0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]
+            ] = 1
+        if free_locations is not None:
+            translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+            prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
+
+        # Aggregate by taking the max of the previous map and current map — this is robust
+        # to false negatives in one frame but makes it impossible to remove false positives
+        maps = torch.cat((prev_map.unsqueeze(1), translated.unsqueeze(1)), 1)
         current_map, _ = torch.max(maps, 1)
+
+        # Aggregate by trusting the current map — this is not robust to false negatives in
+        # one frame, but it makes it possible to remove false positives
+        # TODO Implement this properly for num_environments > 1
+        # current_mask = translated[0, 1, :, :] > 0
+        # current_map = prev_map.clone()
+        # current_map[0, :, current_mask] = translated[0, :, current_mask]
+
+        # Set people as not obstacles for planning
+        # TODO Handle people more cleanly
+        # TODO Implement this properly for num_environments > 1
+        # people_mask = (
+        #     skimage.morphology.binary_dilation(
+        #         current_map[0, 5 + 11, :, :].cpu().numpy(), skimage.morphology.disk(2)
+        #     )
+        #     * 1.0
+        # )
+        # current_map[0, 0, :, :] *= 1 - torch.from_numpy(people_mask).to(device)
+
         if self.record_instance_ids:
             # overwrite channels containing instance IDs
             current_map[
@@ -661,7 +818,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # Set a disk around the agent to explored
             # This is around the current agent - we just sort of assume we know where we are
             try:
-                radius = 10
+                radius = self.explored_radius
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e,
@@ -669,16 +826,32 @@ class Categorical2DSemanticMapModule(nn.Module):
                     y - radius : y + radius + 1,
                     x - radius : x + radius + 1,
                 ][explored_disk == 1] = 1
+
                 # Record the region the agent has been close to using a disc centered at the agent
                 radius = self.been_close_to_radius // self.resolution
                 been_close_disk = torch.from_numpy(skimage.morphology.disk(radius))
+
                 current_map[
                     e,
                     MC.BEEN_CLOSE_MAP,
                     y - radius : y + radius + 1,
                     x - radius : x + radius + 1,
                 ][been_close_disk == 1] = 1
+
+                if blacklist_target:
+                    # Record the region the agent has been close to using a disc centered at the agent
+                    radius = self.target_blacklisting_radius // self.resolution
+                    been_close_disk = torch.from_numpy(skimage.morphology.disk(radius))
+
+                    current_map[
+                        e,
+                        MC.BLACKLISTED_TARGETS_MAP,
+                        y - radius : y + radius + 1,
+                        x - radius : x + radius + 1,
+                    ][been_close_disk == 1] = 1
+
             except IndexError:
+
                 pass
 
         if debug_maps:
@@ -807,7 +980,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             )
         else:
             extended_dilated_local_map = torch.clone(extended_local_map)
-
         # Get the instances from the global map within the local map's region
         global_instances_within_local = global_instances[x_start:x_end, y_start:y_end]
 

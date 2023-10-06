@@ -29,6 +29,8 @@ class Skill(IntEnum):
     NAV_TO_REC = auto()
     GAZE_AT_REC = auto()
     PLACE = auto()
+    EXPLORE = auto()
+    NAV_TO_INSTANCE = auto()
     FALL_WAIT = auto()
 
 
@@ -65,7 +67,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_policy = None
         self.semantic_sensor = None
 
-        if config.GROUND_TRUTH_SEMANTICS == 1 and self.store_all_categories_in_map:
+        if config.GROUND_TRUTH_SEMANTICS == 1 and not self.store_all_categories_in_map:
             # currently we get ground truth semantics of only the target object category and all scene receptacles from the simulator
             raise NotImplementedError
 
@@ -312,6 +314,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """
         Set active vocabulary for semantic sensor to use to the given ID.
         """
+        # import pdb; pdb.set_trace()
         if self.config.GROUND_TRUTH_SEMANTICS == 0 and (
             force_set or self.semantic_sensor.current_vocabulary_id != vocab_id
         ):
@@ -463,9 +466,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     action = DiscreteNavigationAction.PICK_OBJECT
                 else:
                     action = None
-            else:
-                # We have tried too many times and we're going to quit
-                action = None
         else:
             raise NotImplementedError(
                 f"pick type not supported: {self.config.AGENT.SKILLS.PICK.type}"

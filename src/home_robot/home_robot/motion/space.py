@@ -22,6 +22,7 @@ class ConfigurationSpace(ABC):
         self.dof = dof
         self.step_size = step_size
         self.update_bounds(mins, maxs)
+        assert self.step_size > 0.0
 
     def update_bounds(self, mins, maxs):
         assert len(mins) == self.dof, "mins' length must be equal to the space dof"

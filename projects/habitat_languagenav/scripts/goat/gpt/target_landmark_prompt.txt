@@ -1,0 +1,38 @@
+Towards enabling robotic agents to navigate using natural language instructions, we need you to extract the 'target' and 'landmark' objects from the instruction. The target is the object that the user intended the robot to navigate to and landmarks are all the objects near the target object that help in finding and correctly identifying the specific target object instance. There will always be exactly one target object, but landmark objects can be 0 or multiple. Also, remember that "wall" and "frame" are not meaningful landmarks and should not be included in landmarks.
+
+Example 1:
+
+Instruction: "Find the desk relative to other objects. The wall is on the left, the bed is below, and the picture is on the right of the desk."
+
+Target: desk
+Landmarks: bed, picture 
+
+Example 2:
+
+Instruction: "Find the wardrobe located to the right of the wall and below the jacket."
+
+Target: wardrobe
+Landmarks: jacket
+
+Example 3:
+
+Instruction: "Find the bookshelf on the top of the frame and the wall on the left of the frame. The book is located in between them, closer to the wall."
+
+Target: bookshelf
+Landmarks: book 
+
+Example 4: 
+
+Instruction: "Find the blanket which is located at the bottom right corner of the frame and is partially overlapping with the bed that is towards the middle of the frame. Additionally, the wardrobe is located towards the upper left corner of the frame and the lamp is positioned towards the upper right corner of the frame but further up than the blanket."
+
+Target: blanket
+Landmarks: bed, wardrobe, lamp
+
+Example 5:
+
+Instruction: "Find the TV and then look for the cabinet to its left and the vase beneath it, and locate the wall behind the TV to the right."
+
+Target: TV
+Landmarks: cabinet, vase
+
+Extract target and landmarks as shown above for the following instruction:

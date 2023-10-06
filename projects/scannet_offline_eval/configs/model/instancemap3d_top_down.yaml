@@ -3,6 +3,6 @@ defaults:
   - semantic_sensor: grounded_sam_perception
   - voxel_map: default
 
-_target_: build_sparse_voxel_map.SparseVoxelMapAgent
+_target_: home_robot.agent.multitask.sparse_voxel_instance_map.SparseVoxelMapAgent
 device: 'cuda:0'
 

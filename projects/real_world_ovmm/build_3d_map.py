@@ -22,6 +22,7 @@ from home_robot.mapping.voxel import plan_to_frontier
 from home_robot.motion.rrt_connect import RRTConnect
 from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot.utils.config import load_config
 from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path

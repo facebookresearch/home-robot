@@ -71,7 +71,7 @@ class MaskRCNNPerception(PerceptionModule):
     ) -> Observations:
         """
         Arguments:
-            obs.rgb: image of shape (H, W, 3) (in RGB order - Detic expects BGR)
+            obs.rgb: image of shape (H, W, 3) (in RGB order - MaskRCNN expects BGR)
             obs.depth: depth frame of shape (H, W), used for depth filtering
             depth_threshold: if specified, the depth threshold per instance
 

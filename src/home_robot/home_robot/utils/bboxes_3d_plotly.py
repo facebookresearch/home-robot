@@ -500,8 +500,8 @@ def plot_scene_with_bboxes(
     camera = {
         "up": {
             "x": 0.0,
-            "y": 1.0,
-            "z": 0.0,
+            "y": 0.0,
+            "z": 1.0,
         }  # set the up vector to match PyTorch3D world coordinates conventions
     }
     viewpoints_eye_at_up_world = None
@@ -616,6 +616,7 @@ def plot_scene_with_bboxes(
             camera["center"] = {"x": at_x, "y": at_y, "z": at_z}
             camera["up"] = {"x": up_x, "y": up_y, "z": up_z}
             camera["projection"] = {"type": "orthographic"}
+
         current_layout.update(
             {
                 "xaxis": xaxis,
@@ -625,7 +626,8 @@ def plot_scene_with_bboxes(
                 "camera": camera,
             }
         )
-    fig.update_layout(width=width, height=height)
+    if width is not None or height is not None:
+        fig.update_layout(width=width, height=height)
     if use_orthographic:
         # fig.update_scenes(aspectmode='data')
         fig.layout.scene.camera.projection.type = "orthographic"

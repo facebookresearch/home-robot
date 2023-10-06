@@ -167,3 +167,4 @@ PLANNER:
   map_update_frequency: 1             # compute fmm distance map every n steps 
   discrete_actions: True         # discrete motion planner output space or not
   verbose: False                 # display debug information during planning
+  planner_type: "old"             # ("old", "new") where "new" is the latest one being used for spot in real world

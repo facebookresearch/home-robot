@@ -1,0 +1,179 @@
+max_steps: 10000         # maximum number of steps before stopping an episode during navigation; a lower value set for habitat episode termination 
+panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
+exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
+radius: 0.05            # robot radius (in meters)
+fall_wait_steps: 200    # number of steps to wait after the object has been dropped
+store_all_categories: True  # whether to store all semantic categories in the map or just task-relevant ones
+SEMANTIC_MAP:
+  semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor", "rearrange")
+  num_sem_categories: 131    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
+  map_size_cm: 4800        # global map size (in centimeters)
+  map_resolution: 5        # size of map bins (in centimeters)
+  vision_range: 100        # diameter of local map region visible by the agent (in cells)
+  global_downscaling: 2    # ratio of global over local map
+  du_scale: 4              # frame downscaling before projecting to point cloud
+  cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
+  exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
+  map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
+  been_close_to_radius: 100  # radius (in centimeters) of been close to region
+  explored_radius: 150       # radius (in centimeters) of visually explored region
+  must_explore_close: False
+  min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
+  # erosion and filtering to reduce the number of spurious artifacts
+  dilate_obstacles: True
+  dilate_size: 3
+  dilate_iter: 1
+  record_instance_ids: True
+  max_instances: 0
+  exploration_type: hull
+  gaze_width: 40
+  gaze_distance: 1.5
+  # not sure what these are
+  depth_filtering: True
+  depth_filter_range_cm: 100        # 1m about the depth median (+/- 50cm)
+  preprojection_kp_dilation: 15 
+  goal_filtering: True
+
+SKILLS:
+  GAZE_OBJ:
+    type: rl #end_to_end #heuristic #hardcoded
+    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/gaze_at_obj.pth
+    rl_config: projects/habitat_ovmm/configs/agent/skills/gaze_rl.yaml # with continuous actions
+    gym_obs_keys:
+      - robot_head_depth
+      - object_embedding
+      - object_segmentation
+      - joint
+      - is_holding
+      - relative_resting_position
+    allowed_actions:
+      - arm_action
+      - base_velocity
+    arm_joint_mask: [0, 0, 0, 0, 0, 0, 1] # the arm joints that the policy can control
+    max_displacement: 0.25                     # used when training the policy
+    max_turn_degrees: 30.0
+    min_turn_degrees: 5.0
+    min_displacement: 0.1
+    sensor_height: 160
+    sensor_width: 120
+    nav_goal_seg_channels: 1
+    terminate_condition: grip
+    grip_threshold: 0.8
+    max_joint_delta: 0.1
+    min_joint_delta: 0.02
+
+  PICK:
+    type: oracle
+
+  NAV_TO_OBJ:
+    type: heuristic # heuristic (default) or rl
+    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_obj.pth
+    rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
+    gym_obs_keys:
+      - robot_head_depth
+      - object_embedding
+      - ovmm_nav_goal_segmentation
+      - receptacle_segmentation
+      - start_receptacle
+      - robot_start_gps
+      - robot_start_compass
+      - joint
+    allowed_actions:
+      # - base_velocity
+      # - rearrange_stop
+      - stop
+      - move_forward
+      - turn_left
+      - turn_right
+    arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
+    max_displacement: 0.25                # used when training the policy; could be different from the eval values
+    max_turn_degrees: 30.0
+    min_turn_degrees: 5.0
+    min_displacement: 0.1
+    sensor_height: 160
+    sensor_width: 120
+    terminate_condition: discrete_stop
+    nav_goal_seg_channels: 2
+
+  NAV_TO_REC:
+    type: heuristic # heuristic (default) or rl
+    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_rec.pth
+    rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
+    gym_obs_keys:
+      - robot_head_depth
+      - ovmm_nav_goal_segmentation
+      - receptacle_segmentation
+      - goal_receptacle
+      - robot_start_gps
+      - robot_start_compass
+      - joint
+    allowed_actions:
+      # - base_velocity
+      # - rearrange_stop
+      - stop
+      - move_forward
+      - turn_left
+      - turn_right
+    arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
+    max_displacement: 0.25                # used when training the policy; could be different from the eval values
+    max_turn_degrees: 30.0
+    min_turn_degrees: 5.0
+    min_displacement: 0.1
+    sensor_height: 160
+    sensor_width: 120
+    terminate_condition: discrete_stop
+    nav_goal_seg_channels: 1
+
+
+  PLACE:
+    type: heuristic # "rl" or "heuristic" or "hardcoded"
+    checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/place.pth
+    rl_config: projects/habitat_ovmm/configs/agent/skills/place_rl.yaml # with continuous actions
+    gym_obs_keys:
+      - robot_head_depth
+      - goal_receptacle
+      - joint
+      - goal_recep_segmentation
+      - is_holding
+      - object_embedding
+    allowed_actions:
+      - arm_action
+      - base_velocity
+      - manipulation_mode
+    arm_joint_mask: [1, 1, 1, 1, 1, 0, 0] # the arm joints that the policy can control
+    max_displacement: 0.25                     # used when training the policy
+    max_turn_degrees: 30.0
+    min_turn_degrees: 5.0
+    min_displacement: 0.1
+    sensor_height: 160
+    sensor_width: 120
+    nav_goal_seg_channels: 1
+    terminate_condition: ungrip
+    grip_threshold: -0.8
+    manip_mode_threshold: 0.8
+    constraint_base_in_manip_mode: True
+    max_joint_delta: 0.1
+    min_joint_delta: 0.02
+
+skip_skills:
+  nav_to_obj: False
+  nav_to_rec: False
+  gaze_at_obj: True
+  gaze_at_rec: True
+  pick: False
+  place: False
+
+PLANNER:
+  collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
+  obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
+  goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
+  step_size: 5                    # maximum distance of the short-term goal selected by the planner
+  use_dilation_for_stg: False
+  min_obs_dilation_selem_radius: 1    # radius (in cells) of obstacle dilation structuring element
+  map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
+  map_update_frequency: 1             # compute fmm distance map every n steps 
+  discrete_actions: True         # discrete motion planner output space or not
+  verbose: False                 # display debug information during planning
+  explored_area_dilation_radius: 1  # radius (in cells) of goal dilation structuring element
+  explored_area_erosion_radius: 1
+  planner_type: "old"             # ("old", "new") where "new" is the latest one being used for spot in real world

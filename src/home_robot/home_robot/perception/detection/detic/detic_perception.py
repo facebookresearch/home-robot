@@ -123,6 +123,8 @@ class DeticPerception(PerceptionModule):
 
         assert vocabulary in ["coco", "custom"]
         if args.vocabulary == "custom":
+            if "__unused" in MetadataCatalog.keys():
+                MetadataCatalog.remove("__unused")
             self.metadata = MetadataCatalog.get("__unused")
             self.metadata.thing_classes = args.custom_vocabulary.split(",")
             classifier = get_clip_embeddings(self.metadata.thing_classes)
@@ -204,12 +206,19 @@ class DeticPerception(PerceptionModule):
             obs.task_observations["semantic_frame"]: segmentation visualization
              image of shape (H, W, 3)
         """
-        image = cv2.cvtColor(obs.rgb, cv2.COLOR_RGB2BGR)
+
+        if isinstance(obs.rgb, torch.Tensor):
+            rgb = obs.rgb.numpy()
+        elif isinstance(obs.rgb, np.ndarray):
+            rgb = obs.rgb
+        else:
+            raise ValueError(
+                f"Expected obs.rgb to be a numpy array or torch tensor, got {type(obs.rgb)}"
+            )
+        image = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         depth = obs.depth
         height, width, _ = image.shape
-
         pred = self.predictor(image)
-
         if obs.task_observations is None:
             obs.task_observations = {}
 

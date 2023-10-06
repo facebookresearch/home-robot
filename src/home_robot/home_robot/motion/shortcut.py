@@ -29,10 +29,12 @@ class Shortcut(Planner):
     def reset(self):
         self.nodes = None
 
-    def plan(self, start, goal, verbose: bool = False) -> PlanResult:
+    def plan(self, start, goal, verbose: bool = False, **kwargs) -> PlanResult:
         """Do shortcutting"""
         self.planner.reset()
-        res = self.planner.plan(start, goal)
+        if verbose:
+            print("Call internal planner")
+        res = self.planner.plan(start, goal, verbose=verbose, **kwargs)
         self.nodes = self.planner.nodes
         if not res.success or len(res.trajectory) < 4:
             # Planning failed so nothing to do here

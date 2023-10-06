@@ -92,7 +92,7 @@ def load_config(
 def load_slap_config(
     visualize: bool = False, print_images: bool = True, config_path=None, **kwargs
 ):
-    """Load config path for real world experiments with SLAP manipualtion policies; configure to use proper presets."""
+    """Load config path for real world experiments and use proper presets."""
     config, config_str = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1

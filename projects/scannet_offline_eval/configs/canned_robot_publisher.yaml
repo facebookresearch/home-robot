@@ -1,0 +1,13 @@
+defaults:
+  - _self_
+  - dataset: scannet
+  - model: instancemap3d_top_down
+  - paths: default
+  - hydra: default
+
+show_backend: false # open3d, pytorch3d
+dump_dir: 'published_trajectory'
+trajectory_pickle_path: /private/home/ssax/home-robot/src/home_robot/home_robot/datasets/robot/data/spot_/09_18_fre_spot/spot_output.pkl
+task_name: 'huh'
+wait_keypress_for_start: False
+wait_keypress_for_continue: False

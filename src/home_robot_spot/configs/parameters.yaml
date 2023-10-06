@@ -1,0 +1,34 @@
+step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually)
+# rotation_step_size: 3.141592
+rotation_step_size: 1.0
+visualize: False
+exploration_steps: 20
+use_midas: False
+# Frontier search parameters
+frontier_step_dist: 0.5
+frontier_min_dist: 0.5
+# Voxel map
+obs_min_height: 0.3  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+obs_max_height: 1.8  # Originally 1.8, spot is shorter than stretch tho
+obs_min_density: 20  # Originally 10, making it bigger because theres a bunch on noise
+voxel_size: 0.05
+local_radius: 1.2  # Can probably be bigger than original (.15)
+# 2d parameters
+explore_methodical: True
+dilate_frontier_size: 20
+dilate_obstacle_size: 1  # Value used in pittsburgh lab
+# "dilate_obstacle_size": 5, # value from fremont
+smooth_kernel_size: 5
+# Frontier
+min_size: 20  # Can probably be bigger than original (10)
+max_size: 40  # Can probably be bigger than original (10)
+# Other parameters tuned (footprint is a third of the real robot size)
+use_async_subscriber: False
+write_data: True
+use_zero_depth: False
+pick_categories: ["bottle", "cup"]
+place_categories: ["chair", "sofa"]
+
+# Trajectory execution
+trajectory_pos_err_threshold: 0.75
+trajectory_rot_err_threshold: 1.0

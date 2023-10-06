@@ -1,0 +1,31 @@
+NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
+NUM_ENVIRONMENTS: 1       # number of environments (per agent process)
+DUMP_LOCATION: datadump   # path to dump models and log
+EXP_NAME: vlm_demo       # experiment name
+VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
+PRINT_IMAGES: 0           # 1: save visualization as images, 0: no image saving
+GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
+seed: 0                   # seed
+SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
+
+ENVIRONMENT:
+  forward: 0.25           # forward motion (in meters)
+  turn_angle: 30.0        # agent turn angle (in degrees)
+  frame_height: 640       # first-person frame height (in pixels)
+  frame_width: 480        # first-person frame width (in pixels)
+  camera_height: 1.31     # camera sensor height (in metres)
+  hfov: 42.0              # horizontal field of view (in degrees)
+  min_depth: 0.0          # minimum depth for depth sensor (in metres)
+  max_depth: 10.0         # maximum depth for depth sensor (in metres)
+  num_receptacles: 21
+  category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
+  use_detic_viz: False
+  evaluate_instance_tracking: False # whether to evaluate the built instance map against groundtruth instance ids
+
+EVAL_VECTORIZED:
+  simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
+  split: val                # eval split
+  num_episodes_per_env: null # number of eval episodes per environment
+  record_videos: 0          # 1: record videos from printed images, 0: don't
+  record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
+  metrics_save_freq: 5      # save metrics after every n episodes

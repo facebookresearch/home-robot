@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -27,7 +27,7 @@ debug_frontier_map = False
 class ObjectNavAgent(Agent):
     """Simple object nav agent based on a 2D semantic map"""
 
-    # Flag for debugging data flow and task configuraiton
+    # Flag for debugging data flow and task configuration
     verbose = False
 
     def __init__(
@@ -37,6 +37,7 @@ class ObjectNavAgent(Agent):
         min_goal_distance_cm: float = 50.0,
         continuous_angle_tolerance: float = 30.0,
     ):
+        self.config = config
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
@@ -65,7 +66,7 @@ class ObjectNavAgent(Agent):
         self._module = ObjectNavAgentModule(
             config, instance_memory=self.instance_memory
         )
-
+        self.num_sem_categories = config.AGENT.SEMANTIC_MAP.num_sem_categories
         if config.NO_GPU:
             self.device = torch.device("cpu")
             self.module = self._module
@@ -127,6 +128,7 @@ class ObjectNavAgent(Agent):
         self.timesteps_before_goal_update = None
         self.episode_panorama_start_steps = None
         self.last_poses = None
+        self.closest_goal_map = None
         self.verbose = config.AGENT.PLANNER.verbose
 
         self.evaluate_instance_tracking = getattr(
@@ -152,8 +154,12 @@ class ObjectNavAgent(Agent):
         object_goal_category: torch.Tensor = None,
         start_recep_goal_category: torch.Tensor = None,
         end_recep_goal_category: torch.Tensor = None,
+        instance_id: torch.Tensor = None,
         nav_to_recep: torch.Tensor = None,
         camera_pose: torch.Tensor = None,
+        semantic_max_val: Optional[List[int]] = None,
+        obstacle_locations: torch.Tensor = None,
+        free_locations: torch.Tensor = None,
     ) -> Tuple[List[dict], List[dict]]:
         """Prepare low-level planner inputs from an observation - this is
         the main inference function of the agent that lets it interact with
@@ -192,12 +198,18 @@ class ObjectNavAgent(Agent):
             ]
         )
 
+        if obstacle_locations is not None:
+            obstacle_locations = obstacle_locations.unsqueeze(1)
+        if free_locations is not None:
+            free_locations = free_locations.unsqueeze(1)
         if object_goal_category is not None:
             object_goal_category = object_goal_category.unsqueeze(1)
         if start_recep_goal_category is not None:
             start_recep_goal_category = start_recep_goal_category.unsqueeze(1)
         if end_recep_goal_category is not None:
             end_recep_goal_category = end_recep_goal_category.unsqueeze(1)
+        if instance_id is not None:
+            instance_id = instance_id.unsqueeze(1)
         (
             goal_map,
             found_goal,
@@ -223,7 +235,11 @@ class ObjectNavAgent(Agent):
             seq_object_goal_category=object_goal_category,
             seq_start_recep_goal_category=start_recep_goal_category,
             seq_end_recep_goal_category=end_recep_goal_category,
+            seq_instance_id=instance_id,
             seq_nav_to_recep=nav_to_recep,
+            semantic_max_val=semantic_max_val,
+            seq_obstacle_locations=obstacle_locations,
+            seq_free_locations=free_locations,
         )
 
         self.semantic_map.local_pose = seq_local_pose[:, -1]
@@ -244,7 +260,6 @@ class ObjectNavAgent(Agent):
             self.timesteps_before_goal_update[e] = (
                 self.timesteps_before_goal_update[e] - 1
             )
-
         if debug_frontier_map:
             import matplotlib.pyplot as plt
 
@@ -295,6 +310,7 @@ class ObjectNavAgent(Agent):
         self.episode_panorama_start_steps = self.panorama_start_steps
         if self.record_instance_ids:
             self.instance_memory.reset()
+        self.closest_goal_map = [None] * self.num_environments
         self.planner.reset()
 
     def reset_vectorized_for_env(self, e: int):
@@ -334,12 +350,49 @@ class ObjectNavAgent(Agent):
             object_goal_category,
             start_recep_goal_category,
             end_recep_goal_category,
+            instance_id,
             goal_name,
             camera_pose,
         ) = self._preprocess_obs(obs)
 
+        if "obstacle_locations" in obs.task_observations:
+            obstacle_locations = obs.task_observations["obstacle_locations"]
+            obstacle_locations = (
+                obstacle_locations * 100.0 / self.semantic_map.resolution
+            ).long()
+            (
+                obstacle_locations[:, 0],
+                obstacle_locations[:, 1],
+            ) = self.semantic_map.global_to_local(
+                obstacle_locations[:, 0], obstacle_locations[:, 1]
+            )
+
+            obstacle_locations = obstacle_locations.unsqueeze(0)
+        else:
+            obstacle_locations = None
+
+        if "free_locations" in obs.task_observations:
+            free_locations = obs.task_observations["free_locations"]
+            free_locations = (
+                free_locations * 100.0 / self.semantic_map.resolution
+            ).long()
+            (
+                free_locations[:, 0],
+                free_locations[:, 1],
+            ) = self.semantic_map.global_to_local(
+                free_locations[:, 0], free_locations[:, 1]
+            )
+
+            free_locations = free_locations.unsqueeze(0)
+        else:
+            free_locations = None
+
         # t1 = time.time()
         # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
+
+        semantic_max_val = None
+        if "semantic_max_val" in obs.task_observations:
+            semantic_max_val = obs.task_observations["semantic_max_val"]
 
         # 2 - Semantic mapping + policy
         planner_inputs, vis_inputs = self.prepare_planner_inputs(
@@ -348,8 +401,12 @@ class ObjectNavAgent(Agent):
             object_goal_category=object_goal_category,
             start_recep_goal_category=start_recep_goal_category,
             end_recep_goal_category=end_recep_goal_category,
+            instance_id=instance_id,
             camera_pose=camera_pose,
             nav_to_recep=self.get_nav_to_recep(),
+            semantic_max_val=semantic_max_val,
+            obstacle_locations=obstacle_locations,
+            free_locations=free_locations,
         )
 
         # t2 = time.time()
@@ -371,28 +428,38 @@ class ObjectNavAgent(Agent):
                 closest_goal_map,
                 short_term_goal,
                 dilated_obstacle_map,
+                _,
             ) = self.planner.plan(
                 **planner_inputs[0],
                 use_dilation_for_stg=self.use_dilation_for_stg,
                 timestep=self.timesteps[0],
                 debug=self.verbose,
             )
+            # this is just changing the visualization but not the actual performance
+            # if self.timesteps_before_goal_update[0] == self.goal_update_steps - 1:
+            # self.closest_goal_map[0] = closest_goal_map
+            self.closest_goal_map[0] = closest_goal_map
 
         # t3 = time.time()
         # print(f"[Agent] Planning time: {t3 - t2:.2f}")
         # print(f"[Agent] Total time: {t3 - t0:.2f}")
-        # print()
 
         vis_inputs[0]["goal_name"] = obs.task_observations["goal_name"]
         if self.visualize:
             vis_inputs[0]["semantic_frame"] = obs.task_observations["semantic_frame"]
-            vis_inputs[0]["closest_goal_map"] = closest_goal_map
+            vis_inputs[0]["closest_goal_map"] = self.closest_goal_map[0]
             vis_inputs[0]["third_person_image"] = obs.third_person_image
             vis_inputs[0]["short_term_goal"] = None
             vis_inputs[0]["dilated_obstacle_map"] = dilated_obstacle_map
             vis_inputs[0]["semantic_map_config"] = self.config.AGENT.SEMANTIC_MAP
             vis_inputs[0]["instance_memory"] = self.instance_memory
-        info = {**planner_inputs[0], **vis_inputs[0]}
+
+        info = {
+            **planner_inputs[0],
+            **vis_inputs[0],
+            "short_term_goal": short_term_goal,
+        }
+
         return action, info
 
     def _preprocess_obs(self, obs: Observations):
@@ -402,6 +469,7 @@ class ObjectNavAgent(Agent):
         depth = (
             torch.from_numpy(obs.depth).unsqueeze(-1).to(self.device) * 100.0
         )  # m to cm
+        instance_id = obs.task_observations.get("instance_id", None)
         if self.store_all_categories_in_map:
             semantic = obs.semantic
             obj_goal_idx = obs.task_observations["object_goal"]
@@ -412,6 +480,7 @@ class ObjectNavAgent(Agent):
         else:
             semantic = np.full_like(obs.semantic, 4)
             obj_goal_idx, start_recep_idx, end_recep_idx = 1, 2, 3
+
             semantic[
                 obs.semantic == obs.task_observations["object_goal"]
             ] = obj_goal_idx
@@ -423,7 +492,8 @@ class ObjectNavAgent(Agent):
                 semantic[
                     obs.semantic == obs.task_observations["end_recep_goal"]
                 ] = end_recep_idx
-
+        # print (semantic)
+        # import pdb; pdb.set_trace()
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
 
         obs_preprocessed = torch.cat([rgb, depth, semantic], dim=-1)
@@ -486,6 +556,11 @@ class ObjectNavAgent(Agent):
             if self.verbose:
                 print("end_recep goal =", obs.task_observations["end_recep_goal"])
             end_recep_goal_category = torch.tensor(end_recep_idx).unsqueeze(0)
+        if (
+            "instance_id" in obs.task_observations
+            and obs.task_observations["instance_id"] is not None
+        ):
+            instance_id = torch.tensor(instance_id).unsqueeze(0)
         goal_name = [obs.task_observations["goal_name"]]
         if self.verbose:
             print("[ObjectNav] Goal name: ", goal_name)
@@ -493,12 +568,14 @@ class ObjectNavAgent(Agent):
         camera_pose = obs.camera_pose
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
+        # import pdb; pbd.set_trace()
         return (
             obs_preprocessed,
             pose_delta,
             object_goal_category,
             start_recep_goal_category,
             end_recep_goal_category,
+            instance_id,
             goal_name,
             camera_pose,
         )
