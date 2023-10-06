@@ -3,7 +3,7 @@ step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually
 # rotation_step_size: 3.141592
 rotation_step_size: 1.0
 visualize: False
-exploration_steps: 5
+exploration_steps: 20
 use_midas: False
 # Frontier search parameters
 frontier_step_dist: 0.5
@@ -17,7 +17,7 @@ local_radius: 1.2  # Can probably be bigger than original (.15)
 # 2d parameters
 explore_methodical: True
 dilate_frontier_size: 20
-dilate_obstacle_size: 2  # Value used in pittsburgh lab
+dilate_obstacle_size: 1  # Value used in pittsburgh lab
 # "dilate_obstacle_size": 5, # value from fremont
 smooth_kernel_size: 5
 # Frontier

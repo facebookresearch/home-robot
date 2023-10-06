@@ -786,6 +786,8 @@ def main(dock: Optional[int] = None, args=None):
 
     finally:
         if parameters["write_data"]:
+            if start is None:
+                start = demo.spot.current_position
             if voxel_map.get_instances() is not None:
                 pc_xyz, pc_rgb = voxel_map.show(
                     backend="open3d", instances=False, orig=np.zeros(3)
@@ -806,15 +808,9 @@ def main(dock: Optional[int] = None, args=None):
                 obstacles, explored = voxel_map.get_2d_map()
                 img = (10 * obstacles) + explored
                 if start is not None:
-                    start_unnormalized = spot.unnormalize_gps_compass(start)
-                    navigation_space.draw_state_on_grid(
-                        img, start_unnormalized, weight=5
-                    )
+                    navigation_space.draw_state_on_grid(img, start, weight=5)
                 if goal is not None:
-                    goal_unnormalized = spot.unnormalize_gps_compass(goal)
-                    navigation_space.draw_state_on_grid(
-                        img, goal_unnormalized, weight=5
-                    )
+                    navigation_space.draw_state_on_grid(img, goal, weight=5)
                 plt.imshow(img)
                 plt.show()
                 plt.imsave(f"{path}/exploration_step_final.png", img)
