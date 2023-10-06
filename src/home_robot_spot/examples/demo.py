@@ -11,12 +11,15 @@ import sys
 import time
 from typing import Dict, List, Optional
 
-import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
+from loguru import logger
+from PIL import Image
+
+import home_robot_spot.nav_client as nc
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -38,17 +41,16 @@ from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-from loguru import logger
-from PIL import Image
 
 ## Temporary hack until we make accel-cortex pip installable
-sys.path.append("path to accel-cortext base folder")
+# sys.path.append("path to accel-cortext base folder")
+print("Make sure path to accel-cortex base folder is set")
+sys.path.append(os.path.expanduser("~/src/accel-cortex"))
 import grpc
-import task_rpc_env_pb2
-from task_rpc_env_pb2_grpc import AgentgRPCStub
-
 import src.rpc
+import task_rpc_env_pb2
 from src.utils.observations import ObjectImage, Observations, ProtoConverter
+from task_rpc_env_pb2_grpc import AgentgRPCStub
 
 
 # NOTE: this requires 'pip install atomicwrites'
@@ -140,13 +142,16 @@ def place_in_an_instance(
 
 
 def get_obj_centric_world_representation(instance_memory, max_context_length):
+    """Get version that LLM can handle - convert images into torch if not already"""
     obs = Observations(object_images=[])
     for global_id, instance in enumerate(instance_memory):
         instance_crops = instance.instance_views
         obs.object_images.append(
             ObjectImage(
                 crop_id=global_id,
-                image=random.sample(instance_crops, 1)[0].cropped_image,
+                image=torch.from_numpy(
+                    random.sample(instance_crops, 1)[0].cropped_image
+                ),
             )
         )
     # TODO: the model currenly can only handle 20 crops
@@ -419,7 +424,7 @@ class SpotDemoAgent:
         """Actually use VLM to perform task
 
         Args:
-            vlm
+            stub: VLM connection if available
             center: 3d point x y theta in se(2)
             data: used by vlm I guess"""
 
@@ -444,6 +449,7 @@ class SpotDemoAgent:
                     task = input("please type any task you want the robot to do: ")
                     # task is the prompt, save it
                     data["prompt"] = task
+                    # world_representation.object_images = world_representation.object_images[:1]
                     output = stub.rpc_act_on_observations(
                         task_rpc_env_pb2.ActOnObservationsArgs(
                             episode_id=random.randint(0, 1000000),
@@ -530,12 +536,16 @@ class SpotDemoAgent:
                 print(objects)
                 # TODO: Add better handling
                 if pick_instance_id is None:
-                    new_id = input("enter a new instance to pick up from the list above: ")
+                    new_id = input(
+                        "enter a new instance to pick up from the list above: "
+                    )
                     if isinstance(new_id, int):
                         pick_instance_id = new_id
                         break
                 if place_instance_id is None:
-                    new_id = input("enter a new instance to place from the list above: ")
+                    new_id = input(
+                        "enter a new instance to place from the list above: "
+                    )
                     if isinstance(new_id, int):
                         place_instance_id = new_id
                         break
@@ -661,6 +671,7 @@ def main(dock: Optional[int] = None, args=None):
     semantic_sensor = demo.semantic_sensor
     navigation_space = demo.navigation_space
     planner = demo.planner
+    start = None
 
     try:
         # Turn on the robot using the client above
@@ -820,9 +831,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "--enable_vlm",
-        default=0,
+        default=1,
         type=int,
-        help="Enable loading Minigpt4",
+        help="Enable loading Minigpt4. 1 == use vlm, 0 == test without vlm",
     )
     parser.add_argument(
         "--task",
