@@ -20,7 +20,7 @@ from tqdm import tqdm
 from home_robot.agent.ovmm_agent.ovmm_perception import OvmmPerception
 from home_robot.core.interfaces import Observations
 from home_robot.datasets.scannet import ScanNetDataset
-from home_robot.mapping.semantic.instance_tracking_modules import Instance
+from home_robot.mapping.instance import Instance
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.perception.constants import RearrangeDETICCategories
 

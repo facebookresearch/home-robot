@@ -6,22 +6,23 @@ from collections import defaultdict
 from typing import Optional, Tuple
 
 import cv2
-import home_robot.mapping.map_utils as mu
-import home_robot.utils.depth as du
-import home_robot.utils.pose as pu
-import home_robot.utils.rotation as ru
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage.morphology
 import torch
 import torch.nn as nn
 import trimesh.transformations as tra
-from home_robot.mapping.semantic.constants import MapConstants as MC
-from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
-from home_robot.utils.spot import draw_circle_segment, fill_convex_hull
 from skimage import measure
 from torch import IntTensor, Tensor
 from torch.nn import functional as F
+
+import home_robot.mapping.map_utils as mu
+import home_robot.utils.depth as du
+import home_robot.utils.pose as pu
+import home_robot.utils.rotation as ru
+from home_robot.mapping.instance import InstanceMemory
+from home_robot.mapping.semantic.constants import MapConstants as MC
+from home_robot.utils.spot import draw_circle_segment, fill_convex_hull
 
 # For debugging input and output maps - shows matplotlib visuals
 debug_maps = False

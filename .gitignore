@@ -31,6 +31,7 @@ data/
 
 # Archive files
 *.pkl
+*.pcd
 *.zip
 
 # Visualizations

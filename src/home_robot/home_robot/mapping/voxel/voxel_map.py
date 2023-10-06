@@ -186,7 +186,13 @@ class SparseVoxelMapNavigationSpace(XYT):
         theta_idx = self._get_theta_index(theta)
         return self._oriented_masks[theta_idx]
 
-    def is_valid(self, state: torch.Tensor, debug: bool = False) -> bool:
+    def is_valid(
+        self,
+        state: torch.Tensor,
+        is_safe_threshold=0.95,
+        debug: bool = False,
+        verbose: bool = False,
+    ) -> bool:
         """Check to see if state is valid; i.e. if there's any collisions if mask is at right place"""
         assert len(state) == 3
         if isinstance(state, np.ndarray):
@@ -208,13 +214,20 @@ class SparseVoxelMapNavigationSpace(XYT):
         y1 = y0 + dim
 
         obstacles, explored = self.voxel_map.get_2d_map()
+
         crop_obs = obstacles[x0:x1, y0:y1]
         crop_exp = explored[x0:x1, y0:y1]
         assert mask.shape == crop_obs.shape
         assert mask.shape == crop_exp.shape
 
         collision = torch.any(crop_obs & mask)
-        is_safe = torch.all((crop_exp & mask) | ~mask)
+
+        p_is_safe = (
+            torch.sum((crop_exp & mask) | ~mask) / (mask.shape[0] * mask.shape[1])
+        ).item()
+        is_safe = p_is_safe > is_safe_threshold
+        if verbose:
+            print(f"{collision=}, {is_safe=}, {p_is_safe=}, {is_safe_threshold=}")
 
         valid = bool((not collision) and is_safe)
         if debug:
@@ -243,10 +256,108 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         return valid
 
+    def sample_near_mask(
+        self,
+        mask: torch.Tensor,
+        radius_m: float = 0.7,
+        max_tries: int = 1000,
+        verbose: bool = True,
+        debug: bool = False,
+        look_at_any_point: bool = False,
+    ) -> Optional[np.ndarray]:
+        """Sample a position near the mask and return.
+
+        Args:
+            look_at_any_point(bool): robot should look at the closest point on target mask instead of average pt
+        """
+
+        obstacles, explored = self.voxel_map.get_2d_map()
+
+        # Extract edges from our explored mask
+
+        # TODO: we might still need this, but should set it separately when not exploring
+        # less_explored = binary_erosion(
+        #     explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
+        # )[0, 0]
+
+        # Radius computed from voxel map measurements
+        radius = np.ceil(radius_m / self.voxel_map.grid_resolution)
+        expanded_mask = expand_mask(mask, radius)
+
+        # TODO: was this:
+        # expanded_mask = expanded_mask & less_explored & ~obstacles
+        expanded_mask = expanded_mask & explored & ~obstacles
+
+        if debug:
+            import matplotlib.pyplot as plt
+
+            plt.imshow(
+                mask.int()
+                + expanded_mask.int() * 10
+                + explored.int()
+                + obstacles.int() * 5
+            )
+            plt.show()
+
+        # Where can the robot go?
+        valid_indices = torch.nonzero(expanded_mask, as_tuple=False)
+        if valid_indices.size(0) == 0:
+            print("[VOXEL MAP: sampling] No valid goals near mask!")
+            return None
+        if not look_at_any_point:
+            mask_indices = torch.nonzero(mask, as_tuple=False)
+            outside_point = mask_indices.float().mean(dim=0)
+
+        # maximum number of tries
+        for i in range(max_tries):
+            random_index = torch.randint(valid_indices.size(0), (1,))
+            point_grid_coords = valid_indices[random_index]
+
+            if look_at_any_point:
+                outside_point = find_closest_point_on_mask(
+                    mask, point_grid_coords.float()
+                )
+
+            # convert back
+            point = self.voxel_map.grid_coords_to_xy(point_grid_coords)
+            if point is None:
+                print("[VOXEL MAP: sampling] ERR:", point, point_grid_coords)
+                continue
+            if outside_point is None:
+                print(
+                    "[VOXEL MAP: sampling] ERR finding closest pt:",
+                    point,
+                    point_grid_coords,
+                    "closest =",
+                    outside_point,
+                )
+                continue
+            theta = math.atan2(
+                outside_point[1] - point_grid_coords[0, 1],
+                outside_point[0] - point_grid_coords[0, 0],
+            )
+
+            # Ensure angle is in 0 to 2 * PI
+            if theta < 0:
+                theta += 2 * np.pi
+
+            xyt = torch.zeros(3)
+            xyt[:2] = point
+            xyt[2] = theta
+
+            # Check to see if this point is valid
+            if verbose:
+                print("[VOXEL MAP: sampling]", radius, i, "sampled", xyt)
+            if self.is_valid(xyt, verbose=verbose):
+                yield xyt
+
+        # We failed to find anything useful
+        return None
+
     def sample_closest_frontier(
         self,
         xyt: np.ndarray,
-        max_tries: int = 100,
+        max_tries: int = 1000,
         expand_size: int = 5,
         debug: bool = False,
         verbose: bool = False,
@@ -291,7 +402,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             print("obstacles")
             plt.imshow(obstacles.cpu().numpy())
             plt.subplot(222)
-            plt.imshow(explored.cpu().numpy())
+            plt.imshow(explored.bool().cpu().numpy())
             plt.title("explored")
             plt.subplot(223)
             plt.imshow((traversible + frontier).cpu().numpy())
@@ -338,7 +449,6 @@ class SparseVoxelMapNavigationSpace(XYT):
         tries = 1
         prev_dist = -1 * float("Inf")
         for x, y, dist in sorted(zip(xs, ys, distances), key=lambda x: x[2]):
-
             if dist < min_dist:
                 continue
 
@@ -385,7 +495,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             # Check to see if this point is valid
             if verbose:
                 print("[VOXEL MAP: sampling] sampled", xyt)
-            if self.is_valid(xyt, debug=False):
+            if self.is_valid(xyt, debug=debug):
                 yield xyt
 
             tries += 1

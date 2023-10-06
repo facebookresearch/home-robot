@@ -12,15 +12,15 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import open3d as open3d
 import skimage
-import skimage.morphology
 import torch
 import trimesh
+from pytorch3d.structures import Pointclouds
+from torch import Tensor
+
 from home_robot.core.interfaces import Observations
-from home_robot.mapping.semantic.instance_tracking_modules import (
-    Instance,
-    InstanceMemory,
-)
+from home_robot.mapping.instance import Instance, InstanceMemory, InstanceView
 from home_robot.motion import PlanResult, Robot
+from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
 from home_robot.utils.morphology import binary_dilation, binary_erosion
@@ -33,8 +33,6 @@ from home_robot.utils.point_cloud import (
 from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
 from home_robot.utils.visualization import create_disk
 from home_robot.utils.voxel import VoxelizedPointcloud, scatter3d
-from pytorch3d.structures import Pointclouds
-from torch import Tensor
 
 Frame = namedtuple(
     "Frame",
@@ -75,6 +73,7 @@ class SparseVoxelMap(object):
     DEFAULT_INSTANCE_MAP_KWARGS = dict(
         du_scale=1,
         instance_association="bbox_iou",
+        log_dir_overwrite_ok=True,
         mask_cropped_instances="False",
     )
 
@@ -92,9 +91,12 @@ class SparseVoxelMap(object):
         local_radius: float = 0.15,
         min_depth: float = 0.1,
         max_depth: float = 4.0,
+        pad_obstacles: int = 0,
         background_instance_label: int = -1,
         instance_memory_kwargs: Dict[str, Any] = {},
         voxel_kwargs: Dict[str, Any] = {},
+        encoder: Optional[ClipEncoder] = None,
+        map_2d_device: str = "cpu",
     ):
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
@@ -117,14 +119,25 @@ class SparseVoxelMap(object):
         self.voxel_resolution = resolution
         self.min_depth = min_depth
         self.max_depth = max_depth
+        self.pad_obstacles = pad_obstacles
         self.background_instance_label = background_instance_label
         self.instance_memory_kwargs = update(
             copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
         )
         self.voxel_kwargs = voxel_kwargs
+        self.encoder = encoder
+        self.map_2d_device = map_2d_device
 
-        # TODO: This 2D map code could be moved to another class or helper function
-        #   This class could use that code via containment (same as InstanceMemory or VoxelizedPointcloud)
+        if self.pad_obstacles > 0:
+            self.dilate_obstacles_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(self.pad_obstacles))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.dilate_obstacles_kernel = None
 
         # Add points with local_radius to the voxel map at (0,0,0) unless we receive lidar points
         self.add_local_radius_points = add_local_radius_points
@@ -132,11 +145,10 @@ class SparseVoxelMap(object):
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
         self._disk_size = np.ceil(self.local_radius / self.grid_resolution)
-        print(f"{self._disk_size=}")
 
         self._visited_disk = torch.from_numpy(
             create_disk(self._disk_size, (2 * self._disk_size) + 1)
-        )
+        ).to(map_2d_device)
 
         if grid_size is not None:
             self.grid_size = [grid_size[0], grid_size[1]]
@@ -144,9 +156,9 @@ class SparseVoxelMap(object):
             self.grid_size = DEFAULT_GRID_SIZE
         # Track the center of the grid - (0, 0) in our coordinate system
         # We then just need to update everything when we want to track obstacles
-        self.grid_origin = Tensor(self.grid_size + [0]) // 2
+        self.grid_origin = Tensor(self.grid_size + [0], device=map_2d_device) // 2
         # Used for tensorized bounds checks
-        self._grid_size_t = Tensor(self.grid_size)
+        self._grid_size_t = Tensor(self.grid_size, device=map_2d_device)
 
         # Init variables
         self.reset()
@@ -176,7 +188,7 @@ class SparseVoxelMap(object):
     def reset_cache(self):
         """Clear some tracked things"""
         # Stores points in 2d coords where robot has been
-        self._visited = torch.zeros(self.grid_size)
+        self._visited = torch.zeros(self.grid_size, device=self.map_2d_device)
 
         # Store instances detected (all of them for now)
         self.instances.reset()
@@ -374,6 +386,7 @@ class SparseVoxelMap(object):
             background_instance_labels=[self.background_instance_label],
             valid_points=valid_depth,
             pose=base_pose,
+            encoder=self.encoder,
         )
         self.instances.associate_instances_to_memory()
 
@@ -387,12 +400,28 @@ class SparseVoxelMap(object):
         self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
         # TODO: just get this from camera_pose?
-        self._update_visited(camera_pose[:3, 3])
+        self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))
         if base_pose is not None:
-            self._update_visited(base_pose)
+            self._update_visited(base_pose.to(self.map_2d_device))
 
         # Increment sequence counter
         self._seq += 1
+
+    def mask_from_bounds(self, bounds: np.ndarray, debug: bool = False):
+        """create mask from a set of 3d object bounds"""
+        assert bounds.shape[0] == 3, "bounding boxes in xyz"
+        assert bounds.shape[1] == 2, "min and max"
+        assert (len(bounds.shape)) == 2, "only one bounding box"
+        mins = torch.floor(self.xy_to_grid_coords(bounds[:2, 0])).long()
+        maxs = torch.ceil(self.xy_to_grid_coords(bounds[:2, 1])).long()
+        obstacles, explored = self.get_2d_map()
+        mask = torch.zeros_like(explored)
+        mask[mins[0] : maxs[0] + 1, mins[1] : maxs[1] + 1] = True
+        if debug:
+            import matplotlib.pyplot as plt
+
+            plt.imshow(obstacles.int() + explored.int() + mask.int())
+        return mask
 
     def _update_visited(self, base_pose: Tensor):
         """Update 2d map of where robot has visited"""
@@ -558,6 +587,7 @@ class SparseVoxelMap(object):
         xyz, _, counts, _ = self.voxel_pcd.get_pointcloud()
         device = xyz.device
         xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
+        xyz[xyz[:, -1] < 0, -1] = 0
 
         # from home_robot.utils.point_cloud import show_point_cloud
         # show_point_cloud(xyz, rgb, orig=np.zeros(3))
@@ -582,6 +612,11 @@ class SparseVoxelMap(object):
         obstacle_voxels = voxels[:, :, min_height:]
         obstacles_soft = torch.sum(obstacle_voxels, dim=-1)
         obstacles = obstacles_soft > self.obs_min_density
+        if self.dilate_obstacles_kernel is not None:
+            obstacles = binary_dilation(
+                obstacles.float().unsqueeze(0).unsqueeze(0),
+                self.dilate_obstacles_kernel,
+            )[0, 0].bool()
 
         # Explored area = only floor mass
         # floor_voxels = voxels[:, :, :min_height]
@@ -710,8 +745,9 @@ class SparseVoxelMap(object):
     def _show_pytorch3d(
         self, instances: bool = True, mock_plot: bool = False, **plot_scene_kwargs
     ):
-        from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
+
+        from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 
         points, _, _, rgb = self.voxel_pcd.get_pointcloud()
 

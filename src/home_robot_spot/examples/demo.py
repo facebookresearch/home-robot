@@ -35,6 +35,7 @@ from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.spot import (  # Just saves the Spot robot footprint for kinematic planning
     SimpleSpotKinematics,
 )
+from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.config import get_config, load_config
 from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
@@ -169,6 +170,7 @@ class SpotDemoAgent:
         self, parameters, spot_config, dock: Optional[int] = None, path: str = None
     ):
         self.parameters = parameters
+        self.encoder = ClipEncoder(self.parameters["clip"])
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
             local_radius=parameters["local_radius"],
@@ -176,6 +178,7 @@ class SpotDemoAgent:
             obs_max_height=parameters["obs_max_height"],
             obs_min_density=parameters["obs_min_density"],
             smooth_kernel_size=parameters["smooth_kernel_size"],
+            encoder=self.encoder,
         )
         logger.info("Created SparseVoxelMap")
         # Create kinematic model (very basic for now - just a footprint)

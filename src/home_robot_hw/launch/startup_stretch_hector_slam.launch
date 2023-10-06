@@ -25,7 +25,7 @@
 	<include file="$(find realsense2_camera)/launch/rs_aligned_depth.launch" if="$(arg start_rs_ros)">
 		<arg name="camera" value="camera"/>
 		<arg name="align_depth" value="true"/>
-		<arg name="filters" value="decimation,disparity,spatial,temporal"/>
+		<arg name="filters" value="decimation,disparity,spatial,temporal,pointcloud"/>
 		<!--param name="serial_no" value="032622071943"/-->
 		<!--param name="serial_no" value="936322070007"/-->
 	</include>
@@ -63,5 +63,9 @@
 
 	<include file="$(find home_robot_hw)/launch/controller.launch" if="$(arg start_joy_node)"/>
 	<include file="$(find home_robot_hw)/launch/home_robot_nodes.launch"/>
+
+	<!-- Manipulation from FUNMAP -->
+	<node name="funmap_grasping" pkg="stretch_demos" type="grasp_point" output="screen" />
+	<node name="funmap_placeing" pkg="stretch_demos" type="place_point" output="screen" />
 
 </launch>

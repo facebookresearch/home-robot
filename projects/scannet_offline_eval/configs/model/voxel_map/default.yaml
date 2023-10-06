@@ -5,6 +5,9 @@ instance_memory_kwargs:
     erode_mask_num_pix: 5
     erode_mask_num_iter: 5
     iou_threshold: 0.3
+    # instance_association: 'bbox_one_sided_iou'
+    # instance_view_score_aggregation_mode: 'max'
+    # overlap_eps: 1e-6
     instance_association: 'bbox_one_sided_iou'
     instance_association_within_class: True
     instance_view_score_aggregation_mode: 'max'
@@ -13,3 +16,12 @@ instance_memory_kwargs:
     global_box_nms_thresh: 0.3
     instance_box_compression_resolution: 0.01
     instance_box_compression_drop_prop: 0.2
+    view_matching_config:
+        _target_: home_robot.mapping.instance.instance_map.ViewMatchingConfig
+        within_class: False
+        box_match_mode: ONE_SIDED_IOU
+        box_min_iou_thresh: 0.4
+        box_overlap_weight: 0.3
+        box_overlap_eps: 1e-6
+        visual_similarity_weight: 1.0
+        min_similarity_thresh: 0.1

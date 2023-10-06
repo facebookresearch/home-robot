@@ -12,6 +12,8 @@ from sensor_msgs.msg import LaserScan
 class RosLidar(object):
     """Simple wrapper node for a ROS lidar"""
 
+    _max_dist = 100.0
+
     def __init__(self, name: str = "/scan", verbose: bool = False):
         self.name = name
         self._points = None
@@ -25,6 +27,7 @@ class RosLidar(object):
     def _lidar_scan_callback(self, scan_msg):
         # Get range and angle data from the scan message
         ranges = np.array(scan_msg.ranges)
+        ranges[np.isnan(ranges)] = self._max_dist
         angles = np.linspace(scan_msg.angle_min, scan_msg.angle_max, len(ranges))
 
         # Convert polar coordinates (ranges, angles) to Cartesian coordinates (x, y)
