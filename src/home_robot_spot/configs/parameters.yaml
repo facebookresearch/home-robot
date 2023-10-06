@@ -24,3 +24,5 @@ max_size: 40  # Can probably be bigger than original (10)
 use_async_subscriber: False
 write_data: True
 use_zero_depth: False
+pick_categories: ["bottle", "cup"]
+place_categories: ["chair", "sofa"]

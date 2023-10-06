@@ -318,9 +318,12 @@ class SpotDemoAgent:
             # plan to the sampled goal
             logger.log("DEMO", "Planning...")
             res = self.planner.plan(start, goal, verbose=True)
-            logger.info("Found plan: {}", res.success)
-            # for i, node in enumerate(res.trajectory):
-            #     logger.info(f"{i}, {node.state}")
+            if res.success:
+                logger.success("Found plan: {}", res.success)
+                for i, node in enumerate(res.trajectory):
+                    logger.info(f"{i}, {node.state}")
+            else:
+                logger.error("Found plan: {}", res.success)
             if visualize:
                 obstacles, explored = self.voxel_map.get_2d_map()
                 img = (10 * obstacles) + explored
@@ -478,14 +481,14 @@ class SpotDemoAgent:
                 for i, each_instance in enumerate(instances):
                     if self.vocab.goal_id_to_goal_name[
                         int(each_instance.category_id.item())
-                    ] in ["bottle", "cup"]:
+                    ] in parameters['pick_categories']:
                         pick_instance_id = i
                         break
             if not place_instance_id:
                 for i, each_instance in enumerate(instances):
                     if self.vocab.goal_id_to_goal_name[
                         int(each_instance.category_id.item())
-                    ] in ["chair"]:
+                    ] in parameters['place_categories']:
                         place_instance_id = i
                         break
 
@@ -505,7 +508,11 @@ class SpotDemoAgent:
                         )
                     ] = i
                 print(objects)
-                breakpoint()
+                #TODO: Add better handling
+                new_id = input("enter a new instance to pick up from the list above: ")
+                if isinstance(pick_instance_id, int):
+                    pick_instance_id = new_id
+                    break
                 success = False
             else:
                 print("Navigating to instance ")
