@@ -620,7 +620,7 @@ class SpotDemoAgent:
 # def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None, args=None):
     level = logger.level("DEMO", no=38, color="<yellow>", icon="🤖")
-    print(level)
+    print(f"{level=}")
     data: Dict[str, List[str]] = {}
     if args.enable_vlm == 1:
         sys.path.append(
