@@ -519,10 +519,16 @@ class SpotDemoAgent:
                     ] = i
                 print(objects)
                 # TODO: Add better handling
-                new_id = input("enter a new instance to pick up from the list above: ")
-                if isinstance(pick_instance_id, int):
-                    pick_instance_id = new_id
-                    break
+                if pick_instance_id is None:
+                    new_id = input("enter a new instance to pick up from the list above: ")
+                    if isinstance(new_id, int):
+                        pick_instance_id = new_id
+                        break
+                if place_instance_id is None:
+                    new_id = input("enter a new instance to place from the list above: ")
+                    if isinstance(new_id, int):
+                        place_instance_id = new_id
+                        break
                 success = False
             else:
                 print("Navigating to instance ")
