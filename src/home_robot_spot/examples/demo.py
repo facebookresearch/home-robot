@@ -234,6 +234,7 @@ class SpotDemoAgent:
         logger.log("DEMO", "\n----------- Planning to frontier -----------")
         if not start_is_valid:
             logger.error("Start is valid: {}", start_is_valid)
+            self.spot.navigate_to([-0.25, 0, 0], relative=True)
             return PlanResult(False, reason="invalid start state")
         else:
             logger.success("Start is valid: {}", start_is_valid)
@@ -257,7 +258,7 @@ class SpotDemoAgent:
             if start_is_valid:
                 logger.success("Start is valid: {}", start_is_valid)
             else:
-                logger.error("Start is valid: {}", start_is_valid)
+                raise RuntimeError(f"Start is not valid: {start_is_valid}, {start=}")
             if goal_is_valid:
                 logger.success("Goal is valid: {}", goal_is_valid)
             if not goal_is_valid:
@@ -370,8 +371,14 @@ class SpotDemoAgent:
         goal_position = np.asarray(view.pose)
         start = self.spot.current_position
 
-        print(goal_position)
+        print(f"{goal_position=}")
+        print(f"{start=}")
+        print(f"{instance.bounds=}")
         if should_plan:
+            start_is_valid = self.navigation_space.is_valid(start)
+            goal_is_valid = self.navigation_space.is_valid(goal_position)
+            print(f"{start_is_valid=}")
+            print(f"{goal_is_valid=}")
             res = self.planner.plan(start, goal_position)
             if res.success:
                 logger.success("Res success: {}", res.success)
@@ -382,7 +389,8 @@ class SpotDemoAgent:
                 )
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
-        else:
+                should_plan = False
+        if not should_plan:
             logger.info("Navigating to goal position: {}", goal_position)
             self.spot.navigate_to(goal_position, blocking=True)
 
@@ -583,7 +591,7 @@ class SpotDemoAgent:
 
                 obj_pose = instances[pick_instance_id].instance_views[-1].pose
                 distance = np.linalg.norm(
-                    np.asarray(obj_pose) - self.spot.current_relative_position
+                    np.asarray(obj_pose) - self.spot.current_position
                 )
                 if distance > 2.0:
                     instance_pose, location, vf = get_close(
@@ -704,7 +712,7 @@ def main(dock: Optional[int] = None, args=None):
             else:
                 # TODO do something is start is not valid
                 logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
-                spot.navigate_to([-0.5, 0, 0.5], relative=True)
+                spot.navigate_to([-0.25, 0, 0], relative=True)
                 continue
             logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
 

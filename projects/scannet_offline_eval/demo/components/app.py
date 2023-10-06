@@ -86,7 +86,7 @@ class SparseVoxelMapDirectoryWatcher:
 
         new_points = self.svm.voxel_pcd._points
         new_bounds = get_bounds(new_points).cpu()
-        new_rgb = self.svm.voxel_pcd._rgb
+        new_rgb = self.svm.voxel_pcd._rgb / 255.0  # added nomalization
         total_points = len(new_points)
         if old_points is not None:
             # Add new points
@@ -122,9 +122,23 @@ class SparseVoxelMapDirectoryWatcher:
         else:
             logger.warning("No box bounds in obs")
 
+        # # Assuming obs["rgb"] is your BGR image in tensor form
+        # bgr_image = obs["rgb"].cpu().numpy()
+
+        # # Convert the BGR image to RGB
+        # rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+
+        # # Encode the RGB image to JPEG format
+        # self.rgb_jpeg = cv2.imencode(".jpg", rgb_image.astype(np.uint8))[1].tobytes()
+
         self.rgb_jpeg = cv2.imencode(
-            ".jpg", (obs["rgb"].cpu().numpy() * 255).astype(np.uint8)
-        )[1].tobytes()
+            ".jpg", (obs["rgb"].cpu().numpy()).astype(np.uint8)
+        )[
+            1
+        ].tobytes()  # * 255
+
+        # breakpoint()
+        logger.debug(f"Added obs {len(self.points)} and {len(self.rgb)} rgbs.")
         return True
 
     def get_points_since(self):

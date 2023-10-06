@@ -52,6 +52,7 @@ class DirectoryWatcher:
         dir_path: Union[Path, str],
         rate_limit: int = 30,
         on_new_obs_callback: Optional[Callable] = None,
+        obs_lookahead: int = 10,
     ):
         self.dir_path = Path(dir_path)
         if not self.dir_path.is_dir():
@@ -62,6 +63,7 @@ class DirectoryWatcher:
         self.rate_limit = rate_limit
         self.sleep_time = 1.0 / rate_limit
         self.on_new_obs_callback = on_new_obs_callback
+        self.obs_lookahead = obs_lookahead
         self._timer = Interval(self._consume_data, sleep_time=self.sleep_time)
 
     def _consume_data(self):
@@ -74,7 +76,20 @@ class DirectoryWatcher:
             if self.on_new_obs_callback is not None:
                 self.on_new_obs_callback(self.observations[-1])
         else:
-            # logger.debug(f"[WAITING] No obs found for timestep {self.current_obs_number}.pkl")
+            for i in range(self.obs_lookahead):
+                file_path = (
+                    self.dir_path / f"{self.current_obs_number + i + 1}.pkl"
+                ).resolve()
+                if file_path.exists():
+                    logger.debug(
+                        f"No obs found for timestep {self.current_obs_number}.pkl, but found for timestep {self.current_obs_number + i + 1}.pkl."
+                    )
+                    self.current_obs_number += i + 1
+                    return self._consume_data()
+
+            logger.debug(
+                f"[WAITING] No obs found for timestep {self.current_obs_number}.pkl"
+            )
             if self.on_new_obs_callback is not None:
                 self.on_new_obs_callback(None)
         return True

@@ -76,6 +76,7 @@ class ClientRequestSourceConfig(SourceConfig):
         def update_gripper_feed(n_intervals):
             if svm_watcher.rgb_jpeg is None:
                 raise PreventUpdate
+            logger.debug(f"Updating gripper feed image {svm_watcher.rgb_jpeg.shape}")
             return f"data:image/jpeg;base64, {base64.b64encode(svm_watcher.rgb_jpeg).decode()}"
 
         if not self.trigger_exists:
