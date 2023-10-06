@@ -451,11 +451,11 @@ class SpotDemoAgent:
                     # task is the prompt, save it
                     data["prompt"] = task
                     # world_representation.object_images = world_representation.object_images[:1]
-                    output = stub.rpc_act_on_observations(
-                        task_rpc_env_pb2.ActOnObservationsArgs(
-                            episode_id=random.randint(0, 1000000),
-                            obs=ProtoConverter.wrap_obs(world_representation),
-                            goal=task,
+                    output = stub.stream_act_on_observations(
+                        ProtoConverter.wrap_obs_iterator(
+                            episode_id=random.randint(1, 1000000),
+                            obs=obs,
+                            goal=task
                         )
                     )
                     plan = output.action
