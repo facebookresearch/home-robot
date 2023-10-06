@@ -82,7 +82,7 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             ),
             f,
         )
-    logger.success("Done saving observation to pickle file.")
+    # logger.success("Done saving observation to pickle file.")
 
 
 def get_close(instance_id, spot, voxel_map, dist=0.25):
@@ -401,22 +401,23 @@ class SpotDemoAgent:
 
         #  Build plan
         res = self.planner.plan(start, goal)
-        logger.info("Goal: {}", goal)
+        logger.info("[demo.goto] Goal: {}", goal)
         if res:
-            logger.success("Res success: {}", res.success)
+            logger.success("[demo.goto] Res success: {}", res.success)
         else:
-            logger.error("Res success: {}", res.success)
+            logger.error("[demo.goto] Res success: {}", res.success)
         # print("Res success:", res.success)
         # Move to the next location
         if res.success:
-            logger.info("Following the plan to goal")
+            logger.info("[demo.goto] Following the plan to goal")
             self.spot.execute_plan(
                 res,
                 pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
                 rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
+                verbose=True,
             )
         else:
-            logger.warning("Just go ahead and try it anyway")
+            logger.warning("[demo.goto] Just go ahead and try it anyway")
             self.spot.navigate_to(goal)
         return res
 
