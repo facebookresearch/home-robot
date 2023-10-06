@@ -42,6 +42,14 @@ from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
+## Temporary hack until we make accel-cortex pip installable
+sys.path.append("path to accel-cortext base folder")
+import grpc
+import src.rpc
+import task_rpc_env_pb2
+from task_rpc_env_pb2_grpc import AgentgRPCStub
+from src.utils.observations import ObjectImage, Observations, ProtoConverter
+
 
 def goto(spot: SpotClient, planner: Planner, goal):
     """Send the spot to the correct location."""
@@ -193,27 +201,23 @@ def place_in_an_instance(
 
 
 def get_obj_centric_world_representation(instance_memory, max_context_length):
-    crops = []
+    obs = Observations(object_images = [])
     for global_id, instance in enumerate(instance_memory):
         instance_crops = instance.instance_views
-        crops.append((global_id, random.sample(instance_crops, 1)[0].cropped_image))
+        obs.object_images.append(
+            ObjectImage(
+                crop_id = global_id,
+                image = random.sample(instance_crops, 1)[0].cropped_image
+            )
+        )
     # TODO: the model currenly can only handle 20 crops
-    if len(crops) > max_context_length:
+    if len(obs.object_images) > max_context_length:
         logger.warning(
             "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
         )
-        crops = random.sample(crops, max_context_length)
+        obs.object_images = random.sample(obs.object_images, max_context_length)
 
-    debug_path = "crops_for_planning/"
-    shutil.rmtree(debug_path, ignore_errors=True)
-    os.mkdir(debug_path)
-    ret = []
-    for id, crop in enumerate(crops):
-        Image.fromarray(crop[1], "RGB").save(
-            debug_path + str(id) + "_" + str(crop[0]) + ".png"
-        )
-        ret.append(str(id) + "_" + str(crop[0]) + ".png")
-    return ret
+    return obs
 
 
 class SpotDemoAgent:
@@ -268,6 +272,9 @@ class SpotDemoAgent:
         )
         self.spot_config = spot_config
         self.path = path
+
+        self.channel = grpc.insecure_channel("100.96.168.195:50054")
+        self.stub = AgentgRPCStub(channel)
 
     def plan_to_frontier(
         self,
@@ -436,8 +443,14 @@ class SpotDemoAgent:
                     task = input("please type any task you want the robot to do: ")
                     # task is the prompt, save it
                     data["prompt"] = task
-                    sample = vlm.prepare_sample(task, world_representation)
-                    plan = vlm.evaluate(sample)
+                    output = stub.rpc_act_on_observations(
+                        task_rpc_env_pb2.ActOnObservationsArgs(
+                            episode_id=random.randint(0, 1000000),
+                            obs=ProtoConverter.wrap_obs(world_representation),
+                            goal=task,
+                        )
+                    )
+                    plan = output.action
                     print(plan)
 
                     execute = input(
@@ -609,20 +622,6 @@ class SpotDemoAgent:
 def main(dock: Optional[int] = None, args=None):
     level = logger.level("DEMO", no=38, color="<yellow>", icon="🤖")
     data: Dict[str, List[str]] = {}
-    if args.enable_vlm == 1:
-        sys.path.append(
-            "src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/"
-        )
-        from minigpt4_example import Predictor
-
-        # load VLM
-        vlm = Predictor(args)
-        logger.info("VLM planner initialized")
-        # set task
-        logger.info("Reset the agent task to: {}", args.task)
-    else:
-        # No vlm to use, just default behavior
-        vlm = None
 
     # TODO add this to config
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
