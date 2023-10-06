@@ -71,9 +71,13 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
         instances = model.voxel_map.get_instances()
         model_obs = model.voxel_map.observations[-1]
-        bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
-        bounds = torch.stack(bounds, dim=0)
-        names = torch.stack(names, dim=0).unsqueeze(-1)
+        if len(instances) > 0:
+            bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
+            bounds = torch.stack(bounds, dim=0)
+            names = torch.stack(names, dim=0).unsqueeze(-1)
+        else:
+            bounds = torch.zeros(0, 3, 2)
+            names = torch.zeros(0, 1)
         logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
         pickle.dump(
             dict(
@@ -184,7 +188,7 @@ def place_in_an_instance(
     spot.spot.open_gripper()
 
     # reset arm
-    time.sleep(1)
+    time.sleep(0.5)
     spot.reset_arm()
 
 
@@ -315,8 +319,8 @@ class SpotDemoAgent:
             logger.log("DEMO", "Planning...")
             res = self.planner.plan(start, goal, verbose=True)
             logger.info("Found plan: {}", res.success)
-            for i, node in enumerate(res.trajectory):
-                logger.info(f"{i}, {node.state}")
+            # for i, node in enumerate(res.trajectory):
+            #     logger.info(f"{i}, {node.state}")
             if visualize:
                 obstacles, explored = self.voxel_map.get_2d_map()
                 img = (10 * obstacles) + explored
@@ -368,7 +372,7 @@ class SpotDemoAgent:
 
     def update(self, step=0):
         print("Synchronous obs update")
-        time.sleep(1)
+        time.sleep(0.5)
         obs = self.spot.get_rgbd_obs()
         print("- Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
@@ -538,7 +542,7 @@ class SpotDemoAgent:
                     hor_grasp=True,
                 )
                 self.spot.open_gripper()
-                time.sleep(1)
+                time.sleep(0.5)
                 logger.log("DEMO", "Resetting environment...")
                 # TODO: have a better way to reset the environment
 
@@ -548,11 +552,10 @@ class SpotDemoAgent:
                     instance_pose, location, vf = get_close(
                         pick_instance_id, self.spot, self.voxel_map
                     )
-                logger.info("Navigating closer to the object")
-                self.spot.navigate_to(
-                    np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
-                )
-                breakpoint()
+                    logger.info("Navigating closer to the object")
+                    self.spot.navigate_to(
+                        np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
+                    )
                 time.sleep(0.5)
                 success = gaze.gaze_and_grasp()
                 time.sleep(0.5)
@@ -568,12 +571,12 @@ class SpotDemoAgent:
                         place_instance_id,
                         visualize=self.parameters["visualize"],
                     )
-
-                    breakpoint()
-                    # place = place_in_an_instance(
-                    #     place_instance_id, self.spot, self.voxel_map, place_height=0.15
-                    # )
-                    # print("place at:", place)
+                    place_location = self.vocab.goal_id_to_goal_name[
+                        int(instances[place_instance_id].category_id.item())
+                    ]
+                    instance_pose, location, vf = get_close(place_instance_id, self.spot, self.voxel_map, dist=0.5)
+                    logger.info("placing {object} at {place}", object=object_category_name, place=place_location)
+                    place_in_an_instance(instance_pose, location, vf, self.spot)
                 """
                 # visualize pointcloud and add location as red
                 pcd = open3d.geometry.PointCloud()
@@ -634,7 +637,7 @@ def main(dock: Optional[int] = None, args=None):
         spot.start()
         logger.success("Spot started")
         logger.info("Sleep 1s")
-        time.sleep(1)
+        time.sleep(0.5)
         logger.info("Start exploring!")
         x0, y0, theta0 = spot.current_position
 
@@ -649,8 +652,8 @@ def main(dock: Optional[int] = None, args=None):
 
         voxel_map.show()
         for step in range(int(parameters["exploration_steps"])):
-
-            print("-" * 8, step + 1, "/", int(parameters["exploration_steps"]), "-" * 8)
+            # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
+            print("-" * 20, step + 1, "/", int(parameters["exploration_steps"]), "-" * 20)
 
             # Get current position and goal
             start = spot.current_position
@@ -671,7 +674,7 @@ def main(dock: Optional[int] = None, args=None):
                 res = demo.plan_to_frontier()
                 if not res.success:
                     logger.warning(res.reason)
-                    logger.info("Switching to random exploration")
+                    logger.debug("Switching to random exploration")
                     goal = next(
                         navigation_space.sample_random_frontier(
                             min_size=parameters["min_size"],
@@ -692,7 +695,6 @@ def main(dock: Optional[int] = None, args=None):
                         logger.success("Res success: {}", res.success)
                     else:
                         logger.error("Res success: {}", res.success)
-                    break
             else:
                 logger.info(
                     "picking a random frontier point and trying to move there..."
@@ -763,6 +765,7 @@ def main(dock: Optional[int] = None, args=None):
                 plt.imsave(f"{path}/exploration_step_final.png", img)
 
         spot.navigate_to(np.array([x0, y0, theta0]))
+        time.sleep(0.5)
         logger.warning("Safely stop the robot...")
         spot.spot.close_gripper()
         logger.info("Robot sit down")
