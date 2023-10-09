@@ -430,7 +430,9 @@ class SpotDemoAgent:
         # # Navigate close to that location
         # # TODO solve the system of equations to get k such that the distance is .75 meters
 
-        instance_pose = self.voxel_map.get_instances()[instance_id].instance_views[-1].pose
+        instance_pose = (
+            self.voxel_map.get_instances()[instance_id].instance_views[-1].pose
+        )
         vr = np.array([instance_pose[0], instance_pose[1]])
         vp = np.asarray(location[:2])
         k = 1 - (dist / (np.linalg.norm(vp - vr)))
