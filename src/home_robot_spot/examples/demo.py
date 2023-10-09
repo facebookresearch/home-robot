@@ -667,7 +667,12 @@ def main(dock: Optional[int] = None, args=None):
 
     # TODO add this to config
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
-    parameters = get_config("src/home_robot_spot/configs/parameters.yaml")[0]
+    if args.location == "pit":
+        parameters = get_config("src/home_robot_spot/configs/parameters.yaml")[0]
+    if args.location == 'fre':
+         parameters = get_config("src/home_robot_spot/configs/parameters_fre.yaml")[0]
+    else:
+        logger.critical(f"Location {args.location} is invalid, please enter a valid location")
     timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
     path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
     logger.add(f"{path}/{timestamp}.log", backtrace=True, diagnose=True)
@@ -870,6 +875,11 @@ if __name__ == "__main__":
         "--context_length",
         default=20,
         help="Maximum number of images the vlm can reason about",
+    )
+    parser.add_argument(
+        "--location", "-l"
+        default="pit",
+        help="location of the spot (fre or pit)",
     )
     parser.add_argument(
         "--options",
