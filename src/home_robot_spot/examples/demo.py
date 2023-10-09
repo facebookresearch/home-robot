@@ -46,7 +46,8 @@ from home_robot_spot.grasp_env import GraspController
 ## Temporary hack until we make accel-cortex pip installable
 # sys.path.append("path to accel-cortext base folder")
 print("Make sure path to accel-cortex base folder is set")
-sys.path.append(os.path.expanduser("~/Documents/accel-cortex"))
+# sys.path.append(os.path.expanduser("~/Documents/accel-cortex"))
+sys.path.append(os.path.expanduser("~/src/accel-cortex"))
 import grpc
 import src.rpc
 import task_rpc_env_pb2
@@ -84,31 +85,6 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             f,
         )
     # logger.success("Done saving observation to pickle file.")
-
-
-def get_close(instance_id, spot, voxel_map, dist=0.25):
-    # Parameters for the placing function from the pointcloud
-    ground_normal = torch.tensor([0.0, 0.0, 1])
-    nbr_dist = 0.15
-    residual_thresh = 0.03
-
-    # # Get the pointcloud of the instance
-    pc_xyz = voxel_map.get_instances()[instance_id].point_cloud
-
-    # # get the location (in global coordinates) of the placeable location
-    location, area_prop = nc.find_placeable_location(
-        pc_xyz, ground_normal, nbr_dist, residual_thresh
-    )
-
-    # # Navigate close to that location
-    # # TODO solve the system of equations to get k such that the distance is .75 meters
-
-    instance_pose = voxel_map.get_instances()[instance_id].instance_views[-1].pose
-    vr = np.array([instance_pose[0], instance_pose[1]])
-    vp = np.asarray(location[:2])
-    k = 1 - (dist / (np.linalg.norm(vp - vr)))
-    vf = vr + (vp - vr) * k
-    return instance_pose, location, vf
 
 
 def place_in_an_instance(
@@ -437,6 +413,30 @@ class SpotDemoAgent:
             self.spot.navigate_to(goal)
         return res
 
+    def get_close(self, instance_id, dist=0.25):
+        # Parameters for the placing function from the pointcloud
+        ground_normal = torch.tensor([0.0, 0.0, 1])
+        nbr_dist = self.parameters["nbr_dist"]
+        residual_thresh = self.parameters["residual_thresh"]
+
+        # # Get the pointcloud of the instance
+        pc_xyz = self.voxel_map.get_instances()[instance_id].point_cloud
+
+        # # get the location (in global coordinates) of the placeable location
+        location, area_prop = nc.find_placeable_location(
+            pc_xyz, ground_normal, nbr_dist, residual_thresh
+        )
+
+        # # Navigate close to that location
+        # # TODO solve the system of equations to get k such that the distance is .75 meters
+
+        instance_pose = self.voxel_map.get_instances()[instance_id].instance_views[-1].pose
+        vr = np.array([instance_pose[0], instance_pose[1]])
+        vp = np.asarray(location[:2])
+        k = 1 - (dist / (np.linalg.norm(vp - vr)))
+        vf = vr + (vp - vr) * k
+        return instance_pose, location, vf
+
     def run_task(self, stub, center, data):
         """Actually use VLM to perform task
 
@@ -613,9 +613,7 @@ class SpotDemoAgent:
 
                 # Try to get closer to the object
                 if distance > 2.0 and self.parameters["use_get_close"]:
-                    instance_pose, location, vf = get_close(
-                        pick_instance_id, self.spot, self.voxel_map
-                    )
+                    instance_pose, location, vf = self.get_close(pick_instance_id)
                     logger.info("Navigating closer to the object")
                     self.spot.navigate_to(
                         np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
@@ -635,8 +633,8 @@ class SpotDemoAgent:
                     place_location = self.vocab.goal_id_to_goal_name[
                         int(instances[place_instance_id].category_id.item())
                     ]
-                    instance_pose, location, vf = get_close(
-                        place_instance_id, self.spot, self.voxel_map, dist=0.5
+                    instance_pose, location, vf = self.get_close(
+                        place_instance_id, dist=0.5
                     )
                     logger.info(
                         "placing {object} at {place}",
