@@ -16,7 +16,8 @@ voxel_size: 0.02
 local_radius: 1.5  # Can probably be bigger than original (.15)
 # 2d parameters
 explore_methodical: True
-dilate_frontier_size: 25
+max_explore_failures: 3
+dilate_frontier_size: 22
 dilate_obstacle_size: 1  # Value used in pittsburgh lab
 # "dilate_obstacle_size": 5, # value from fremont
 smooth_kernel_size: 5

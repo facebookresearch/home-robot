@@ -221,6 +221,10 @@ class SpotDemoAgent:
         self.spot_config = spot_config
         self.path = path
 
+    def backup_from_invalid_state(self):
+        """Helper function to get the robot unstuck (it is too close to geometry)"""
+        self.spot.navigate_to([-0.25, 0, 0], relative=True, blocking=True)
+
     def plan_to_frontier(
         self,
         start: Optional[np.ndarray] = None,
@@ -238,7 +242,7 @@ class SpotDemoAgent:
         logger.log("DEMO", "\n----------- Planning to frontier -----------")
         if not start_is_valid:
             logger.error("Start is valid: {}", start_is_valid)
-            self.spot.navigate_to([-0.25, 0, 0], relative=True)
+            self.backup_from_invalid_state()
             return PlanResult(False, reason="invalid start state")
         else:
             logger.success("Start is valid: {}", start_is_valid)
@@ -701,6 +705,8 @@ def main(dock: Optional[int] = None, args=None):
         demo.rotate_in_place()
 
         voxel_map.show()
+        # Track the number of times exploration failed
+        explore_failures = 0
         for step in range(int(parameters["exploration_steps"])):
             # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
             print(
@@ -717,37 +723,41 @@ def main(dock: Optional[int] = None, args=None):
             else:
                 # TODO do something is start is not valid
                 logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
-                spot.navigate_to([-0.25, 0, 0], relative=True, blocking=True)
+                demo.backup_from_invalid_state()
                 continue
+
             logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
 
             if parameters["explore_methodical"]:
                 logger.info("Generating the next closest frontier point...")
                 res = demo.plan_to_frontier()
                 if not res.success:
+                    explore_failures += 1
                     logger.warning(res.reason)
-                    logger.debug("Switching to random exploration")
-                    goal = next(
-                        navigation_space.sample_random_frontier(
-                            min_size=parameters["min_size"],
-                            max_size=parameters["max_size"],
+                    if explore_failures > parameters["max_explore_failures"]:
+                        logger.debug("Switching to random exploration")
+                        goal = next(
+                            navigation_space.sample_random_frontier(
+                                min_size=parameters["min_size"],
+                                max_size=parameters["max_size"],
+                            )
                         )
-                    )
-                    goal = goal.cpu().numpy()
-                    goal_is_valid = navigation_space.is_valid(goal)
-                    logger.info(f" Goal is valid: {goal_is_valid}")
-                    if not goal_is_valid:
-                        # really we should sample a new goal
-                        continue
+                        goal = goal.cpu().numpy()
+                        goal_is_valid = navigation_space.is_valid(goal)
+                        logger.info(f" Goal is valid: {goal_is_valid}")
+                        if not goal_is_valid:
+                            # really we should sample a new goal
+                            continue
 
-                    #  Build plan
-                    res = planner.plan(start, goal)
-                    logger.info(goal)
-                    if res.success:
-                        logger.success("Res success: {}", res.success)
-                    else:
-                        logger.error("Res success: {}", res.success)
+                        #  Build plan
+                        res = planner.plan(start, goal)
+                        logger.info(goal)
+                        if res.success:
+                            logger.success("Res success: {}", res.success)
+                        else:
+                            logger.error("Res success: {}", res.success)
             else:
+                explore_failures = 0
                 logger.info(
                     "picking a random frontier point and trying to move there..."
                 )
@@ -775,7 +785,7 @@ def main(dock: Optional[int] = None, args=None):
                     pos_err_threshold=parameters["trajectory_pos_err_threshold"],
                     rot_err_threshold=parameters["trajectory_rot_err_threshold"],
                 )
-            else:
+            elif goal is not None and len(goal) > 0:
                 logger.warning("Just go ahead and try it anyway")
                 spot.navigate_to(goal)
 
