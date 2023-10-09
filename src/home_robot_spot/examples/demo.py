@@ -579,7 +579,10 @@ class SpotDemoAgent:
                 object_category_name = self.vocab.goal_id_to_goal_name[
                     int(instances[pick_instance_id].category_id.item())
                 ]
-                opt = input(f"Grasping {object_category_name}..., y/n?: ")
+                if self.parameters["verify_before_grasp"]:
+                    opt = input(f"Grasping {object_category_name}..., y/n?: ")
+                else:
+                    opt = "y"
                 if opt == "n":
                     blacklist.append(pick_instance_id)
                     del instances[pick_instance_id]
@@ -680,10 +683,12 @@ def main(dock: Optional[int] = None, args=None):
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
     if args.location == "pit":
         parameters = get_config("src/home_robot_spot/configs/parameters.yaml")[0]
-    elif args.location == 'fre':
-         parameters = get_config("src/home_robot_spot/configs/parameters_fre.yaml")[0]
+    elif args.location == "fre":
+        parameters = get_config("src/home_robot_spot/configs/parameters_fre.yaml")[0]
     else:
-        logger.critical(f"Location {args.location} is invalid, please enter a valid location")
+        logger.critical(
+            f"Location {args.location} is invalid, please enter a valid location"
+        )
     timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
     path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
     logger.add(f"{path}/{timestamp}.log", backtrace=True, diagnose=True)
@@ -894,7 +899,8 @@ if __name__ == "__main__":
         help="Maximum number of images the vlm can reason about",
     )
     parser.add_argument(
-        "--location", "-l",
+        "--location",
+        "-l",
         default="pit",
         help="location of the spot (fre or pit)",
     )
