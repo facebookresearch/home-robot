@@ -607,6 +607,7 @@ class SpotDemoAgent:
                 curr_pose = self.spot.current_position
                 vr = np.array([curr_pose[0], curr_pose[1]])
                 distance = np.linalg.norm(xy - vr)
+
                 # Try to get closer to the object
                 if distance > 2.0 and self.parameters["use_get_close"]:
                     instance_pose, location, vf = get_close(
@@ -893,7 +894,7 @@ if __name__ == "__main__":
         help="Maximum number of images the vlm can reason about",
     )
     parser.add_argument(
-        "--location", "-l"
+        "--location", "-l",
         default="pit",
         help="location of the spot (fre or pit)",
     )

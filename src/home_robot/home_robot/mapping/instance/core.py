@@ -136,6 +136,24 @@ class Instance:
             emb = emb / emb.norm(dim=-1, keepdim=True)
         return emb
 
+    def get_best_view(self, metric: str = "area") -> InstanceView:
+        """Get best view by some metric."""
+        best_view = None
+        if metric == "area":
+            best_area = 0
+            for view in self.instance_views:
+                if view.cropped_image is None:
+                    continue
+                h, w = view.cropped_image.shape[:2]
+                area = h * w
+                if area > best_area:
+                    best_area = area
+                    best_view = view
+        else:
+            raise NotImplementedError(f"metric {metric} not supported")
+        return best_view
+
+
     def add_instance_view(self, instance_view: InstanceView):
         if len(self.instance_views) == 0:
             # instantiate from instance
