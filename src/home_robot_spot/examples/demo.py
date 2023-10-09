@@ -46,7 +46,7 @@ from home_robot_spot.grasp_env import GraspController
 ## Temporary hack until we make accel-cortex pip installable
 # sys.path.append("path to accel-cortext base folder")
 print("Make sure path to accel-cortex base folder is set")
-sys.path.append(os.path.expanduser("~/src/accel-cortex"))
+sys.path.append(os.path.expanduser("~/Documents/accel-cortex"))
 import grpc
 import src.rpc
 import task_rpc_env_pb2
@@ -561,7 +561,7 @@ class SpotDemoAgent:
                     if isinstance(new_id, int):
                         place_instance_id = new_id
                         break
-                success = False
+                success = True
             else:
                 print("Navigating to instance ")
                 print(f"Instance id: {pick_instance_id}")
@@ -860,7 +860,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "--enable_vlm",
-        default=1,
+        default=00,
         type=int,
         help="Enable loading Minigpt4. 1 == use vlm, 0 == test without vlm",
     )
@@ -893,7 +893,7 @@ if __name__ == "__main__":
         help="Maximum number of images the vlm can reason about",
     )
     parser.add_argument(
-        "--location", "-l"
+        "--location", "-l",
         default="pit",
         help="location of the spot (fre or pit)",
     )
