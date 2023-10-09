@@ -210,7 +210,8 @@ class SpotDemoAgent:
         self.semantic_sensor.set_vocabulary(0)
 
         self.planner = Shortcut(
-            RRTConnect(self.navigation_space, self.navigation_space.is_valid)
+            RRTConnect(self.navigation_space, self.navigation_space.is_valid),
+            shortcut_iter=self.parameters["shortcut_iter"],
         )
         self.spot = SpotClient(
             config=spot_config,

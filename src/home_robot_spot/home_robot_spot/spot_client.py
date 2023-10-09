@@ -519,7 +519,7 @@ class SpotClient:
     def execute_plan(
         self,
         plan: PlanResult,
-        verbose: bool = False,
+        verbose: bool = True,
         pos_err_threshold: float = 0.1,
         rot_err_threshold: float = 0.3,
         per_step_timeout: float = 5.0,
@@ -537,16 +537,18 @@ class SpotClient:
                 pose = self.current_position.copy()
                 pos_err = np.linalg.norm(pose[:2] - node.state[:2])
                 rot_err = angle_difference(pose[2], node.state[2])
+                if verbose:
+                    print(f"{i} {pos_err=}, {rot_err=}")
                 if pos_err < pos_err_threshold and rot_err < rot_err_threshold:
                     break
                 time.sleep(0.01)
             if timeit.default_timer() - t0 > per_step_timeout:
                 print(f"WARNING: robot could not reach waypoint {i}: {node.state}")
+                return False
 
         # Send us to the final waypoint, but this time actually block - we want to really get there
         self.navigate_to(node.state, blocking=True)
-        # Sleep a bit at the end to make sure it gets there
-        # time.sleep(0.5)
+        return True
 
     @property
     def raw_observations(self):
