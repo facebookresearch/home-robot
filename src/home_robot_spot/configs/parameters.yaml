@@ -5,7 +5,7 @@ step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actuall
 rotation_step_size: 0.5
 visualize: False
 exploration_steps: 10
-shortcut_iter: 500
+shortcut_iter: 250
 
 # Frontier search parameters
 frontier_step_dist: 0.5
