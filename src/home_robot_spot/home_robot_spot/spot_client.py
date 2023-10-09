@@ -522,7 +522,7 @@ class SpotClient:
         verbose: bool = True,
         pos_err_threshold: float = 0.1,
         rot_err_threshold: float = 0.3,
-        per_step_timeout: float = 5.0,
+        per_step_timeout: float = 1.0,
     ):
         """go through a whole plan and execute it"""
         if verbose:

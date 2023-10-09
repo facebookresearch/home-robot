@@ -371,6 +371,7 @@ class SpotDemoAgent:
                     res,
                     pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
                     rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
+                    per_step_timeout=self.parameters["trajectory_per_step_timeout"],
                 )
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
@@ -644,6 +645,7 @@ class SpotDemoAgent:
                         place=place_location,
                     )
                     place_in_an_instance(instance_pose, location, vf, self.spot)
+
                 """
                 # visualize pointcloud and add location as red
                 pcd = open3d.geometry.PointCloud()
@@ -801,6 +803,7 @@ def main(dock: Optional[int] = None, args=None):
                     res,
                     pos_err_threshold=parameters["trajectory_pos_err_threshold"],
                     rot_err_threshold=parameters["trajectory_rot_err_threshold"],
+                    per_step_timeout=parameters["trajectory_per_step_timeout"],
                 )
             elif goal is not None and len(goal) > 0:
                 logger.warning("Just go ahead and try it anyway")
