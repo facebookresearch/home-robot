@@ -153,7 +153,6 @@ class Instance:
             raise NotImplementedError(f"metric {metric} not supported")
         return best_view
 
-
     def add_instance_view(self, instance_view: InstanceView):
         if len(self.instance_views) == 0:
             # instantiate from instance
