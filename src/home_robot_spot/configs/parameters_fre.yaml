@@ -1,21 +1,21 @@
 clip: "ViT-B/32"
 
 # Planner parameters
-step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
+step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually)
 rotation_step_size: 0.5
 visualize: False
-exploration_steps: 10
-shortcut_iter: 250
+exploration_steps: 25
+shortcut_iter: 500
 
 # Frontier search parameters
-frontier_step_dist: 0.5
+frontier_step_dist: 1
 frontier_min_dist: 0.5
 
 # Voxel map
-obs_min_height: 0.1  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
-obs_max_height: 1.8  # Originally 1.8, spot is shorter than stretch tho
+obs_min_height: 0.3  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+obs_max_height: 1.5  # Originally 1.8, spot is shorter than stretch tho
 obs_min_density: 12  # Originally 10, making it bigger because theres a bunch on noise
-voxel_size: 0.02
+voxel_size: 0.05
 local_radius: 1.5  # Can probably be bigger than original (.15)
 # 2d parameters
 explore_methodical: True
@@ -28,6 +28,9 @@ smooth_kernel_size: 5
 min_size: 20  # Can probably be bigger than original (10)
 max_size: 40  # Can probably be bigger than original (10)
 
+# Grasping parameters
+verify_before_grasp: False
+
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
 trajectory_rot_err_threshold: 0.5
@@ -39,7 +42,7 @@ use_zero_depth: False
 use_midas: False
 
 # Task setup
-pick_categories: ["bottle", "cup"]
+pick_categories: ["bottle", "cup", "toy_animal"]
 place_categories: ["chair", "sofa"]
 use_get_close: False
 best_view_metric: "area"
