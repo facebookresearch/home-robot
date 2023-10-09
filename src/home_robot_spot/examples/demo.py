@@ -594,15 +594,20 @@ class SpotDemoAgent:
                 )
                 self.spot.open_gripper()
                 time.sleep(0.5)
+
                 logger.log("DEMO", "Resetting environment...")
                 # TODO: have a better way to reset the environment
-
-                obj_pose = instances[pick_instance_id].instance_views[-1].pose
+                obj_pose = (
+                    instances[pick_instance_id]
+                    .get_best_view(metric=self.parameters["best_view_metric"])
+                    .pose
+                )
                 xy = np.array([obj_pose[0], obj_pose[1]])
                 curr_pose = self.spot.current_position
                 vr = np.array([curr_pose[0], curr_pose[1]])
                 distance = np.linalg.norm(xy + vr)
-                if distance > 2.0:
+                # Try to get closer to the object
+                if distance > 2.0 and self.parameters["use_get_close"]:
                     instance_pose, location, vf = get_close(
                         pick_instance_id, self.spot, self.voxel_map
                     )
