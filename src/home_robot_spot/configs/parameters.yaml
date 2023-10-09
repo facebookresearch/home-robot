@@ -2,7 +2,7 @@ clip: "ViT-B/32"
 
 # Planner parameters
 step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
-rotation_step_size: 1.0
+rotation_step_size: 0.5
 visualize: False
 exploration_steps: 10
 shortcut_iter: 500
