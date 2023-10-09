@@ -717,7 +717,7 @@ def main(dock: Optional[int] = None, args=None):
             else:
                 # TODO do something is start is not valid
                 logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
-                spot.navigate_to([-0.25, 0, 0], relative=True)
+                spot.navigate_to([-0.25, 0, 0], relative=True, blocking=True)
                 continue
             logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
 

@@ -1,7 +1,7 @@
 clip: "ViT-B/32"
-step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually)
+step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
 # rotation_step_size: 3.141592
-rotation_step_size: 1.0
+rotation_step_size: 0.5
 visualize: False
 exploration_steps: 20
 use_midas: False
@@ -9,14 +9,14 @@ use_midas: False
 frontier_step_dist: 0.5
 frontier_min_dist: 0.5
 # Voxel map
-obs_min_height: 0.3  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+obs_min_height: 0.2  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
 obs_max_height: 1.8  # Originally 1.8, spot is shorter than stretch tho
 obs_min_density: 20  # Originally 10, making it bigger because theres a bunch on noise
-voxel_size: 0.05
-local_radius: 1.2  # Can probably be bigger than original (.15)
+voxel_size: 0.02
+local_radius: 1.5  # Can probably be bigger than original (.15)
 # 2d parameters
 explore_methodical: True
-dilate_frontier_size: 20
+dilate_frontier_size: 25
 dilate_obstacle_size: 1  # Value used in pittsburgh lab
 # "dilate_obstacle_size": 5, # value from fremont
 smooth_kernel_size: 5
