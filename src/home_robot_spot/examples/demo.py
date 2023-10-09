@@ -680,7 +680,7 @@ def main(dock: Optional[int] = None, args=None):
     spot_config = get_config("src/home_robot_spot/configs/default_config.yaml")[0]
     if args.location == "pit":
         parameters = get_config("src/home_robot_spot/configs/parameters.yaml")[0]
-    if args.location == 'fre':
+    elif args.location == 'fre':
          parameters = get_config("src/home_robot_spot/configs/parameters_fre.yaml")[0]
     else:
         logger.critical(f"Location {args.location} is invalid, please enter a valid location")
