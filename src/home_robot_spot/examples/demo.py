@@ -606,7 +606,7 @@ class SpotDemoAgent:
                 xy = np.array([obj_pose[0], obj_pose[1]])
                 curr_pose = self.spot.current_position
                 vr = np.array([curr_pose[0], curr_pose[1]])
-                distance = np.linalg.norm(xy + vr)
+                distance = np.linalg.norm(xy - vr)
                 # Try to get closer to the object
                 if distance > 2.0 and self.parameters["use_get_close"]:
                     instance_pose, location, vf = get_close(
