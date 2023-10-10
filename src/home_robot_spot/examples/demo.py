@@ -9,7 +9,7 @@ import random
 import shutil
 import sys
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,7 +36,7 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
     SimpleSpotKinematics,
 )
 from home_robot.perception.encoders import ClipEncoder
-from home_robot.utils.config import get_config, load_config
+from home_robot.utils.config import Config, get_config, load_config
 from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
@@ -44,10 +44,8 @@ from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
 ## Temporary hack until we make accel-cortex pip installable
-# sys.path.append("path to accel-cortext base folder")
 print("Make sure path to accel-cortex base folder is set")
-# sys.path.append(os.path.expanduser("~/Documents/accel-cortex"))
-sys.path.append(os.path.expanduser(os.environ['ACCEL_CORTEX']))
+sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
 import grpc
 import src.rpc
 import task_rpc_env_pb2
@@ -148,7 +146,11 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
 
 class SpotDemoAgent:
     def __init__(
-        self, parameters, spot_config, dock: Optional[int] = None, path: str = None
+        self,
+        parameters: Dict[str, Any],
+        spot_config: Config,
+        dock: Optional[int] = None,
+        path: str = None,
     ):
         self.parameters = parameters
         self.encoder = ClipEncoder(self.parameters["clip"])
@@ -201,6 +203,21 @@ class SpotDemoAgent:
         )
         self.spot_config = spot_config
         self.path = path
+
+        # Create grasp object
+        self.gaze = GraspController(
+            config=self.spot_config,
+            spot=self.spot.get_bd_spot_client(),
+            objects=None,
+            confidence=0.1,
+            show_img=True,
+            top_grasp=False,
+            hor_grasp=True,
+        )
+
+    def set_objects_for_grasping(self, objects: List[List[str]]):
+        """Set the objects used for grasping"""
+        self.gaze.set_objects(objects)
 
     def backup_from_invalid_state(self):
         """Helper function to get the robot unstuck (it is too close to geometry)"""
@@ -576,7 +593,7 @@ class SpotDemoAgent:
                 success = self.navigate_to_an_instance(
                     pick_instance_id,
                     visualize=self.parameters["visualize"],
-                    should_plan=False
+                    should_plan=False,
                 )
                 print(f"Success: {success}")
 
@@ -597,15 +614,7 @@ class SpotDemoAgent:
                     del instances[pick_instance_id]
                     continue
                 logger.info(f"Grasping: {object_category_name}")
-                gaze = GraspController(
-                    config=self.spot_config,
-                    spot=self.spot.spot,
-                    objects=[[object_category_name]],
-                    confidence=0.1,
-                    show_img=True,
-                    top_grasp=False,
-                    hor_grasp=True,
-                )
+                self.set_objects_for_grasping([[object_category_name]])
                 self.spot.open_gripper()
                 time.sleep(0.5)
 
@@ -629,7 +638,7 @@ class SpotDemoAgent:
                         np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
                     )
                 time.sleep(0.5)
-                success = gaze.gaze_and_grasp()
+                success = self.gaze.gaze_and_grasp()
                 time.sleep(0.5)
                 if success:
                     # TODO: @JAY make placing cleaner
@@ -652,8 +661,10 @@ class SpotDemoAgent:
                         object=object_category_name,
                         place=place_location,
                     )
-                    rot = gaze.get_pick_location()
-                    place_in_an_instance(instance_pose, location, vf, self.spot,place_rotation=rot)
+                    rot = self.gaze.get_pick_location()
+                    place_in_an_instance(
+                        instance_pose, location, vf, self.spot, place_rotation=rot
+                    )
 
                 """
                 # visualize pointcloud and add location as red
@@ -674,6 +685,113 @@ class SpotDemoAgent:
                     self.goto(center)
                     # exit out of loop without killing script
                     break
+
+    def run_explore(self):
+        """Run exploration in different environments. Will explore until there's nothing else to find."""
+        # Track the number of times exploration failed
+        explore_failures = 0
+        for step in range(int(self.parameters["exploration_steps"])):
+            # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
+            print(
+                "-" * 20,
+                step + 1,
+                "/",
+                int(self.parameters["exploration_steps"]),
+                "-" * 20,
+            )
+
+            # Get current position and goal
+            start = self.spot.current_position
+            goal = None
+            logger.info("Start xyt: {}", start)
+            start_is_valid = self.navigation_space.is_valid(start)
+            if start_is_valid:
+                logger.success("Start is valid: {}", start_is_valid)
+            else:
+                # TODO do something is start is not valid
+                logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
+                self.backup_from_invalid_state()
+                continue
+
+            logger.info("Start is safe: {}", self.voxel_map.xyt_is_safe(start))
+
+            if self.parameters["explore_methodical"]:
+                logger.info("Generating the next closest frontier point...")
+                res = self.plan_to_frontier()
+                if res.success:
+                    explore_failures = 0
+                else:
+                    explore_failures += 1
+                    logger.warning("Exploration failed: " + str(res.reason))
+                    if explore_failures > self.parameters["max_explore_failures"]:
+                        logger.debug("Switching to random exploration")
+                        goal = next(
+                            self.navigation_space.sample_random_frontier(
+                                min_size=self.parameters["min_size"],
+                                max_size=self.parameters["max_size"],
+                            )
+                        )
+                        if goal is None:
+                            # Nowhere to go
+                            logger.info("Done exploration!")
+                            return
+
+                        goal = goal.cpu().numpy()
+                        goal_is_valid = self.navigation_space.is_valid(goal)
+                        logger.info(f" Goal is valid: {goal_is_valid}")
+                        if not goal_is_valid:
+                            # really we should sample a new goal
+                            continue
+
+                        #  Build plan
+                        res = self.planner.plan(start, goal)
+                        logger.info(goal)
+                        if res.success:
+                            logger.success("Res success: {}", res.success)
+                        else:
+                            logger.error("Res success: {}", res.success)
+            else:
+                logger.info(
+                    "picking a random frontier point and trying to move there..."
+                )
+                # Sample a goal in the frontier (TODO change to closest frontier)
+                goal = self.sample_random_frontier()
+                if goal is None:
+                    logger.info("Done exploration!")
+                    return
+
+                goal_is_valid = self.navigation_space.is_valid(goal)
+                logger.info(
+                    f" Goal is valid: {goal_is_valid}",
+                )
+                if not goal_is_valid:
+                    # really we should sample a new goal
+                    continue
+
+                #  Build plan
+                res = self.planner.plan(start, goal)
+                logger.info(goal)
+                if res.success:
+                    logger.success("Res success: {}", res.success)
+                else:
+                    logger.error("Res success: {}", res.success)
+
+            if res.success:
+                self.spot.execute_plan(
+                    res,
+                    pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
+                    rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
+                    per_step_timeout=self.parameters["trajectory_per_step_timeout"],
+                )
+            elif goal is not None and len(goal) > 0:
+                logger.warning("Just go ahead and try it anyway")
+                self.spot.navigate_to(goal)
+
+            if not self.parameters["use_async_subscriber"]:
+                self.update(step + 1)
+
+            if step % 1 == 0 and self.parameters["visualize"]:
+                self.visualize(start, goal, step)
 
 
 # def main(dock: Optional[int] = 549):
@@ -710,7 +828,6 @@ def main(dock: Optional[int] = None, args=None):
     voxel_map = demo.voxel_map
     semantic_sensor = demo.semantic_sensor
     navigation_space = demo.navigation_space
-    planner = demo.planner
     start = None
     goal = None
 
@@ -733,96 +850,7 @@ def main(dock: Optional[int] = None, args=None):
         demo.rotate_in_place()
 
         voxel_map.show()
-        # Track the number of times exploration failed
-        explore_failures = 0
-        for step in range(int(parameters["exploration_steps"])):
-            # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
-            print(
-                "-" * 20, step + 1, "/", int(parameters["exploration_steps"]), "-" * 20
-            )
-
-            # Get current position and goal
-            start = spot.current_position
-            goal = None
-            logger.info("Start xyt: {}", start)
-            start_is_valid = navigation_space.is_valid(start)
-            if start_is_valid:
-                logger.success("Start is valid: {}", start_is_valid)
-            else:
-                # TODO do something is start is not valid
-                logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
-                demo.backup_from_invalid_state()
-                continue
-
-            logger.info("Start is safe: {}", voxel_map.xyt_is_safe(start))
-
-            if parameters["explore_methodical"]:
-                logger.info("Generating the next closest frontier point...")
-                res = demo.plan_to_frontier()
-                if not res.success:
-                    explore_failures += 1
-                    logger.warning(res.reason)
-                    if explore_failures > parameters["max_explore_failures"]:
-                        logger.debug("Switching to random exploration")
-                        goal = next(
-                            navigation_space.sample_random_frontier(
-                                min_size=parameters["min_size"],
-                                max_size=parameters["max_size"],
-                            )
-                        )
-                        goal = goal.cpu().numpy()
-                        goal_is_valid = navigation_space.is_valid(goal)
-                        logger.info(f" Goal is valid: {goal_is_valid}")
-                        if not goal_is_valid:
-                            # really we should sample a new goal
-                            continue
-
-                        #  Build plan
-                        res = planner.plan(start, goal)
-                        logger.info(goal)
-                        if res.success:
-                            logger.success("Res success: {}", res.success)
-                        else:
-                            logger.error("Res success: {}", res.success)
-            else:
-                explore_failures = 0
-                logger.info(
-                    "picking a random frontier point and trying to move there..."
-                )
-                # Sample a goal in the frontier (TODO change to closest frontier)
-                goal = demo.sample_random_frontier()
-                goal_is_valid = navigation_space.is_valid(goal)
-                logger.info(
-                    f" Goal is valid: {goal_is_valid}",
-                )
-                if not goal_is_valid:
-                    # really we should sample a new goal
-                    continue
-
-                #  Build plan
-                res = planner.plan(start, goal)
-                logger.info(goal)
-                if res.success:
-                    logger.success("Res success: {}", res.success)
-                else:
-                    logger.error("Res success: {}", res.success)
-
-            if res.success:
-                spot.execute_plan(
-                    res,
-                    pos_err_threshold=parameters["trajectory_pos_err_threshold"],
-                    rot_err_threshold=parameters["trajectory_rot_err_threshold"],
-                    per_step_timeout=parameters["trajectory_per_step_timeout"],
-                )
-            elif goal is not None and len(goal) > 0:
-                logger.warning("Just go ahead and try it anyway")
-                spot.navigate_to(goal)
-
-            if not parameters["use_async_subscriber"]:
-                demo.update(step + 1)
-
-            if step % 1 == 0 and parameters["visualize"]:
-                demo.visualize(start, goal, step)
+        demo.run_explore()
 
         logger.info("Exploration complete!")
         demo.run_task(stub, center=np.array([x0, y0, theta0]), data=data)
