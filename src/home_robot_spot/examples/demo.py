@@ -400,7 +400,11 @@ class SpotDemoAgent:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
 
         # Finally, navigate to the final position
-        logger.info("Navigating to goal position: {}, start = {}", goal_position, self.spot.current_position)
+        logger.info(
+            "Navigating to goal position: {}, start = {}",
+            goal_position,
+            self.spot.current_position,
+        )
         self.spot.navigate_to(goal_position, blocking=True)
 
         if visualize:
