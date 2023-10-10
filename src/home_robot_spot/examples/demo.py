@@ -11,20 +11,18 @@ import sys
 import time
 from typing import Dict, List, Optional
 
+import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
-from loguru import logger
-from PIL import Image
-
-import home_robot_spot.nav_client as nc
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
     read_category_map_file,
 )
+from home_robot.home_robot.utils.demo_chat import DemoChat
 from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
 from home_robot.mapping.voxel import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
@@ -42,17 +40,20 @@ from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
+from loguru import logger
+from PIL import Image
 
 ## Temporary hack until we make accel-cortex pip installable
 # sys.path.append("path to accel-cortext base folder")
 print("Make sure path to accel-cortex base folder is set")
 # sys.path.append(os.path.expanduser("~/Documents/accel-cortex"))
-sys.path.append(os.path.expanduser(os.environ['ACCEL_CORTEX']))
+sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
 import grpc
-import src.rpc
 import task_rpc_env_pb2
-from src.utils.observations import ObjectImage, Observations, ProtoConverter
 from task_rpc_env_pb2_grpc import AgentgRPCStub
+
+import src.rpc
+from src.utils.observations import ObjectImage, Observations, ProtoConverter
 
 
 # NOTE: this requires 'pip install atomicwrites'
@@ -201,6 +202,7 @@ class SpotDemoAgent:
         )
         self.spot_config = spot_config
         self.path = path
+        self.chat = DemoChat(f"{self.path}/demo_chat.json")
 
     def backup_from_invalid_state(self):
         """Helper function to get the robot unstuck (it is too close to geometry)"""
@@ -471,7 +473,9 @@ class SpotDemoAgent:
                         instances, args.context_length
                     )
                     # ask vlm for plan
-                    task = input("please type any task you want the robot to do: ")
+                    task = self.chat.input(
+                        "please type any task you want the robot to do: "
+                    )
                     # task is the prompt, save it
                     data["prompt"] = task
                     output = stub.stream_act_on_observations(
@@ -483,8 +487,9 @@ class SpotDemoAgent:
                     )
                     plan = output.action
                     print(plan)
+                    self.chat.output(plan)
 
-                    execute = input(
+                    execute = self.chat.input(
                         "do you want to execute (replan otherwise)? (y/n): "
                     )
                     if "y" in execute:
@@ -572,13 +577,16 @@ class SpotDemoAgent:
                 success = True
             else:
                 print("Navigating to instance ")
+                self.chat.output("Navigating to instance ")
                 print(f"Instance id: {pick_instance_id}")
+                self.chat.output(f"Instance id: {pick_instance_id}")
                 success = self.navigate_to_an_instance(
                     pick_instance_id,
                     visualize=self.parameters["visualize"],
-                    should_plan=False
+                    should_plan=False,
                 )
                 print(f"Success: {success}")
+                self.chat.output(f"Success: {success}")
 
                 # # try to pick up this instance
                 # if success:
@@ -653,7 +661,9 @@ class SpotDemoAgent:
                         place=place_location,
                     )
                     rot = gaze.get_pick_location()
-                    place_in_an_instance(instance_pose, location, vf, self.spot,place_rotation=rot)
+                    place_in_an_instance(
+                        instance_pose, location, vf, self.spot, place_rotation=rot
+                    )
 
                 """
                 # visualize pointcloud and add location as red
