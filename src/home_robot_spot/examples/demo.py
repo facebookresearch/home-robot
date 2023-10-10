@@ -656,7 +656,7 @@ class SpotDemoAgent:
                         np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
                     )
                 time.sleep(0.5)
-                success = self.gaze.gaze_and_grasp()
+                success = self.gaze.gaze_and_grasp(finish_sweep_before_deciding=False)
                 time.sleep(0.5)
                 if success:
                     # TODO: @JAY make placing cleaner
@@ -703,6 +703,9 @@ class SpotDemoAgent:
                     self.goto(center)
                     # exit out of loop without killing script
                     break
+                else:
+                    # Go back to look position
+                    self.gaze.reset_to_look()
 
     def run_explore(self):
         """Run exploration in different environments. Will explore until there's nothing else to find."""
@@ -869,7 +872,6 @@ def main(dock: Optional[int] = None, args=None):
         demo.rotate_in_place()
 
         voxel_map.show()
-        breakpoint()
 
         demo.run_explore()
 
