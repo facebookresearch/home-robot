@@ -461,6 +461,12 @@ class SpotDemoAgent:
         vf = vr + (vp - vr) * k
         return instance_pose, location, vf
 
+    def get_language_task(self):
+        if "command" in self.parameters:
+            return self.parameters["command"]
+        else:
+            return input("please type any task you want the robot to do: ")
+
     def run_task(self, stub, center, data):
         """Actually use VLM to perform task
 
@@ -487,15 +493,13 @@ class SpotDemoAgent:
                     world_representation = get_obj_centric_world_representation(
                         instances, args.context_length
                     )
-                    # ask vlm for plan
-                    task = input("please type any task you want the robot to do: ")
                     # task is the prompt, save it
-                    data["prompt"] = task
+                    data["prompt"] = self.get_language_task()
                     output = stub.stream_act_on_observations(
                         ProtoConverter.wrap_obs_iterator(
                             episode_id=random.randint(1, 1000000),
                             obs=world_representation,
-                            goal=task,
+                            goal=data["prompt"],
                         )
                     )
                     plan = output.action
@@ -782,6 +786,7 @@ class SpotDemoAgent:
                     pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
                     rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
                     per_step_timeout=self.parameters["trajectory_per_step_timeout"],
+                    verbose=False,
                 )
             elif goal is not None and len(goal) > 0:
                 logger.warning("Just go ahead and try it anyway")
@@ -850,6 +855,8 @@ def main(dock: Optional[int] = None, args=None):
         demo.rotate_in_place()
 
         voxel_map.show()
+        breakpoint()
+
         demo.run_explore()
 
         logger.info("Exploration complete!")
