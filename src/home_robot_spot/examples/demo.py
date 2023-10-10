@@ -64,12 +64,16 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             bounds = torch.stack(bounds, dim=0)
             names = torch.stack(names, dim=0).unsqueeze(-1)
             scores = torch.tensor([ins.score for ins in instances])
-            embeds = torch.stack(
-                [
-                    ins.get_image_embedding(aggregation_method="mean")
-                    for ins in instances
-                ]
-            ).cpu().detach()
+            embeds = (
+                torch.stack(
+                    [
+                        ins.get_image_embedding(aggregation_method="mean")
+                        for ins in instances
+                    ]
+                )
+                .cpu()
+                .detach()
+            )
         else:
             bounds = torch.zeros(0, 3, 2)
             names = torch.zeros(0, 1)
@@ -77,6 +81,11 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
                 0,
             )
             embeds = torch.zeros(0, 512)
+
+        # Map
+        obstacles, explored = model.get_2d_map()
+        map_im = obstacles.int() + explored.int()
+
         logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
         pickle.dump(
             dict(
@@ -92,6 +101,7 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
                 box_names=names,
                 box_scores=scores,
                 box_embeddings=embeds,
+                map_im=map_im.cpu().detach(),
             ),
             f,
         )
@@ -109,7 +119,7 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
         obs.object_images.append(
             ObjectImage(
                 crop_id=global_id,
-                image=crop,
+                image=crop.contiguous(),
             )
         )
     # TODO: the model currenly can only handle 20 crops
