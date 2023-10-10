@@ -1,7 +1,13 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 import time
+from typing import List, Optional
 
 import cv2
 import numpy as np
+from loguru import logger
 from spot_rl.models import OwlVit
 from spot_wrapper.spot import Spot, SpotCamIds
 from spot_wrapper.spot import image_response_to_cv2 as imcv2
@@ -13,23 +19,28 @@ class GraspController:
     def __init__(
         self,
         config=None,
-        spot=None,
-        objects=[["ball", "lion"]],
+        spot: Optional[Spot] = None,
+        objects: Optional[List[List[str]]] = [["ball", "lion"]],
         confidence=0.05,
         show_img=False,
         top_grasp=False,
         hor_grasp=False,
     ):
         self.spot = spot
-        self.labels = [f"an image of {y}" for x in objects for y in x]
         self.confidence = confidence
         self.show_img = show_img
         self.top_grasp = top_grasp
         self.hor_grasp = hor_grasp
-        self.detector = OwlVit(self.labels, self.confidence, self.show_img)
+        if objects is not None:
+            self.set_objects(objects)
         self.look = np.deg2rad(config.SPOT.GAZE_ARM_JOINT_ANGLES)
         self.stow = np.deg2rad(config.SPOT.PLACE_ARM_JOINT_ANGLES)
-        self.pick_location = []
+        self.pick_location: List[float] = []
+
+    def set_objects(self, objects: List[List[str]]):
+        """set the objects"""
+        self.labels = [f"an image of {y}" for x in objects for y in x]
+        self.detector = OwlVit(self.labels, self.confidence, self.show_img)
 
     def reset_to_look(self):
         """
@@ -120,11 +131,12 @@ class GraspController:
         if isinstance(img, np.ndarray) or isinstance(img, list):
             if isinstance(img, list):
                 img = np.asarray(img)
-                print(f" > Converted img from list -> {type(img)}")
+                logger.info(f" > Converted img from list -> {type(img)}")
             coords = self.detector.run_inference(img)
             if len(coords) > 0:
-                print(f" > Result -- {coords}")
+                logger.info(f" > Result -- {coords}")
                 bounding_box = coords[0][2]
+                confidence = coords[0][1]
                 center = np.array(
                     [
                         (bounding_box[0] + bounding_box[2]) / 2,
@@ -144,14 +156,14 @@ class GraspController:
 
                 filename = f"{coords[0][0].replace(' ', '_')}.jpg"
                 cv2.imwrite(filename, img)
-                print(f" > Saved {filename}")
-                return center
+                logger.info(f" > Saved {filename}")
+                return center, confidence
             else:
-                return None
+                return None, None
         else:
             raise TypeError(f"img is of type {type(img)}, expected is numpy array")
 
-    def sweep(self):
+    def sweep(self, finish_sweep_before_deciding=True):
         """
         Perform a sweeping motion while looking for an object.
 
@@ -163,23 +175,38 @@ class GraspController:
             the pixel coordinates of the object. If no object is found, returns None.
         """
         new_look = self.look
-        sweep_angles = [
+        sweep_angles = [0] + [
             -np.pi / 4 + i * np.pi / 8 for i in range(5)
         ]  # Compute sweep angles
+
+        matches = []
         for angle in sweep_angles:
             new_look[0] = angle
-            print(f" > Moving to a new position at angle {angle}")
+            logger.info(f" > Moving to a new position at angle {angle}")
             self.spot.set_arm_joint_positions(new_look, travel_time=1)
             time.sleep(1.0)
             responses = self.spot.get_image_responses([SpotCamIds.HAND_COLOR])
-            print(" > Looking for the object")
-            pixel = self.find_obj(img=imcv2(responses[0]))
+            logger.info(" > Looking for the object")
+            pixel, confidence = self.find_obj(img=imcv2(responses[0]))
             if pixel is not None:
-                print(
+                matches.append([pixel, responses[0], confidence, new_look])
+                logger.info(
                     f" > Object found at {pixel} with spot coords: {self.spot.get_arm_proprioception()}"
                 )
-                return responses[0], pixel
-        return None, None
+
+                # Return first match
+                if not finish_sweep_before_deciding:
+                    return responses[0], pixel, self.look
+        self.reset_to_look()
+
+        # No matches
+        if len(matches) == 0:
+            return None, None, None
+
+        # Return best match
+        best_match = max(matches, key=lambda match: match[2])
+        self.spot.set_arm_joint_positions(best_match[3], travel_time=1)
+        return best_match[1], best_match[0], best_match[3]
 
     def grasp(self, hand_image_response, pixels, timeout=10, count=3):
         """
@@ -214,7 +241,12 @@ class GraspController:
         k = 0
         while True:
             if pixels is not None:
-                print(f" > Grasping object at {pixels}")
+                logger.info(f" > Grasping object at {pixels}")
+                self.reset_to_look()
+                grasp_look = self.look
+                grasp_look[-2] = np.deg2rad(90)
+                self.spot.set_arm_joint_positions(grasp_look, travel_time=1.0)
+                time.sleep(1)
                 success = self.spot.grasp_point_in_image(
                     hand_image_response,
                     pixel_xy=pixels,
@@ -223,19 +255,19 @@ class GraspController:
                     horizontal_grasp=self.hor_grasp,
                 )
                 if success:
-                    print(" > Sucess")
+                    logger.info(" > Sucess")
                     self.pick_location = self.spot.get_arm_joint_positions(
                         as_array=True
-                    )
+                    )[-2:]
                     self.reset_to_stow()
                     time.sleep(1)
                     return success
                 k = k + 1
-                print(
+                logger.info(
                     f" > Could not find object from the labels, tries left: {count - k}"
                 )
                 if k >= count:
-                    print(" > Ending trial as target trials reached")
+                    logger.info(" > Ending trial as target trials reached")
                     return success
             else:
                 return None
@@ -273,31 +305,20 @@ class GraspController:
             return self.pick_location
         return None
 
-    def gaze_and_grasp(self):
-        image_response = self.spot.get_image_responses([SpotCamIds.HAND_COLOR])
-        hand_image_response = image_response[0]
-        pixels = self.find_obj(img=imcv2(hand_image_response))
-        # print(f" > Finding object at {self.spot.get_arm_proprioception()}")
+    def gaze_and_grasp(self, finish_sweep_before_deciding=True):
+        hand_image_response, pixels, arm_pos = self.sweep(finish_sweep_before_deciding)
+        if arm_pos is not None:
+            self.spot.set_arm_joint_positions(arm_pos, travel_time=1.5)
         if pixels is not None:
-            print(f" > Found object at {pixels}, grasping it")
+            logger.info(
+                f" > Object found at {pixels} with spot coords: {self.spot.get_arm_joint_positions(as_array=True)}"
+            )
             success = self.grasp(hand_image_response=hand_image_response, pixels=pixels)
             return success
         else:
-            print(" > Unable to find the object at initial pose, sweeping through")
-            hand_image_response, pixels = self.sweep()
-            if pixels is not None:
-                print(
-                    f" > Object found at {pixels} with spot coords: {self.spot.get_arm_proprioception()}"
-                )
-                success = self.grasp(
-                    hand_image_response=hand_image_response, pixels=pixels
-                )
-                return success
-            else:
-                print(" > No object found after sweep...BBBBOOOOOOOOOOOOOOOOO :((")
-                self.spot_is_disappointed()
-
-        return None
+            logger.info(" > No object found after sweep...BBBBOOOOOOOOOOOOOOOOO :((")
+            self.spot_is_disappointed()
+            return None
 
 
 if __name__ == "__main__":
@@ -308,7 +329,7 @@ if __name__ == "__main__":
     gaze = GraspController(
         config=config,
         spot=spot,
-        objects=[["penguin plush"]],
+        objects=[["soft toy"]],
         confidence=0.1,
         show_img=True,
         top_grasp=False,
@@ -321,10 +342,5 @@ if __name__ == "__main__":
         # spot.set_arm_joint_positions(gaze_arm_joint_angles, travel_time=1.0)
         spot.open_gripper()
         time.sleep(1)
-        print("Resetting environment...")
+        logger.info("Resetting environment...")
         success = gaze.gaze_and_grasp()
-        pick = gaze.get_pick_location()
-        spot.set_arm_joint_positions(pick, travel_time=1)
-        time.sleep(1)
-        spot.open_gripper()
-        time.sleep(2)

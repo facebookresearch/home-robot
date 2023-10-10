@@ -1,36 +1,51 @@
+# Perception parameters
 clip: "ViT-B/32"
 
 # Planner parameters
-step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
+step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually)
 rotation_step_size: 0.5
 visualize: False
-exploration_steps: 10
+exploration_steps: 0
 shortcut_iter: 250
+extend_mode: "joint"  # joint = rotate and move at the same time
+# extend_mode: "separate"
 
 # Frontier search parameters
 frontier_step_dist: 0.5
 frontier_min_dist: 0.5
 
 # Voxel map
+min_depth: 0.5
+max_depth: 3.5
 obs_min_height: 0.1  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
 obs_max_height: 1.8  # Originally 1.8, spot is shorter than stretch tho
 obs_min_density: 12  # Originally 10, making it bigger because theres a bunch on noise
 voxel_size: 0.02
 local_radius: 1.5  # Can probably be bigger than original (.15)
+
 # 2d parameters
 explore_methodical: True
 max_explore_failures: 3
-dilate_frontier_size: 22
+dilate_frontier_size: 25
 dilate_obstacle_size: 2  # Value used in pittsburgh lab
 # "dilate_obstacle_size": 5, # value from fremont
 smooth_kernel_size: 5
+
 # Frontier
 min_size: 20  # Can probably be bigger than original (10)
 max_size: 40  # Can probably be bigger than original (10)
 
+# Grasping parameters
+plan_to_instance: True
+verify_before_grasp: False
+nbr_dist: 0.2  # 0.15
+residual_thresh: 0.03
+pick_place_radius: 2.0
+
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
 trajectory_rot_err_threshold: 0.5
+trajectory_per_step_timeout: 1.5
 
 # Data collection and sensors
 use_async_subscriber: False
@@ -43,3 +58,5 @@ pick_categories: ["bottle", "cup"]
 place_categories: ["chair", "sofa"]
 use_get_close: False
 best_view_metric: "area"
+command: "move a stuffed toy to a chair"
+confirm_plan: False
