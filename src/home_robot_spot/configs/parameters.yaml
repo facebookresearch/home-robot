@@ -5,7 +5,7 @@ clip: "ViT-B/32"
 step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually)
 rotation_step_size: 0.5
 visualize: False
-exploration_steps: 0
+exploration_steps: 5
 shortcut_iter: 250
 extend_mode: "joint"  # joint = rotate and move at the same time
 # extend_mode: "separate"
@@ -35,12 +35,13 @@ smooth_kernel_size: 5
 min_size: 20  # Can probably be bigger than original (10)
 max_size: 40  # Can probably be bigger than original (10)
 
-# Grasping parameters
+# Grasping and placing parameters
 plan_to_instance: True
 verify_before_grasp: False
 nbr_dist: 0.2  # 0.15
 residual_thresh: 0.03
 pick_place_radius: 1.5
+place_offset: 0.75  # after orienting to the place location, move until within this offset
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5

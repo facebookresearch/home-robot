@@ -186,7 +186,7 @@ class SpotDemoAgent:
         
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
         with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
-            pickle.dump(self.semantic_sensor.segmenter.seg_id_to_name, f)
+            pickle.dump(self.semantic_sensor.seg_id_to_name, f)
 
         self.planner = Shortcut(
             RRTConnect(self.navigation_space, self.navigation_space.is_valid),
@@ -380,8 +380,8 @@ class SpotDemoAgent:
         self.spot.navigate_to(
             np.array([instance_pose[0], instance_pose[1], theta]), blocking=True
         )
-        distance_to_place = np.linalg.norm(dxy)
-        dist_to_move = max(0, distance_to_place - 1.0)
+        dist_to_place = np.linalg.norm(dxy)
+        dist_to_move = max(0, dist_to_place - self.parameters["place_offset"])
         print(f"Moving {dist_to_move} closer to {location}...")
         self.spot.navigate_to(
             np.array([dist_to_move, 0, 0]), relative=True, blocking=True
@@ -1002,7 +1002,8 @@ def main(dock: Optional[int] = None, args=None):
                 if goal is not None:
                     navigation_space.draw_state_on_grid(img, goal, weight=5)
                 plt.imshow(img)
-                plt.show()
+                if demo.parameters["visualize"]:
+                    plt.show()
                 plt.imsave(f"{path}/exploration_step_final.png", img)
 
         spot.navigate_to(np.array([x0, y0, theta0]))
