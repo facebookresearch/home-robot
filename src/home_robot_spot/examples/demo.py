@@ -470,7 +470,22 @@ class SpotDemoAgent:
             self.spot.navigate_to(goal)
         return res
 
+    def get_pose_for_best_view(self, instance_id: int) -> torch.Tensor:
+        """Get the best view for a particular object by whatever metric we use, and return the associated pose (as an xyt)"""
+        instances = self.voxel_map.get_instances()
+        return (
+            instances[instance_id]
+            .get_best_view(metric=self.parameters["best_view_metric"])
+            .pose
+        )
+
     def get_close(self, instance_id, dist=0.25):
+        """Compute a nearer location to {instance_id} to move to and go there.
+
+        Returns:
+            instance_pose (torch.Tensor): the view we want to start at
+            location (np.ndarray): xyz to place at if we do that
+            vf: viewpoint made closer by {dist}"""
         # Parameters for the placing function from the pointcloud
         ground_normal = torch.tensor([0.0, 0.0, 1])
         nbr_dist = self.parameters["nbr_dist"]
@@ -486,10 +501,7 @@ class SpotDemoAgent:
 
         # # Navigate close to that location
         # # TODO solve the system of equations to get k such that the distance is .75 meters
-
-        instance_pose = (
-            self.voxel_map.get_instances()[instance_id].instance_views[-1].pose
-        )
+        instance_pose = self.get_pose_for_best_view(instance_id)
         vr = np.array([instance_pose[0], instance_pose[1]])
         vp = np.asarray(location[:2])
         k = 1 - (dist / (np.linalg.norm(vp - vr)))
@@ -667,11 +679,7 @@ class SpotDemoAgent:
 
                 logger.log("DEMO", "Resetting environment...")
                 # TODO: have a better way to reset the environment
-                obj_pose = (
-                    instances[pick_instance_id]
-                    .get_best_view(metric=self.parameters["best_view_metric"])
-                    .pose
-                )
+                obj_pose = self.get_pose_for_best_view(pick_instance_id)
                 xy = np.array([obj_pose[0], obj_pose[1]])
                 curr_pose = self.spot.current_position
                 vr = np.array([curr_pose[0], curr_pose[1]])
@@ -702,10 +710,11 @@ class SpotDemoAgent:
                         int(instances[place_instance_id].category_id.item())
                     ]
                     # Get close to the instance after we nvagate
-                    if self.parameters["use_get_close"]:
-                        instance_pose, location, vf = self.get_close(
-                            place_instance_id, dist=0.5
-                        )
+                    instance_pose, location, vf = self.get_close(
+                        place_instance_id, dist=0.5
+                    )
+                    if not self.parameters["use_get_close"]:
+                        vf = instance_pose
                     # Now we can try to actually place at the target location
                     logger.info(
                         "placing {object} at {place}",
