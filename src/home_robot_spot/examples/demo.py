@@ -85,41 +85,6 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
     # logger.success("Done saving observation to pickle file.")
 
 
-def place_in_an_instance(
-    instance_pose,
-    location,
-    vf,
-    spot,
-    place_height=0.3,
-    place_rotation=[0, np.pi / 2, 0],
-):
-    # TODO: Check if vf is correct
-    spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
-
-    # Transform placing position to body frame coordinates
-    x, y, yaw = spot.spot.get_xy_yaw()
-    local_xyt = xyt_global_to_base(location, np.array([x, y, yaw]))
-
-    # z is the height of the receptacle minus the height of spot + the desired delta for placing
-    z = location[2] - spot.spot.body.z + place_height
-    local_xyz = np.array([local_xyt[0], local_xyt[1], z])
-    rotations = np.array([0, 0, 0])
-
-    # Now we place
-    spot.spot.move_gripper_to_point(local_xyz, rotations)
-    time.sleep(2)
-    arm = spot.spot.get_arm_joint_positions()
-    arm[-1] = place_rotation[-1]
-    arm[-2] = place_rotation[0]
-    spot.spot.set_arm_joint_positions(arm, travel_time=1.5)
-    time.sleep(2)
-    spot.spot.open_gripper()
-
-    # reset arm
-    time.sleep(0.5)
-    spot.reset_arm()
-
-
 def get_obj_centric_world_representation(instance_memory, max_context_length):
     """Get version that LLM can handle - convert images into torch if not already"""
     obs = Observations(object_images=[])
@@ -330,6 +295,10 @@ class SpotDemoAgent:
             if not self.parameters["use_async_subscriber"]:
                 self.update()
 
+        # Should we display after spinning? If visualize is true we will
+        if self.parameters["visualize"]:
+            self.voxel_map.show()
+
     def update(self, step=0):
         time.sleep(0.1)
         obs = self.spot.get_rgbd_obs()
@@ -363,6 +332,40 @@ class SpotDemoAgent:
         plt.show()
         plt.imsave(f"exploration_step_{step}.png", img)
 
+    def place_in_an_instance(
+        self,
+        instance_pose,
+        location,
+        vf,
+        place_height=0.3,
+        place_rotation=[0, np.pi / 2, 0],
+    ):
+        # TODO: Check if vf is correct
+        self.spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
+
+        # Transform placing position to body frame coordinates
+        x, y, yaw = self.spot.spot.get_xy_yaw()
+        local_xyt = xyt_global_to_base(location, np.array([x, y, yaw]))
+
+        # z is the height of the receptacle minus the height of spot + the desired delta for placing
+        z = location[2] - self.spot.spot.body.z + place_height
+        local_xyz = np.array([local_xyt[0], local_xyt[1], z])
+        rotations = np.array([0, 0, 0])
+
+        # Now we place
+        self.spot.spot.move_gripper_to_point(local_xyz, rotations)
+        time.sleep(2)
+        arm = self.spot.spot.get_arm_joint_positions()
+        arm[-1] = place_rotation[-1]
+        arm[-2] = place_rotation[0]
+        self.spot.spot.set_arm_joint_positions(arm, travel_time=1.5)
+        time.sleep(2)
+        self.spot.spot.open_gripper()
+
+        # reset arm
+        time.sleep(0.5)
+        self.spot.reset_arm()
+
     def navigate_to_an_instance(
         self,
         instance_id,
@@ -378,16 +381,41 @@ class SpotDemoAgent:
         view = instance.instance_views[-1]
         goal_position = np.asarray(view.pose)
         start = self.spot.current_position
+        start_is_valid = self.navigation_space.is_valid(start)
 
+        print("\n----- NAVIGATE TO THE RIGHT INSTANCE ------")
+        print("Start is valid:", start_is_valid)
         print(f"{goal_position=}")
         print(f"{start=}")
         print(f"{instance.bounds=}")
-        if should_plan:
-            start_is_valid = self.navigation_space.is_valid(start)
-            goal_is_valid = self.navigation_space.is_valid(goal_position)
-            print(f"{start_is_valid=}")
-            print(f"{goal_is_valid=}")
-            res = self.planner.plan(start, goal_position)
+        if should_plan and start_is_valid:
+            # TODO: this is a bad name for this variable
+            print("listing all views for your convenience:")
+            for j, view in enumerate(instance.instance_views):
+                print(j, view.cam_to_world)
+            res = None
+            mask = self.voxel_map.mask_from_bounds(instance.bounds)
+            for goal in self.navigation_space.sample_near_mask(
+                mask, radius_m=self.parameters["pick_place_radius"]
+            ):
+                goal = goal.cpu().numpy()
+                print("       Start:", start)
+                print("Sampled Goal:", goal)
+                show_goal = np.zeros(3)
+                show_goal[:2] = goal[:2]
+                goal_is_valid = self.navigation_space.is_valid(goal)
+                print("Start is valid:", start_is_valid)
+                print(" Goal is valid:", goal_is_valid)
+                if not goal_is_valid:
+                    print(" -> resample goal.")
+                    continue
+
+                # plan to the sampled goal
+                res = self.planner.plan(start, goal)
+                print("Found plan:", res.success)
+                if res.success:
+                    break
+
             if res.success:
                 logger.success("Res success: {}", res.success)
                 self.spot.execute_plan(
@@ -668,6 +696,7 @@ class SpotDemoAgent:
                         visualize=self.parameters["visualize"],
                         should_plan=self.parameters["plan_to_instance"],
                     )
+                    print(f"navigated to place {success=}")
                     place_location = self.vocab.goal_id_to_goal_name[
                         int(instances[place_instance_id].category_id.item())
                     ]
@@ -680,8 +709,8 @@ class SpotDemoAgent:
                         place=place_location,
                     )
                     rot = self.gaze.get_pick_location()
-                    place_in_an_instance(
-                        instance_pose, location, vf, self.spot, place_rotation=rot
+                    self.place_in_an_instance(
+                        instance_pose, location, vf, place_rotation=rot
                     )
 
                 """
@@ -870,9 +899,6 @@ def main(dock: Optional[int] = None, args=None):
             demo.update()
 
         demo.rotate_in_place()
-
-        voxel_map.show()
-
         demo.run_explore()
 
         logger.info("Exploration complete!")

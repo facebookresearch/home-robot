@@ -40,11 +40,12 @@ plan_to_instance: True
 verify_before_grasp: False
 nbr_dist: 0.2  # 0.15
 residual_thresh: 0.03
+pick_place_radius: 2.0
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
 trajectory_rot_err_threshold: 0.5
-trajectory_per_step_timeout: 1.0
+trajectory_per_step_timeout: 1.5
 
 # Data collection and sensors
 use_async_subscriber: False
