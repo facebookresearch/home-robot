@@ -159,6 +159,8 @@ class SpotDemoAgent:
             local_radius=parameters["local_radius"],
             obs_min_height=parameters["obs_min_height"],
             obs_max_height=parameters["obs_max_height"],
+            min_depth=parameters["min_depth"],
+            max_depth=parameters["max_depth"],
             obs_min_density=parameters["obs_min_density"],
             smooth_kernel_size=parameters["smooth_kernel_size"],
             encoder=self.encoder,
@@ -396,10 +398,10 @@ class SpotDemoAgent:
                 )
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
-                should_plan = False
-        if not should_plan:
-            logger.info("Navigating to goal position: {}", goal_position)
-            self.spot.navigate_to(goal_position, blocking=True)
+
+        # Finally, navigate to the final position
+        logger.info("Navigating to goal position: {}, start = {}", goal_position, self.spot.current_position)
+        self.spot.navigate_to(goal_position, blocking=True)
 
         if visualize:
             cropped_image = view.cropped_image
@@ -863,6 +865,7 @@ def main(dock: Optional[int] = None, args=None):
         demo.rotate_in_place()
 
         voxel_map.show()
+        breakpoint()
 
         demo.run_explore()
 

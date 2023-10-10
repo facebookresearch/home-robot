@@ -1,3 +1,4 @@
+# Perception parameters
 clip: "ViT-B/32"
 
 # Planner parameters
@@ -14,6 +15,8 @@ frontier_step_dist: 0.5
 frontier_min_dist: 0.5
 
 # Voxel map
+min_depth: 0.1
+max_depth: 3.5
 obs_min_height: 0.1  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
 obs_max_height: 1.8  # Originally 1.8, spot is shorter than stretch tho
 obs_min_density: 12  # Originally 10, making it bigger because theres a bunch on noise
