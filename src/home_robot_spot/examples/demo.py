@@ -183,7 +183,7 @@ class SpotDemoAgent:
         
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
         with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
-            pickle.dump(self.semantic_sensor.segmenter.seg_id_to_name, f)
+            pickle.dump(self.semantic_sensor.seg_id_to_name, f)
 
         self.planner = Shortcut(
             RRTConnect(self.navigation_space, self.navigation_space.is_valid),
