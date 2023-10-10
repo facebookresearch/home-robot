@@ -69,7 +69,7 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
                     ins.get_image_embedding(aggregation_method="mean")
                     for ins in instances
                 ]
-            )
+            ).cpu().detach()
         else:
             bounds = torch.zeros(0, 3, 2)
             names = torch.zeros(0, 1)
