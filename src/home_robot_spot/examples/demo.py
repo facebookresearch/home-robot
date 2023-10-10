@@ -109,7 +109,7 @@ def get_obj_centric_world_representation(instance_memory, max_context_length):
         obs.object_images.append(
             ObjectImage(
                 crop_id=global_id,
-                image=crop,
+                image=crop.contiguous(),
             )
         )
     # TODO: the model currenly can only handle 20 crops
@@ -347,6 +347,7 @@ class SpotDemoAgent:
 
     def place_in_an_instance(
         self,
+        instance_id: int,
         instance_pose,
         location,
         vf,
@@ -355,14 +356,19 @@ class SpotDemoAgent:
     ):
         """Move to a position to place in an environment."""
         # TODO: Check if vf is correct
-        if self.parameters["use_get_close"]:
-            self.spot.navigate_to(
-                np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
-            )
+        # if self.parameters["use_get_close"]:
+        self.spot.navigate_to(instance_pose, blocking=True)
+        # Compute distance
+        breakpoint()
+        distance_to_place = np.linalg.norm(location - instance_pose[:2])
+        dist_to_move = min(0, distance_to_place - 1.0 - 0.5)
+        print(f"Moving {dist_to_move} closer to {location}...")
+        self.spot.navigate_to(
+            np.array([dist_to_move, 0, 0]), relative=True, blocking=True
+        )
 
         # Transform placing position to body frame coordinates
-        x, y, yaw = self.spot.spot.get_xy_yaw()
-        local_xyt = xyt_global_to_base(location, np.array([x, y, yaw]))
+        local_xyt = xyt_global_to_base(location, self.spot.current_position)
 
         # z is the height of the receptacle minus the height of spot + the desired delta for placing
         z = location[2] - self.spot.spot.body.z + place_height
@@ -746,7 +752,11 @@ class SpotDemoAgent:
                     )
                     rot = self.gaze.get_pick_location()
                     self.place_in_an_instance(
-                        instance_pose, location, vf, place_rotation=rot
+                        place_instance_id,
+                        instance_pose,
+                        location,
+                        vf,
+                        place_rotation=rot,
                     )
 
                 """
