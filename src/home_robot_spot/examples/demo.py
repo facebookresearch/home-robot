@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import datetime
+import math
 import os
 import pickle
 import random
@@ -83,7 +84,7 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             embeds = torch.zeros(0, 512)
 
         # Map
-        obstacles, explored = model.get_2d_map()
+        obstacles, explored = model.voxel_map.get_2d_map()
         map_im = obstacles.int() + explored.int()
 
         logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
@@ -369,10 +370,16 @@ class SpotDemoAgent:
         # if self.parameters["use_get_close"]:
         self.spot.navigate_to(instance_pose, blocking=True)
         # Compute distance
-        breakpoint()
-        distance_to_place = np.linalg.norm(location - instance_pose[:2])
+        dxy = location[:2] - instance_pose[:2]
+        theta = math.atan2(dxy[1], dxy[0])
+        input("----")
+        self.spot.navigate_to(
+            np.array([instance_pose[0], instance_pose[1], theta]), blocking=True
+        )
+        distance_to_place = np.linalg.norm(dxy)
         dist_to_move = min(0, distance_to_place - 1.0 - 0.5)
         print(f"Moving {dist_to_move} closer to {location}...")
+        breakpoint()
         self.spot.navigate_to(
             np.array([dist_to_move, 0, 0]), relative=True, blocking=True
         )
@@ -411,7 +418,7 @@ class SpotDemoAgent:
         instance = instances[instance_id]
 
         # TODO this can be random
-        view = instance.instance_views[-1]
+        view = instance.get_best_view(metric=self.parameters["best_view_metric"])
         goal_position = np.asarray(view.pose)
         start = self.spot.current_position
         start_is_valid = self.navigation_space.is_valid(start)
@@ -449,7 +456,7 @@ class SpotDemoAgent:
                 if res.success:
                     break
 
-            if res.success:
+            if res is not None and res.success:
                 logger.success("Res success: {}", res.success)
                 self.spot.execute_plan(
                     res,
