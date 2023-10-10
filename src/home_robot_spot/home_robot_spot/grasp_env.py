@@ -297,7 +297,7 @@ class GraspController:
             self.spot.set_arm_joint_positions(arm_pos, travel_time=1.5)
         if pixels is not None:
             logger.info(
-                f" > Object found at {pixels} with spot coords: {self.spot.get_arm_proprioception()}"
+                f" > Object found at {pixels} with spot coords: {self.spot.get_arm_joint_positions(as_array=True)}"
             )
             success = self.grasp(
                 hand_image_response=hand_image_response, pixels=pixels
