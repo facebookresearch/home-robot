@@ -605,7 +605,7 @@ class SpotDemoAgent:
                 success = self.navigate_to_an_instance(
                     pick_instance_id,
                     visualize=self.parameters["visualize"],
-                    should_plan=self.parameters["plan_to_an_instance"],
+                    should_plan=self.parameters["plan_to_instance"],
                 )
                 print(f"Success: {success}")
 
@@ -660,7 +660,7 @@ class SpotDemoAgent:
                     success = self.navigate_to_an_instance(
                         place_instance_id,
                         visualize=self.parameters["visualize"],
-                        should_plan=self.parameters["should_plan"],
+                        should_plan=self.parameters["plan_to_instance"],
                     )
                     place_location = self.vocab.goal_id_to_goal_name[
                         int(instances[place_instance_id].category_id.item())
