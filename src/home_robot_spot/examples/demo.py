@@ -340,6 +340,7 @@ class SpotDemoAgent:
         place_height=0.3,
         place_rotation=[0, np.pi / 2, 0],
     ):
+        """Move to a position to place in an environment."""
         # TODO: Check if vf is correct
         self.spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
 
@@ -424,9 +425,9 @@ class SpotDemoAgent:
                     rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
                     per_step_timeout=self.parameters["trajectory_per_step_timeout"],
                 )
+                goal_position = goal
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
-
         # Finally, navigate to the final position
         logger.info(
             "Navigating to goal position: {}, start = {}",
@@ -700,9 +701,12 @@ class SpotDemoAgent:
                     place_location = self.vocab.goal_id_to_goal_name[
                         int(instances[place_instance_id].category_id.item())
                     ]
-                    instance_pose, location, vf = self.get_close(
-                        place_instance_id, dist=0.5
-                    )
+                    # Get close to the instance after we nvagate
+                    if self.parameters["use_get_close"]:
+                        instance_pose, location, vf = self.get_close(
+                            place_instance_id, dist=0.5
+                        )
+                    # Now we can try to actually place at the target location
                     logger.info(
                         "placing {object} at {place}",
                         object=object_category_name,
