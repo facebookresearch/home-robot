@@ -63,9 +63,20 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
             bounds = torch.stack(bounds, dim=0)
             names = torch.stack(names, dim=0).unsqueeze(-1)
+            scores = torch.tensor([ins.score for ins in instances])
+            embeds = torch.stack(
+                [
+                    ins.get_image_embedding(aggregation_method="mean")
+                    for ins in instances
+                ]
+            ).cpu().detach()
         else:
             bounds = torch.zeros(0, 3, 2)
             names = torch.zeros(0, 1)
+            scores = torch.zeros(
+                0,
+            )
+            embeds = torch.zeros(0, 512)
         logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
         pickle.dump(
             dict(
@@ -79,6 +90,8 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
                 xyz_frame=model_obs.xyz_frame,
                 box_bounds=bounds,
                 box_names=names,
+                box_scores=scores,
+                box_embeddings=embeds,
             ),
             f,
         )

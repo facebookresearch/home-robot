@@ -23,6 +23,8 @@
 #    endorse or promote products derived from this software without specific
 #    prior written permission.
 
+import math
+
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -320,6 +322,9 @@ def plot_scene_with_bboxes(
     height: int = None,
     width: int = None,
     use_orthographic: bool = False,
+    equalticks: bool = True,
+    ticklen: float = 1.0,
+    aspectmode: str = "data",
     **kwargs,
 ):  # pragma: no cover
     """
@@ -580,6 +585,30 @@ def plot_scene_with_bboxes(
         yaxis = current_layout["yaxis"]
         zaxis = current_layout["zaxis"]
 
+        # mins = min([axis['range'][0] for axis in (xaxis, yaxis, zaxis)])
+        # maxes = max([axis['range'][1] for axis in (xaxis, yaxis, zaxis)])
+        # xaxis['range'] = [mins, maxes]
+        # yaxis['range'] = [mins, maxes]
+        # zaxis['range'] = [mins, maxes]
+        maxlen = max(
+            [abs(axis["range"][1] - axis["range"][0]) for axis in (xaxis, yaxis, zaxis)]
+        )
+        halflen = maxlen / 2.0
+        nticks = math.ceil(maxlen / ticklen)
+        xaxis["range"] = [
+            sum(xaxis["range"]) / 2.0 + delta for delta in [-halflen, halflen]
+        ]
+        yaxis["range"] = [
+            sum(yaxis["range"]) / 2.0 + delta for delta in [-halflen, halflen]
+        ]
+        zaxis["range"] = [
+            sum(zaxis["range"]) / 2.0 + delta for delta in [-halflen, halflen]
+        ]
+
+        xaxis["nticks"] = nticks
+        yaxis["nticks"] = nticks
+        zaxis["nticks"] = nticks
+
         # Update the axes with our above default and provided settings.
         xaxis.update(**x_settings)
         yaxis.update(**y_settings)
@@ -622,12 +651,23 @@ def plot_scene_with_bboxes(
                 "xaxis": xaxis,
                 "yaxis": yaxis,
                 "zaxis": zaxis,
-                # "aspectmode": "cube",
+                # "aspectmode": "data",
+                "aspectmode": aspectmode,
+                # "aspectratio": {
+                #     'x': 1.0,
+                #     'y': 1.0,
+                #     'z': 1.0,
+                # },
                 "camera": camera,
             }
         )
     if width is not None or height is not None:
-        fig.update_layout(width=width, height=height, aspectmode="data")
+        fig.update_layout(
+            width=width,
+            height=height,
+            # aspectmode="data"
+        )
+
     if use_orthographic:
         # fig.update_scenes(aspectmode='data')
         fig.layout.scene.camera.projection.type = "orthographic"

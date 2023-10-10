@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import logging
+import math
 
 import dash
 import dash_bootstrap_components as dbc
@@ -47,6 +48,20 @@ def get_plot_idx_by_name(data, name: str) -> int:
         if trace["name"] == name:
             return i
     return None
+
+
+def update_axis(final_length, axis_range, axis_dict):
+    axis_dict["range"] = [axis_range[0].item(), axis_range[1].item()]
+    axis_dict["nticks"] = int(math.ceil(axis_range[1] - axis_range[0]))
+
+    # mean = (axis_range[1] - axis_range[0]) / 2.0
+    # axis_dict['range'] = [#[axis_range[0].item(), axis_range[1].item()]
+    #         float(mean - (final_length / 2.0)),
+    #         float(mean + (final_length / 2.0)),
+    #     ]
+    # axis_dict['nticks'] = int(math.ceil(final_length))
+    # logger.info(f'{float(mean - final_length / 2.0)} {float(mean + final_length / 2.0)} ({final_length=})')
+    axis_dict["type"] = "scatter"
 
 
 @app.callback(
@@ -113,23 +128,30 @@ def add_new_points(submit_n_clicks, existing, next_obs):
 
     # Update bounds
     mins, maxs = bounds.unbind(-1)
-    patched_figure["layout"]["scene"]["xaxis"]["range"] = [
-        mins[0].item(),
-        maxs[0].item(),
-    ]
-    patched_figure["layout"]["scene"]["xaxis"]["type"] = "scatter"
+    maxlen = (maxs - mins).max().item()
+    update_axis(maxlen, bounds[0], patched_figure["layout"]["scene"]["xaxis"])
+    update_axis(maxlen, bounds[1], patched_figure["layout"]["scene"]["yaxis"])
+    update_axis(maxlen, bounds[2], patched_figure["layout"]["scene"]["zaxis"])
+    patched_figure["layout"]["scene"]["aspectmode"] = "data"
+    # patched_figure["layout"]["scene"]["xaxis"]["range"] = [
+    #     mins[0].item(),
+    #     maxs[0].item(),
+    # ]
+    # patched_figure["layout"]["scene"]["xaxis"]["type"] = "scatter"
 
-    patched_figure["layout"]["scene"]["yaxis"]["range"] = [
-        mins[1].item(),
-        maxs[1].item(),
-    ]
-    patched_figure["layout"]["scene"]["yaxis"]["type"] = "scatter"
+    # patched_figure["layout"]["scene"]["yaxis"]["range"] = [
+    #     mins[1].item(),
+    #     maxs[1].item(),
+    # ]
+    # patched_figure["layout"]["scene"]["yaxis"]["type"] = "scatter"
 
-    patched_figure["layout"]["scene"]["zaxis"]["range"] = [
-        mins[2].item(),
-        maxs[2].item(),
-    ]
-    patched_figure["layout"]["scene"]["zaxis"]["type"] = "scatter"
+    # patched_figure["layout"]["scene"]["zaxis"]["range"] = [
+    #     mins[2].item(),
+    #     maxs[2].item(),
+    # ]
+    # patched_figure["layout"]["scene"]["zaxis"]["type"] = "scatter"
+    # patched_figure["layout"]["scene"]["zaxis"]["type"] = "scatter"
+    # patched_figure["layout"]["scene"]["zaxis"]["type"] = "scatter"
 
     # Add boxes
     boxes_idx = get_plot_idx_by_name(existing["data"], "IB")

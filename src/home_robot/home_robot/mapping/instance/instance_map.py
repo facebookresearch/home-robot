@@ -733,19 +733,9 @@ class InstanceMemory:
             # get cropped image
             # p = self.padding_cropped_instances
             h, w = masked_image.shape[1:]
-            # cropped_image = (
-            #     masked_image[
-            #         :,
-            #         max(bbox[0, 0] - p, 0) : min(bbox[1, 0] + p, h),
-            #         max(bbox[0, 1] - p, 0) : min(bbox[1, 1] + p, w),
-            #     ]
-            #     .permute(1, 2, 0)
-            #     .cpu()
-            #     .numpy()
-            #     .astype(np.uint8)
-            # )
             cropped_image = self.get_cropped_image(image, bbox)
-            instance_mask = instance_mask.bool()
+            instance_mask = self.get_cropped_image(instance_mask.unsqueeze(0), bbox)
+            # instance_mask = instance_mask.bool()
 
             # get embedding
             if encoder is not None:
@@ -832,9 +822,8 @@ class InstanceMemory:
                 :,
                 y:y2,
                 x:x2,
-            ]
-            .permute(1, 2, 0)
-            .byte()
+            ].permute(1, 2, 0)
+            # .byte()
         )
         return cropped_image
 
