@@ -372,12 +372,12 @@ class SpotDemoAgent:
         # Compute distance
         dxy = location[:2] - instance_pose[:2]
         theta = math.atan2(dxy[1], dxy[0])
-        input("----")
+        print(f"Now rotate towards placement location with {theta=}...")
         self.spot.navigate_to(
             np.array([instance_pose[0], instance_pose[1], theta]), blocking=True
         )
         distance_to_place = np.linalg.norm(dxy)
-        dist_to_move = min(0, distance_to_place - 1.0 - 0.5)
+        dist_to_move = max(0, distance_to_place - 1.0)
         print(f"Moving {dist_to_move} closer to {location}...")
         breakpoint()
         self.spot.navigate_to(
