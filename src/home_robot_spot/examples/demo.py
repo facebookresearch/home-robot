@@ -467,6 +467,17 @@ class SpotDemoAgent:
         else:
             return input("please type any task you want the robot to do: ")
 
+    def confirm_plan(self, plan: str):
+        print(f"Received plan: {plan}")
+        if "confirm_plan" not in self.parameters or self.parameters["confirm_plan"]:
+            execute = input("Do you want to execute (replan otherwise)? (y/n): ")
+            return execute[0].lower() == "y"
+        else:
+            if plan[:7] == "explore":
+                print("Currently we do not explore! Explore more to start with!")
+                return False
+            return True
+
     def run_task(self, stub, center, data):
         """Actually use VLM to perform task
 
@@ -489,7 +500,9 @@ class SpotDemoAgent:
             if args.enable_vlm == 1:
                 # get world_representation for planning
                 while True:
-                    self.navigate_to_an_instance(instance_id=0, should_plan=False)
+                    self.navigate_to_an_instance(
+                        instance_id=0, should_plan=self.parameters["plan_to_instance"]
+                    )
                     world_representation = get_obj_centric_world_representation(
                         instances, args.context_length
                     )
@@ -503,12 +516,7 @@ class SpotDemoAgent:
                         )
                     )
                     plan = output.action
-                    print(plan)
-
-                    execute = input(
-                        "do you want to execute (replan otherwise)? (y/n): "
-                    )
-                    if "y" in execute:
+                    if self.confirm_plan(plan):
                         # now it is hacky to get two instance ids TODO: make it more general for all actions
                         # get pick instance id
                         current_high_level_action = plan.split("; ")[0]
@@ -855,7 +863,6 @@ def main(dock: Optional[int] = None, args=None):
         demo.rotate_in_place()
 
         voxel_map.show()
-        breakpoint()
 
         demo.run_explore()
 

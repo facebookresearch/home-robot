@@ -30,6 +30,7 @@ min_size: 20  # Can probably be bigger than original (10)
 max_size: 40  # Can probably be bigger than original (10)
 
 # Grasping parameters
+plan_to_instance: False
 verify_before_grasp: False
 nbr_dist: 0.2  # 0.15
 residual_thresh: 0.03
@@ -50,3 +51,4 @@ pick_categories: ["bottle", "cup", "toy_animal", "soft toys", "food"]
 place_categories: ["chair", "sofa"]
 use_get_close: False
 best_view_metric: "area"
+confirm_plan: True
