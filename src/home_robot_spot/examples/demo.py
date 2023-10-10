@@ -47,7 +47,7 @@ from home_robot_spot.grasp_env import GraspController
 # sys.path.append("path to accel-cortext base folder")
 print("Make sure path to accel-cortex base folder is set")
 # sys.path.append(os.path.expanduser("~/Documents/accel-cortex"))
-sys.path.append(os.path.expanduser("~/src/accel-cortex"))
+sys.path.append(os.path.expanduser(os.environ['ACCEL_CORTEX']))
 import grpc
 import src.rpc
 import task_rpc_env_pb2
@@ -110,7 +110,11 @@ def place_in_an_instance(
     # Now we place
     spot.spot.move_gripper_to_point(local_xyz, rotations)
     time.sleep(2)
-    spot.spot.rotate_gripper_with_delta(wrist_roll=np.pi / 2)
+    arm = spot.spot.get_arm_joint_positions()
+    arm[-1] = place_rotation[-1]
+    arm[-2] = place_rotation[0]
+    spot.spot.set_arm_joint_positions(arm, travel_time=1.5)
+    time.sleep(2)
     spot.spot.open_gripper()
 
     # reset arm
@@ -462,6 +466,7 @@ class SpotDemoAgent:
             if args.enable_vlm == 1:
                 # get world_representation for planning
                 while True:
+                    self.navigate_to_an_instance(instance_id=0, should_plan=False)
                     world_representation = get_obj_centric_world_representation(
                         instances, args.context_length
                     )
@@ -571,6 +576,7 @@ class SpotDemoAgent:
                 success = self.navigate_to_an_instance(
                     pick_instance_id,
                     visualize=self.parameters["visualize"],
+                    should_plan=False
                 )
                 print(f"Success: {success}")
 
@@ -590,12 +596,13 @@ class SpotDemoAgent:
                     blacklist.append(pick_instance_id)
                     del instances[pick_instance_id]
                     continue
+                logger.info(f"Grasping: {object_category_name}")
                 gaze = GraspController(
                     config=self.spot_config,
                     spot=self.spot.spot,
                     objects=[[object_category_name]],
                     confidence=0.1,
-                    show_img=False,
+                    show_img=True,
                     top_grasp=False,
                     hor_grasp=True,
                 )
@@ -632,6 +639,7 @@ class SpotDemoAgent:
                     success = self.navigate_to_an_instance(
                         place_instance_id,
                         visualize=self.parameters["visualize"],
+                        should_plan=False,
                     )
                     place_location = self.vocab.goal_id_to_goal_name[
                         int(instances[place_instance_id].category_id.item())
@@ -644,7 +652,8 @@ class SpotDemoAgent:
                         object=object_category_name,
                         place=place_location,
                     )
-                    place_in_an_instance(instance_pose, location, vf, self.spot)
+                    rot = gaze.get_pick_location()
+                    place_in_an_instance(instance_pose, location, vf, self.spot,place_rotation=rot)
 
                 """
                 # visualize pointcloud and add location as red

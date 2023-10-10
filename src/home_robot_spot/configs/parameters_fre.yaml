@@ -1,11 +1,12 @@
 clip: "ViT-B/32"
 
 # Planner parameters
-step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually)
-rotation_step_size: 0.5
+step_size: 1  # (originally .1, we can make it all the way to 2 maybe actually)
+rotation_step_size: 1
 visualize: False
-exploration_steps: 25
+exploration_steps: 100
 shortcut_iter: 500
+
 
 # Frontier search parameters
 frontier_step_dist: 1
@@ -30,10 +31,13 @@ max_size: 40  # Can probably be bigger than original (10)
 
 # Grasping parameters
 verify_before_grasp: False
+nbr_dist: 0.2  # 0.15
+residual_thresh: 0.03
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
 trajectory_rot_err_threshold: 0.5
+trajectory_per_step_timeout: 1.0
 
 # Data collection and sensors
 use_async_subscriber: False
@@ -42,7 +46,7 @@ use_zero_depth: False
 use_midas: False
 
 # Task setup
-pick_categories: ["bottle", "cup", "toy_animal"]
+pick_categories: ["bottle", "cup", "toy_animal", "soft toys", "food"]
 place_categories: ["chair", "sofa"]
 use_get_close: False
 best_view_metric: "area"
