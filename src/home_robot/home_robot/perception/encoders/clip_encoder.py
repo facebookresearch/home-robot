@@ -9,7 +9,6 @@ import numpy as np
 import torch
 from PIL import Image
 
-
 class ClipEncoder:
     """Simple wrapper for encoding different things as text."""
 
