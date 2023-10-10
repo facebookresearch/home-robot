@@ -50,3 +50,4 @@ pick_categories: ["bottle", "cup", "toy_animal", "soft toys", "food"]
 place_categories: ["chair", "sofa"]
 use_get_close: False
 best_view_metric: "area"
+should_plan: False
