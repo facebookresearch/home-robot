@@ -233,6 +233,10 @@ class GraspController:
             if pixels is not None:
                 logger.info( f" > Grasping object at {pixels}")
                 self.reset_to_look()
+                grasp_look = self.look
+                grasp_look[-2] = np.deg2rad(90)
+                self.spot.set_arm_joint_positions(grasp_look, travel_time=1.0)
+                time.sleep(1)
                 success = self.spot.grasp_point_in_image(
                     hand_image_response,
                     pixel_xy=pixels,
