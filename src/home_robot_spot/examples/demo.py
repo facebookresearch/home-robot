@@ -342,7 +342,10 @@ class SpotDemoAgent:
     ):
         """Move to a position to place in an environment."""
         # TODO: Check if vf is correct
-        self.spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
+        if self.parameters["use_get_close"]:
+            self.spot.navigate_to(
+                np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
+            )
 
         # Transform placing position to body frame coordinates
         x, y, yaw = self.spot.spot.get_xy_yaw()
@@ -357,8 +360,8 @@ class SpotDemoAgent:
         self.spot.spot.move_gripper_to_point(local_xyz, rotations)
         time.sleep(2)
         arm = self.spot.spot.get_arm_joint_positions()
-        arm[-1] = place_rotation[-1]
-        arm[-2] = place_rotation[0]
+        # arm[-1] = place_rotation[-1]
+        # arm[-2] = place_rotation[0]
         self.spot.spot.set_arm_joint_positions(arm, travel_time=1.5)
         time.sleep(2)
         self.spot.spot.open_gripper()
@@ -428,6 +431,7 @@ class SpotDemoAgent:
                 goal_position = goal
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
+
         # Finally, navigate to the final position
         logger.info(
             "Navigating to goal position: {}, start = {}",
@@ -435,6 +439,11 @@ class SpotDemoAgent:
             self.spot.current_position,
         )
         self.spot.navigate_to(goal_position, blocking=True)
+        logger.info(
+            "Navigating to goal position: {}, reached = {}",
+            goal_position,
+            self.spot.current_position,
+        )
 
         if visualize:
             cropped_image = view.cropped_image
@@ -535,7 +544,8 @@ class SpotDemoAgent:
 
         robot_center = np.zeros(3)
         robot_center[:2] = self.spot.current_position[:2]
-        self.voxel_map.show(backend="open3d", orig=robot_center, instances=True)
+        if self.parameters["visualize"]:
+            self.voxel_map.show(backend="open3d", orig=robot_center, instances=True)
         instances = self.voxel_map.get_instances()
         blacklist = []
         while True:

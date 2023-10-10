@@ -40,7 +40,7 @@ plan_to_instance: True
 verify_before_grasp: False
 nbr_dist: 0.2  # 0.15
 residual_thresh: 0.03
-pick_place_radius: 2.0
+pick_place_radius: 1.5
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
