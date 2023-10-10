@@ -29,7 +29,11 @@ os.environ[
 ] = "| <level>{level: <8}</level> |<cyan>{name:^45}</cyan>|<level>{function:^22}</level>| <cyan>{line:<3} |</cyan> - <level>{message}</level> <lg>@ [{time:YYYY-MM-DD HH:mm:ss.SSS}]</lg> "
 
 
-figure = svm_watcher.svm.show(backend="pytorch3d", mock_plot=True)
+figure = svm_watcher.svm.show(
+    backend="pytorch3d",
+    mock_plot=True,
+    pointcloud_marker_size=4,  # int(app_config.pointcloud_voxel_size * 100)
+)
 figure.update_layout(
     autosize=True,
     margin=dict(
