@@ -141,6 +141,8 @@ class SpotDemoAgent:
         dock: Optional[int] = None,
         path: str = None,
     ):
+        self.spot_config = spot_config
+        self.path = path
         self.parameters = parameters
         self.encoder = ClipEncoder(self.parameters["clip"])
         self.voxel_map = SparseVoxelMap(
@@ -181,8 +183,8 @@ class SpotDemoAgent:
         self.vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
         self.semantic_sensor.update_vocabulary_list(self.vocab, 0)
         self.semantic_sensor.set_vocabulary(0)
-        with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
-            pickle.dump(self.semantic_sensor.segmenter.seg_id_to_name, f)
+        # with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
+        #    pickle.dump(self.semantic_sensor.segmenter.seg_id_to_name, f)
 
         self.planner = Shortcut(
             RRTConnect(self.navigation_space, self.navigation_space.is_valid),
@@ -194,8 +196,6 @@ class SpotDemoAgent:
             use_midas=parameters["use_midas"],
             use_zero_depth=parameters["use_zero_depth"],
         )
-        self.spot_config = spot_config
-        self.path = path
 
         # Create grasp object
         self.gaze = GraspController(
@@ -381,7 +381,6 @@ class SpotDemoAgent:
         distance_to_place = np.linalg.norm(dxy)
         dist_to_move = max(0, distance_to_place - 1.0)
         print(f"Moving {dist_to_move} closer to {location}...")
-        breakpoint()
         self.spot.navigate_to(
             np.array([dist_to_move, 0, 0]), relative=True, blocking=True
         )
