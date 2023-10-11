@@ -32,7 +32,7 @@ class AppConfig:
 
     directory_watcher_update_freq_ms: int = 300
     directory_watch_path: Optional[str] = get_most_recent_viz_directory()
-    pointcloud_voxel_size: float = 0.05
+    pointcloud_voxel_size: float = 0.035
     convert_rgb_to_bgr: bool = True
 
 
@@ -87,6 +87,9 @@ class SparseVoxelMapDirectoryWatcher:
 
         old_points = self.svm.voxel_pcd._points
         old_rgb = self.svm.voxel_pcd._rgb
+        rgb_image = obs["rgb"]
+        if obs["rgb"].max() > 1.0:  # added nomalization
+            obs["rgb"] = obs["rgb"] / 255.0
         svm_watcher.svm.add(**obs)
 
         new_points = self.svm.voxel_pcd._points
@@ -106,8 +109,8 @@ class SparseVoxelMapDirectoryWatcher:
             novel_idxs = torch.isin(voxel_idx_new, voxel_idx_old, invert=True)
 
             new_rgb = new_rgb[novel_idxs]
-            if new_rgb.max() > 1.0:  # added nomalization
-                new_rgb = new_rgb / 255.0
+            logger.debug(f"{new_rgb.max()=}")
+
             new_points = new_points[novel_idxs]
 
             logger.debug(
@@ -137,7 +140,7 @@ class SparseVoxelMapDirectoryWatcher:
 
         # # Encode the RGB image to JPEG format
         # self.rgb_jpeg = cv2.imencode(".jpg", rgb_image.astype(np.uint8))[1].tobytes()
-        rgb_ten = obs["rgb"][..., RGB_TO_BGR] if self.convert_rgb_to_bgr else obs["rgb"]
+        rgb_ten = rgb_image[..., RGB_TO_BGR] if self.convert_rgb_to_bgr else obs["rgb"]
         self.rgb_jpeg = cv2.imencode(".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8))[
             1
         ].tobytes()  # * 255

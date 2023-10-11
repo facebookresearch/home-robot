@@ -28,6 +28,9 @@ from home_robot.utils.morphology import (
 class SparseVoxelMapNavigationSpace(XYT):
     """subclass for sampling XYT states from explored space"""
 
+    # Used for making sure we do not divide by zero anywhere
+    tolerance: float = 1e-8
+
     def __init__(
         self,
         voxel_map: SparseVoxelMap,
@@ -125,8 +128,10 @@ class SparseVoxelMapNavigationSpace(XYT):
         """extend towards another configuration in this space. Will be either separate or joint depending on if the robot can "strafe":
         separate: move then rotate
         joint: move and rotate all at once."""
-        assert len(q0) == 3, "initial configuration must be 3d"
-        assert len(q1) == 3 or len(q1) == 2, "final configuration can be 2d or 3d"
+        assert len(q0) == 3, f"initial configuration must be 3d, was {q0}"
+        assert (
+            len(q1) == 3 or len(q1) == 2
+        ), f"final configuration can be 2d or 3d, was {q1}"
         if self.extend_mode == "separate":
             return self._extend_separate(q0, q1)
         elif self.extend_mode == "joint":
@@ -138,10 +143,12 @@ class SparseVoxelMapNavigationSpace(XYT):
     def _extend_separate(self, q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
         """extend towards another configuration in this space.
         TODO: we can set the classes here, right now assuming still np.ndarray"""
-        assert len(q0) == 3, "initial configuration must be 3d"
-        assert len(q1) == 3 or len(q1) == 2, "final configuration can be 2d or 3d"
+        assert len(q0) == 3, f"initial configuration must be 3d, was {q0}"
+        assert (
+            len(q1) == 3 or len(q1) == 2
+        ), f"final configuration can be 2d or 3d, was {q1}"
         dxy = q1[:2] - q0[:2]
-        step = dxy / np.linalg.norm(dxy) * self.step_size
+        step = dxy / np.linalg.norm(dxy + self.tolerance) * self.step_size
         xy = q0[:2]
         if np.linalg.norm(q1[:2] - q0[:2]) > self.step_size:
             # Compute theta looking at new goal point

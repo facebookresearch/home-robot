@@ -1,11 +1,9 @@
 import fcntl
 import json
 import logging
+import os
 import time
-from typing import Dict, List
-
-from loguru import logger
-
+from typing import Any, Dict, List
 
 class DemoChat:
     """
@@ -29,12 +27,7 @@ class DemoChat:
         self.log_file_path = log_file_path
         self.last_seen_entry_id = -1
 
-        # Check if the file exists and create it with an empty JSON array if it doesn't
-        try:
-            with open(self.log_file_path, "r") as f:
-                logger.info("Chat log file found.")
-                pass
-        except FileNotFoundError:
+        if not os.path.exists(self.log_file_path):
             with open(self.log_file_path, "w") as f:
                 json.dump([], f)
 
@@ -53,11 +46,10 @@ class DemoChat:
         # Wait for new entries
         while True:
             time.sleep(2)  # Polling delay
-            logger.info("Polling chat log file...")
+            logging.info("Polling chat log file...")
             with open(self.log_file_path, "r") as f:
-                fcntl.flock(f, fcntl.LOCK_SH)
-                log_data = json.load(f)
-                fcntl.flock(f, fcntl.LOCK_UN)
+                with fcntl.flock(f, fcntl.LOCK_SH):
+                    log_data = json.load(f)
 
             if len(log_data) - 1 > self.last_seen_entry_id:
                 new_entries = log_data[self.last_seen_entry_id + 1 :]
@@ -76,16 +68,14 @@ class DemoChat:
             The message to write to the chat log file.
         """
         with open(self.log_file_path, "r+") as f:
-            # breakpoint()
-            fcntl.flock(f, fcntl.LOCK_EX)
-            log_data = json.load(f)
-            new_entry = {"role": role, "content": message}
-            log_data.append(new_entry)
-            f.seek(0)
-            json.dump(log_data, f, indent=4)
-            f.truncate()
-            fcntl.flock(f, fcntl.LOCK_UN)
-            self.last_seen_entry_id = len(log_data) - 1
+            with fcntl.flock(f, fcntl.LOCK_EX):
+                log_data = json.load(f)
+                new_entry = {"role": role, "content": message}
+                log_data.append(new_entry)
+                f.seek(0)
+                json.dump(log_data, f, indent=4)
+                f.truncate()
+                self.last_seen_entry_id = len(log_data) - 1
 
 
 if __name__ == "__main__":

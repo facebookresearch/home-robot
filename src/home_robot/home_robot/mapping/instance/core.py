@@ -233,7 +233,7 @@ class Instance:
             pointcloud_marker_size=3,
             pointcloud_max_points=200_000,
         )
-        fig = plot_scene(
+        fig = plot_scene_with_bboxes(
             plots={
                 f"Name {self.name}: (category: {self.category_id}) -- {len(self.instance_views)} views": {
                     "Points": ptc,
@@ -247,19 +247,31 @@ class Instance:
         )
         return fig
 
-    def _show_instance_view_frames(self, mask_out_opacity=0.3):
+    def _show_instance_view_frames(self, mask_out_opacity=0.3, imsize=3, n_col=2):
         import matplotlib.pyplot as plt
 
-        plt.figure()
+        n_views = len(self.instance_views)
+        n_rows = (
+            n_views + n_col - 1
+        ) // n_col  # Calculate the number of rows based on n_col
+
+        plt.figure(figsize=(n_col * imsize, n_rows * imsize))
 
         n_views = len(self.instance_views)
-        f, axarr = plt.subplots(n_views, 1)  # n_views rows, 1 col
+        f, axarr = plt.subplots(n_rows, n_col)  # n_rows rows, n_col columns
+
         for i, view in enumerate(self.instance_views):
-            ax = axarr[i] if (n_views > 1) else axarr
+            if n_col > 1:
+                row = i // n_col  # Calculate the row index
+                col = i % n_col  # Calculate the column index
+                ax = axarr[row, col]
+            elif n_rows > 1:
+                ax = axarr[i]
+            else:
+                ax = axarr
             cropped_image_np = torch.from_numpy(
                 view.cropped_image.detach().cpu().numpy()
             )
-
             mask_np = torch.from_numpy(view.mask.detach().cpu().numpy())
             if (
                 mask_np.shape[0] != cropped_image_np.shape[0]
@@ -270,10 +282,14 @@ class Instance:
                 ]
             display_im = cropped_image_np * mask_out_opacity + (
                 1 - mask_out_opacity
-            ) * (cropped_image_np * mask_np[..., None])
+            ) * (cropped_image_np * (mask_np))
+            ax.imshow((display_im))
+            ax.set_title(f"View {i}")
 
-            ax.imshow(display_im)
-            ax.title.set_text(f"View {i}")
+        # Remove any empty subplots
+        for i in range(n_views, n_rows * n_col):
+            axarr.flatten()[i].axis("off")
+
         plt.tight_layout()
         plt.show()
         return f

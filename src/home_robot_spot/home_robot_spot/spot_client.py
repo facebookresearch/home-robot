@@ -32,7 +32,7 @@ from home_robot.core.interfaces import Action, Observations
 from home_robot.motion import PlanResult
 from home_robot.perception.midas import Midas
 from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
-from home_robot.utils.config import get_config
+from home_robot.utils.config import Config, get_config
 from home_robot.utils.geometry import (
     angle_difference,
     sophus2xyt,
@@ -433,7 +433,7 @@ def create_triad_pointclouds(R, T, n_points=1, scale=0.1):
 class SpotClient:
     def __init__(
         self,
-        config,
+        config: Config,
         name="home_robot_spot",
         dock_id: Optional[int] = None,
         use_midas=False,
@@ -850,6 +850,9 @@ class SpotClient:
         # return np.array([gps[0], gps[1], compass])
         pose = self._episode_start_pose * xyt2sophus(xyt)
         return sophus2xyt(pose)
+
+    def get_bd_spot_client(self) -> Spot:
+        return self.spot
 
     def navigate_to(self, xyt: np.ndarray, relative: bool = False, blocking=False):
         """Move the base to a new position.
