@@ -45,14 +45,19 @@ from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
-## Temporary hack until we make accel-cortex pip installable
-print("Make sure path to accel-cortex base folder is set")
-sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
-import grpc
-import src.rpc
-import src.rpc.task_rpc_env_pb2
-from src.utils.observations import ObjectImage, Observations, ProtoConverter
-from task_rpc_env_pb2_grpc import AgentgRPCStub
+try:
+    sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
+    import grpc
+    import src.rpc
+    import src.rpc.task_rpc_env_pb2
+    from src.utils.observations import ObjectImage, Observations, ProtoConverter
+    from task_rpc_env_pb2_grpc import AgentgRPCStub
+except Exception as e:
+    ## Temporary hack until we make accel-cortex pip installable
+    print(e)
+    print(
+        "Make sure path to accel-cortex base folder is set in the ACCEL_CORTEX environment variable."
+    )
 
 
 # NOTE: this requires 'pip install atomicwrites'
