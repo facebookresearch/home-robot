@@ -1,11 +1,12 @@
 # Perception parameters
+encoder: "clip"
 clip: "ViT-B/32"
 
 # Planner parameters
-step_size: 0.5  # (originally .1, we can make it all the way to 2 maybe actually)
+step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
 rotation_step_size: 0.5
 visualize: False
-exploration_steps: 5
+exploration_steps: 0
 shortcut_iter: 250
 extend_mode: "joint"  # joint = rotate and move at the same time
 # extend_mode: "separate"

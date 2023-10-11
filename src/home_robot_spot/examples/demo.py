@@ -145,7 +145,12 @@ class SpotDemoAgent:
         self.spot_config = spot_config
         self.path = path
         self.parameters = parameters
-        self.encoder = ClipEncoder(self.parameters["clip"])
+        if self.parameters["encoder"] == "clip":
+            self.encoder = ClipEncoder(self.parameters["clip"])
+        else:
+            raise NotImplementedError(
+                f"unsupported encoder {self.parameters['encoder']}"
+            )
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
             local_radius=parameters["local_radius"],
@@ -632,9 +637,9 @@ class SpotDemoAgent:
             if args.enable_vlm == 1:
                 # get world_representation for planning
                 while True:
-                    self.navigate_to_an_instance(
-                        instance_id=0, should_plan=self.parameters["plan_to_instance"]
-                    )
+                    # self.navigate_to_an_instance(
+                    #    instance_id=0, should_plan=self.parameters["plan_to_instance"]
+                    # )
                     world_representation = get_obj_centric_world_representation(
                         instances, args.context_length
                     )
@@ -1013,6 +1018,7 @@ def main(dock: Optional[int] = None, args=None):
 
     finally:
         if parameters["write_data"]:
+            demo.voxel_map.write_to_pickle(f"{path}/spot_observations.pkl")
             if start is None:
                 start = demo.spot.current_position
             if voxel_map.get_instances() is not None:

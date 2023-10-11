@@ -12,6 +12,7 @@ import dash_bootstrap_components as dbc
 import openai
 from dash import Patch, dcc, html
 from dash.dependencies import Input, Output, State
+
 from home_robot.utils.demo_chat import DemoChat
 
 from .app import app, app_config
@@ -22,6 +23,8 @@ description = open("assets/prompts/demo.txt", "r").read()
 import os
 
 chat_log_dir = os.path.dirname(app_config.directory_watch_path)
+if "viz_data" in chat_log_dir:
+    chat_log_dir = os.path.dirname(chat_log_dir)
 chat_log = DemoChat(log_file_path=f"{chat_log_dir}/demo_chat.json")
 # Conent of the demo_chat:
 # [

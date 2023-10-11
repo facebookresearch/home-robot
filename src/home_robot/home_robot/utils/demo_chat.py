@@ -5,6 +5,7 @@ import os
 import time
 from typing import Any, Dict, List
 
+
 class DemoChat:
     """
     A class for managing chat logs.
@@ -46,10 +47,11 @@ class DemoChat:
         # Wait for new entries
         while True:
             time.sleep(2)  # Polling delay
-            logging.info("Polling chat log file...")
+            logging.info(f"Polling chat log file {self.log_file_path}...")
             with open(self.log_file_path, "r") as f:
-                with fcntl.flock(f, fcntl.LOCK_SH):
-                    log_data = json.load(f)
+                fcntl.flock(f, fcntl.LOCK_SH)
+                log_data = json.load(f)
+                fcntl.flock(f, fcntl.LOCK_UN)
 
             if len(log_data) - 1 > self.last_seen_entry_id:
                 new_entries = log_data[self.last_seen_entry_id + 1 :]
@@ -67,15 +69,18 @@ class DemoChat:
         message : str
             The message to write to the chat log file.
         """
+        logging.info(f"Writing {message=} to chat log {self.log_file_path}")
         with open(self.log_file_path, "r+") as f:
-            with fcntl.flock(f, fcntl.LOCK_EX):
-                log_data = json.load(f)
-                new_entry = {"role": role, "content": message}
-                log_data.append(new_entry)
-                f.seek(0)
-                json.dump(log_data, f, indent=4)
-                f.truncate()
-                self.last_seen_entry_id = len(log_data) - 1
+            # breakpoint()
+            fcntl.flock(f, fcntl.LOCK_EX)
+            log_data = json.load(f)
+            new_entry = {"role": role, "content": message}
+            log_data.append(new_entry)
+            f.seek(0)
+            json.dump(log_data, f, indent=4)
+            f.truncate()
+            fcntl.flock(f, fcntl.LOCK_UN)
+            self.last_seen_entry_id = len(log_data) - 1
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 # Perception parameters
+encoder: "clip"
 clip: "ViT-B/32"
 
 # Planner parameters
