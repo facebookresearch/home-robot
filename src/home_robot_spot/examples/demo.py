@@ -188,7 +188,9 @@ class SpotDemoAgent:
         config = load_config(visualize=False)
 
         print("- Create and load vocabulary and perception model")
-        self.semantic_sensor = OvmmPerception(config, 0, True, module="detic")
+        self.semantic_sensor = OvmmPerception(
+            config, 0, True, module="detic", module_kwargs={"confidence_threshold": 0.6}
+        )
         obj_name_to_id, rec_name_to_id = read_category_map_file(
             self.parameters["category_map_file"]
         )

@@ -73,6 +73,7 @@ class DeticPerception(PerceptionModule):
         checkpoint_file=None,
         sem_gpu_id=0,
         verbose: bool = False,
+        confidence_threshold: Optional[float] = None,
     ):
         """Load trained Detic model for inference.
 
@@ -119,7 +120,9 @@ class DeticPerception(PerceptionModule):
 
         string_args = string_args.split()
         args = get_parser().parse_args(string_args)
-        cfg = setup_cfg(args, verbose=verbose)
+        cfg = setup_cfg(
+            args, verbose=verbose, confidence_threshold=confidence_threshold
+        )
 
         assert vocabulary in ["coco", "custom"]
         if args.vocabulary == "custom":
@@ -256,7 +259,9 @@ class DeticPerception(PerceptionModule):
         return obs
 
 
-def setup_cfg(args, verbose: bool = False):
+def setup_cfg(
+    args, verbose: bool = False, confidence_threshold: Optional[float] = None
+):
     cfg = get_cfg()
     if args.cpu:
         cfg.MODEL.DEVICE = "cpu"
@@ -265,13 +270,13 @@ def setup_cfg(args, verbose: bool = False):
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     # Set score_threshold for builtin models
-    cfg.MODEL.RETINANET.SCORE_THRESH_TEST = args.confidence_threshold
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = args.confidence_threshold
-    cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = (
-        args.confidence_threshold
-    )
+    if confidence_threshold is None:
+        confidence_threshold = args.confidence_threshold
+    cfg.MODEL.RETINANET.SCORE_THRESH_TEST = confidence_threshold
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = confidence_threshold
+    cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = confidence_threshold
     if verbose:
-        print("[DETIC] Confidence threshold =", args.confidence_threshold)
+        print("[DETIC] Confidence threshold =", confidence_threshold)
     cfg.MODEL.ROI_BOX_HEAD.ZEROSHOT_WEIGHT_PATH = "rand"  # load later
     if not args.pred_all_class:
         cfg.MODEL.ROI_HEADS.ONE_CLASS_PER_PROPOSAL = True
