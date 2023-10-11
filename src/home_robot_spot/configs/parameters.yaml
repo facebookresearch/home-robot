@@ -45,12 +45,12 @@ residual_thresh: 0.03
 pick_place_radius: 2.0
 place_offset: 0.5  # after orienting to the place location, move until within this offset
 force_place_at_center: True
-gripper_offset_x: 0.25
+gripper_offset_x: 0.20
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
 trajectory_rot_err_threshold: 0.5
-trajectory_per_step_timeout: 1.5
+trajectory_per_step_timeout: 2.5
 
 # Data collection and sensors
 use_async_subscriber: False
