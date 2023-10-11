@@ -23,7 +23,7 @@ from home_robot.agent.ovmm_agent import (
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from home_robot.home_robot.utils.demo_chat import DemoChat
+from home_robot.utils.demo_chat import DemoChat
 from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
 from home_robot.mapping.voxel import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
@@ -48,7 +48,7 @@ from PIL import Image
 print("Make sure path to accel-cortex base folder is set")
 sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
 import grpc
-import task_rpc_env_pb2
+import src.rpc.task_rpc_env_pb2
 from task_rpc_env_pb2_grpc import AgentgRPCStub
 
 import src.rpc
