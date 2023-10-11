@@ -24,9 +24,9 @@ from dash import Patch, dcc, html
 from dash.dependencies import Input, Output, State
 from loguru import logger
 
-os.environ[
-    "LOGURU_FORMAT"
-] = "| <level>{level: <8}</level> |<cyan>{name:^45}</cyan>|<level>{function:^22}</level>| <cyan>{line:<3} |</cyan> - <level>{message}</level> <lg>@ [{time:YYYY-MM-DD HH:mm:ss.SSS}]</lg> "
+# os.environ[
+#     "LOGURU_FORMAT"
+# ] = "| <level>{level: <8}</level> |<cyan>{name:^45}</cyan>|<level>{function:^22}</level>| <cyan>{line:<3} |</cyan> - <level>{message}</level> <lg>@ [{time:YYYY-MM-DD HH:mm:ss.SSS}]</lg> "
 
 
 figure = svm_watcher.svm.show(
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG)  # , format=LOGURU_FORMAT)
+    logging.basicConfig(level=logging.DEBUG)
     logger.warning("Starting server. Data consumer is currently paused:")
     svm_watcher.pause()
     svm_watcher.begin()
