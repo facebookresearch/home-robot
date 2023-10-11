@@ -746,6 +746,11 @@ class SparseVoxelMap(object):
                 f"Uknown backend {backend}, must be 'open3d' or 'pytorch3d"
             )
 
+    def get_xyz_rgb(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Return xyz and rgb of the current map"""
+        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
+        return points, rgb
+
     def _show_pytorch3d(
         self, instances: bool = True, mock_plot: bool = False, **plot_scene_kwargs
     ):
@@ -753,7 +758,7 @@ class SparseVoxelMap(object):
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 
-        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
+        points, rgb = self.get_xyz_rgb()
 
         traces = {}
 
