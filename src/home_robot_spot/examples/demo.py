@@ -158,6 +158,7 @@ class SpotDemoAgent:
             encoder=self.encoder,
         )
         logger.info("Created SparseVoxelMap")
+        self.step = 0
         # Create kinematic model (very basic for now - just a footprint)
         self.robot_model = SimpleSpotKinematics()
         # Create navigation space example
@@ -223,6 +224,10 @@ class SpotDemoAgent:
     def backup_from_invalid_state(self):
         """Helper function to get the robot unstuck (it is too close to geometry)"""
         self.spot.navigate_to([-0.25, 0, 0], relative=True, blocking=True)
+
+    def should_visualize(self) -> bool:
+        """Returns true if we are expected to do visualizations in this script (not externally)"""
+        return self.parameters["visualize"]
 
     def plan_to_frontier(
         self,
@@ -330,7 +335,7 @@ class SpotDemoAgent:
                 self.update()
 
         # Should we display after spinning? If visualize is true we will
-        if self.parameters["visualize"]:
+        if self.should_visualize():
             self.voxel_map.show()
 
     def say(self, msg: str):
@@ -347,7 +352,8 @@ class SpotDemoAgent:
         else:
             return input(msg)
 
-    def update(self, step=0):
+    def update(self):
+        """Update sensor measurements"""
         time.sleep(0.1)
         obs = self.spot.get_rgbd_obs()
         print("Observed from coordinates:", obs.gps, obs.compass)
@@ -356,6 +362,7 @@ class SpotDemoAgent:
         filename = f"{self.path}/viz_data/"
         os.makedirs(filename, exist_ok=True)
         publish_obs(self.navigation_space, filename)
+        self.step += 1
 
     def visualize(self, start, goal, step):
         """Update visualization for demo"""
@@ -567,6 +574,13 @@ class SpotDemoAgent:
             pc_xyz, ground_normal, nbr_dist, residual_thresh
         )
 
+        # Add parameter to improve placement performance
+        if self.parameters["force_place_at_center"]:
+            # We will still use the height from the navigation client
+            mean_xyz = pc_xyz.mean(dim=0)
+            location[0] = mean_xyz[0]
+            location[1] = mean_xyz[1]
+
         # # Navigate close to that location
         # # TODO solve the system of equations to get k such that the distance is .75 meters
         instance_pose = self.get_pose_for_best_view(instance_id)
@@ -605,7 +619,7 @@ class SpotDemoAgent:
 
         robot_center = np.zeros(3)
         robot_center[:2] = self.spot.current_position[:2]
-        if self.parameters["visualize"]:
+        if self.should_visualize():
             self.voxel_map.show(backend="open3d", orig=robot_center, instances=True)
         instances = self.voxel_map.get_instances()
         blacklist = []
@@ -722,7 +736,7 @@ class SpotDemoAgent:
                 self.say(f"Instance id: {pick_instance_id}")
                 success = self.navigate_to_an_instance(
                     pick_instance_id,
-                    visualize=self.parameters["visualize"],
+                    visualize=self.should_visualize(),
                     should_plan=self.parameters["plan_to_instance"],
                 )
                 self.say(f"Success: {success}")
@@ -773,7 +787,7 @@ class SpotDemoAgent:
                     print(f"Instance id: {place_instance_id}")
                     success = self.navigate_to_an_instance(
                         place_instance_id,
-                        visualize=self.parameters["visualize"],
+                        visualize=self.should_visualize(),
                         should_plan=self.parameters["plan_to_instance"],
                     )
                     print(f"navigated to place {success=}")
@@ -828,11 +842,11 @@ class SpotDemoAgent:
         """Run exploration in different environments. Will explore until there's nothing else to find."""
         # Track the number of times exploration failed
         explore_failures = 0
-        for step in range(int(self.parameters["exploration_steps"])):
+        for exploration_step in range(int(self.parameters["exploration_steps"])):
             # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
             print(
                 "-" * 20,
-                step + 1,
+                exploration_step + 1,
                 "/",
                 int(self.parameters["exploration_steps"]),
                 "-" * 20,
@@ -927,10 +941,11 @@ class SpotDemoAgent:
                 self.spot.navigate_to(goal)
 
             if not self.parameters["use_async_subscriber"]:
-                self.update(step + 1)
+                # Synchronous updates
+                self.update()
 
-            if step % 1 == 0 and self.parameters["visualize"]:
-                self.visualize(start, goal, step)
+            if self.step % 1 == 0 and self.should_visualize():
+                self.visualize(start, goal)
 
 
 # def main(dock: Optional[int] = 549):
@@ -1001,9 +1016,12 @@ def main(dock: Optional[int] = None, args=None):
             if start is None:
                 start = demo.spot.current_position
             if voxel_map.get_instances() is not None:
-                pc_xyz, pc_rgb = voxel_map.show(
-                    backend="open3d", instances=False, orig=np.zeros(3)
-                )
+                if demo.should_visualize():
+                    pc_xyz, pc_rgb = voxel_map.show(
+                        backend="open3d", instances=False, orig=np.zeros(3)
+                    )
+                else:
+                    pc_xyz, pc_rgb = voxel_map.get_xyz_rgb()
                 pcd_filename = f"{path}/spot_output_{timestamp}.pcd"
                 pkl_filename = f"{path}/spot_output_{timestamp}.pkl"
                 logger.info("Writing data...")
@@ -1024,7 +1042,7 @@ def main(dock: Optional[int] = None, args=None):
                 if goal is not None:
                     navigation_space.draw_state_on_grid(img, goal, weight=5)
                 plt.imshow(img)
-                if demo.parameters["visualize"]:
+                if demo.should_visualize():
                     plt.show()
                 plt.imsave(f"{path}/exploration_step_final.png", img)
 

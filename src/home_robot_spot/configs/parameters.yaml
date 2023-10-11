@@ -38,10 +38,11 @@ max_size: 40  # Can probably be bigger than original (10)
 # Grasping and placing parameters
 plan_to_instance: True
 verify_before_grasp: False
-nbr_dist: 0.2  # 0.15
+nbr_dist: 0.2  # Was originally 0.15 in Sasha's code
 residual_thresh: 0.03
 pick_place_radius: 2.0
-place_offset: 0.75  # after orienting to the place location, move until within this offset
+place_offset: 0.5  # after orienting to the place location, move until within this offset
+force_place_at_center: True
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
