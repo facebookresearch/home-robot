@@ -160,7 +160,7 @@ class SparseVoxelMap(object):
         # We then just need to update everything when we want to track obstacles
         self.grid_origin = Tensor(self.grid_size + [0], device=map_2d_device) // 2
         # Used to track the offset from our observations so maps dont use too much space
-        self._map_offset = None
+
         # Used for tensorized bounds checks
         self._grid_size_t = Tensor(self.grid_size, device=map_2d_device)
 
@@ -437,6 +437,8 @@ class SparseVoxelMap(object):
         x1 = int(map_xy[0] + self._disk_size + 1)
         y0 = int(map_xy[1] - self._disk_size)
         y1 = int(map_xy[1] + self._disk_size + 1)
+        assert x0 >= 0
+        assert y0 >= 0
         self._visited[x0:x1, y0:y1] += self._visited_disk
 
     def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
@@ -590,14 +592,9 @@ class SparseVoxelMap(object):
         # Convert metric measurements to discrete
         # Gets the xyz correctly - for now everything is assumed to be within the correct distance of origin
         xyz, _, counts, _ = self.voxel_pcd.get_pointcloud()
-        if self._map_offset is None:
-            self._map_offset = xyz.mean(dim=0)
-            self._map_offset[2] = 0
 
         device = xyz.device
-        xyz = (
-            ((xyz - self._map_offset) / self.grid_resolution) + self.grid_origin
-        ).long()
+        xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
         xyz[xyz[:, -1] < 0, -1] = 0
 
         # from home_robot.utils.point_cloud import show_point_cloud
