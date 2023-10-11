@@ -183,7 +183,7 @@ class SpotDemoAgent:
         self.vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
         self.semantic_sensor.update_vocabulary_list(self.vocab, 0)
         self.semantic_sensor.set_vocabulary(0)
-        
+
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
         with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
             pickle.dump(self.semantic_sensor.seg_id_to_name, f)
