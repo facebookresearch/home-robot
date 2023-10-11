@@ -1,13 +1,12 @@
 # Perception parameters
 encoder: "clip"
 clip: "ViT-B/32"
-category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
 
 # Planner parameters
 step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
 rotation_step_size: 0.25
-visualize: False
-exploration_steps: 5
+visualize: True
+exploration_steps: 10
 shortcut_iter: 250
 extend_mode: "joint"  # joint = rotate and move at the same time
 # extend_mode: "separate"
@@ -45,7 +44,6 @@ residual_thresh: 0.03
 pick_place_radius: 2.0
 place_offset: 0.5  # after orienting to the place location, move until within this offset
 force_place_at_center: True
-gripper_offset_x: 0.25
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5

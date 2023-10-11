@@ -190,7 +190,7 @@ class SpotDemoAgent:
         print("- Create and load vocabulary and perception model")
         self.semantic_sensor = OvmmPerception(config, 0, True, module="detic")
         obj_name_to_id, rec_name_to_id = read_category_map_file(
-            config.ENVIRONMENT.category_map_file
+            self.parameters["category_map_file"]
         )
         self.vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
         self.semantic_sensor.update_vocabulary_list(self.vocab, 0)
@@ -431,14 +431,14 @@ class SpotDemoAgent:
         z = location[2] - self.spot.spot.body.z + place_height
         local_xyz = np.array([local_xyt[0], local_xyt[1], z])
         rotations = np.array([0, 0, 0])
+        local_xyz[0] += self.parameters["gripper_offset_x"]
 
         # Now we place
         self.spot.spot.move_gripper_to_point(local_xyz, rotations)
-        time.sleep(2)
-        arm = self.spot.spot.get_arm_joint_positions()
+        # arm = self.spot.spot.get_arm_joint_positions()
         # arm[-1] = place_rotation[-1]
         # arm[-2] = place_rotation[0]
-        self.spot.spot.set_arm_joint_positions(arm, travel_time=1.5)
+        # self.spot.spot.set_arm_joint_positions(arm, travel_time=1.5)
         time.sleep(2)
         self.spot.spot.open_gripper()
 
@@ -507,6 +507,7 @@ class SpotDemoAgent:
                 goal_position = goal
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
+                should_plan = False
 
         # Finally, navigate to the final position
         logger.info(
@@ -520,22 +521,26 @@ class SpotDemoAgent:
             goal_position,
             self.spot.current_position,
         )
+        logger.info("Used motion planning to find gaze location: {should_plan}")
 
         if visualize:
             cropped_image = view.cropped_image
             plt.imshow(cropped_image)
             plt.show()
-            plt.imsave(f"instance_{instance_id}.png", cropped_image)
+            plt.imsave(
+                f"instance_{instance_id}.png", cropped_image.cpu().numpy() / 255.0
+            )
 
+        input("ready to grasp or place")
         return True
 
     def goto(self, goal: np.ndarray):
-        """Send the spot to the correct location."""
+        """Send the spot to the correct location from wherever it is. Try to plan there."""
         start = self.spot.current_position
 
         #  Build plan
         res = self.planner.plan(start, goal)
-        logger.info("[demo.goto] Goal: {}", goal)
+        logger.info("[demo.goto] Goal: {} From: {}", goal, start)
         if res:
             logger.success("[demo.goto] Res success: {}", res.success)
         else:
@@ -1001,8 +1006,8 @@ def main(dock: Optional[int] = None, args=None):
         logger.success("Spot started")
         logger.info("Sleep 1s")
         time.sleep(0.5)
-        logger.info("Start exploring!")
         x0, y0, theta0 = spot.current_position
+        logger.info(f"Start exploring from {x0=}, {y0=}, {theta0=}")
 
         # Start thread to update voxel map
         if parameters["use_async_subscriber"]:
