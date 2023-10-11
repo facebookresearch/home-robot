@@ -46,6 +46,7 @@ pick_place_radius: 2.0
 place_offset: 0.5  # after orienting to the place location, move until within this offset
 force_place_at_center: True
 gripper_offset_x: 0.20
+place_height: 0.2
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5

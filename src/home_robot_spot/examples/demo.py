@@ -521,7 +521,7 @@ class SpotDemoAgent:
             goal_position,
             self.spot.current_position,
         )
-        logger.info("Used motion planning to find gaze location: {should_plan}")
+        logger.info(f"Used motion planning to find gaze location: {should_plan}")
 
         if visualize:
             cropped_image = view.cropped_image
@@ -531,7 +531,8 @@ class SpotDemoAgent:
                 f"instance_{instance_id}.png", cropped_image.cpu().numpy() / 255.0
             )
 
-        input("ready to grasp or place")
+        logger.info("Wait for a second and then try to grasp/place!")
+        time.sleep(1.0)
         return True
 
     def goto(self, goal: np.ndarray):
@@ -828,6 +829,7 @@ class SpotDemoAgent:
                         location,
                         vf,
                         place_rotation=rot,
+                        place_height=self.parameters["place_height"],
                     )
 
                 """
