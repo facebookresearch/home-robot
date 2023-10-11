@@ -40,7 +40,7 @@ plan_to_instance: True
 verify_before_grasp: False
 nbr_dist: 0.2  # 0.15
 residual_thresh: 0.03
-pick_place_radius: 1.5
+pick_place_radius: 2.0
 place_offset: 0.75  # after orienting to the place location, move until within this offset
 
 # Trajectory execution
@@ -61,3 +61,6 @@ use_get_close: False
 best_view_metric: "area"
 command: "move a stuffed toy to a chair"
 confirm_plan: False
+
+# User interface
+chat: False

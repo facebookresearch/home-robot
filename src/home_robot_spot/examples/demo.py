@@ -12,18 +12,20 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
-import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
+from loguru import logger
+from PIL import Image
+
+import home_robot_spot.nav_client as nc
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from home_robot.utils.demo_chat import DemoChat
 from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
 from home_robot.mapping.voxel import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
@@ -36,23 +38,21 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
 )
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.config import Config, get_config, load_config
+from home_robot.utils.demo_chat import DemoChat
 from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-from loguru import logger
-from PIL import Image
 
 ## Temporary hack until we make accel-cortex pip installable
 print("Make sure path to accel-cortex base folder is set")
 sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
 import grpc
-import src.rpc.task_rpc_env_pb2
-from task_rpc_env_pb2_grpc import AgentgRPCStub
-
 import src.rpc
+import src.rpc.task_rpc_env_pb2
 from src.utils.observations import ObjectImage, Observations, ProtoConverter
+from task_rpc_env_pb2_grpc import AgentgRPCStub
 
 
 # NOTE: this requires 'pip install atomicwrites'
@@ -211,7 +211,10 @@ class SpotDemoAgent:
             hor_grasp=True,
         )
 
-        self.chat = DemoChat(f"{self.path}/demo_chat.json")
+        if self.parameters["chat"]:
+            self.chat = DemoChat(f"{self.path}/demo_chat.json")
+        else:
+            self.chat = None
 
     def set_objects_for_grasping(self, objects: List[List[str]]):
         """Set the objects used for grasping"""
@@ -329,6 +332,20 @@ class SpotDemoAgent:
         # Should we display after spinning? If visualize is true we will
         if self.parameters["visualize"]:
             self.voxel_map.show()
+
+    def say(self, msg: str):
+        """Provide input either on the command line or via chat client"""
+        if self.chat is not None:
+            self.chat.output(msg)
+        else:
+            print(msg)
+
+    def ask(self, msg: str) -> str:
+        """Receive input from the user either via the command line or something else"""
+        if self.chat is not None:
+            return self.chat.input(msg)
+        else:
+            return input(msg)
 
     def update(self, step=0):
         time.sleep(0.1)
@@ -701,17 +718,14 @@ class SpotDemoAgent:
                         break
                 success = True
             else:
-                print("Navigating to instance ")
-                self.chat.output("Navigating to instance ")
-                print(f"Instance id: {pick_instance_id}")
-                self.chat.output(f"Instance id: {pick_instance_id}")
+                self.say("Navigating to instance ")
+                self.say(f"Instance id: {pick_instance_id}")
                 success = self.navigate_to_an_instance(
                     pick_instance_id,
                     visualize=self.parameters["visualize"],
                     should_plan=self.parameters["plan_to_instance"],
                 )
-                print(f"Success: {success}")
-                self.chat.output(f"Success: {success}")
+                self.say(f"Success: {success}")
 
                 # # try to pick up this instance
                 # if success:
@@ -722,7 +736,7 @@ class SpotDemoAgent:
                     int(instances[pick_instance_id].category_id.item())
                 ]
                 if self.parameters["verify_before_grasp"]:
-                    opt = self.chat.input(f"Grasping {object_category_name}..., y/n?: ")
+                    opt = self.ask(f"Grasping {object_category_name}..., y/n?: ")
                 else:
                     opt = "y"
                 if opt == "n":
