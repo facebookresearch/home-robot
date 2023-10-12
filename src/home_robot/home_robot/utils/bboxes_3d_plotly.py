@@ -61,6 +61,7 @@ from pytorch3d.vis.plotly_vis import (
     _is_ray_bundle,
     _scale_camera_to_bounds,
     _update_axes_bounds,
+    get_camera_wireframe,
 )
 from torch import Tensor
 

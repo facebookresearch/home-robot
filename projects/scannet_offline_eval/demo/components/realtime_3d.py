@@ -4,18 +4,21 @@
 # LICENSE file in the root directory of this source tree.
 import logging
 import math
+from collections import Counter
 
 import dash
 import dash_bootstrap_components as dbc
 import plotly.colors as clrs
+import plotly.graph_objects as go
 import torch
 from dash import Patch
 from dash.exceptions import PreventUpdate
 
 # from dash.dependencies import Input, Output, State
-from dash_extensions.enrich import Input, Output, State, dcc, html
+from dash_extensions.enrich import Input, Output, State, ctx, dcc, html
+from pytorch3d.vis.plotly_vis import get_camera_wireframe
 
-from .app import app, svm_watcher
+from .app import app, app_config, svm_watcher
 
 n_points_to_add = 1000
 from loguru import logger
@@ -39,13 +42,15 @@ def make_layout(figure, update_frequency_ms):
                 disabled=True,
             ),
             dcc.Store(id="realtime-3d-obs-count"),
+            dcc.Store(id="realtime-3d-fig-names"),
+            dcc.Store(id="realtime-3d-camera-coords"),
         ]
     )
 
 
 def get_plot_idx_by_name(data, name: str) -> int:
     for i, trace in enumerate(data):
-        if trace["name"] == name:
+        if trace == name:
             return i
     return None
 
@@ -53,25 +58,24 @@ def get_plot_idx_by_name(data, name: str) -> int:
 def update_axis(final_length, axis_range, axis_dict):
     axis_dict["range"] = [axis_range[0].item(), axis_range[1].item()]
     axis_dict["nticks"] = int(math.ceil(axis_range[1] - axis_range[0]))
-
-    # mean = (axis_range[1] - axis_range[0]) / 2.0
-    # axis_dict['range'] = [#[axis_range[0].item(), axis_range[1].item()]
-    #         float(mean - (final_length / 2.0)),
-    #         float(mean + (final_length / 2.0)),
-    #     ]
-    # axis_dict['nticks'] = int(math.ceil(final_length))
-    # logger.info(f'{float(mean - final_length / 2.0)} {float(mean + final_length / 2.0)} ({final_length=})')
     axis_dict["type"] = "scatter"
 
 
 @app.callback(
-    [Output("realtime-3d-fig", "figure"), Output("realtime-3d-obs-count", "data")],
+    [
+        Output("realtime-3d-fig", "figure"),
+        Output("realtime-3d-obs-count", "data"),
+        Output("realtime-3d-fig-names", "data"),
+    ],
     #   [Input('get-new-data-3d', 'n_clicks')],
-    [Input("realtime-3d-interval", "n_intervals")],
-    [State("realtime-3d-fig", "figure"), State("realtime-3d-obs-count", "data")],
-    blocking=True,
+    [
+        Input("realtime-3d-interval", "n_intervals"),
+        Input("realtime-3d-camera-coords", "data"),
+    ],
+    [State("realtime-3d-fig-names", "data"), State("realtime-3d-obs-count", "data")],
+    blocking=False,
 )
-def add_new_points(submit_n_clicks, existing, next_obs):
+def add_new_points(submit_n_clicks, camera_coords, existing, next_obs):
     """
     Unfortunately extendData can only modify the points -- it doesn't allow updating of the marker colors
     which we would need in order to show the colored pointcloud
@@ -90,7 +94,9 @@ def add_new_points(submit_n_clicks, existing, next_obs):
             3: robot mesh
     """
     new_next_obs = len(svm_watcher.points)
-    points_idx = get_plot_idx_by_name(existing["data"], "Points")
+    if existing is None:
+        existing = ["Points"]
+    points_idx = get_plot_idx_by_name(existing, "Points")
     if points_idx is None:
         raise ValueError("Unknown trace 'Points'")
 
@@ -106,58 +112,127 @@ def add_new_points(submit_n_clicks, existing, next_obs):
             f"[NOOP] Client has current obs (client: {next_obs}, server: {new_next_obs})"
         )
         raise PreventUpdate
+    if (
+        ctx.triggered_id == "realtime-3d-camera-coords"
+        and get_plot_idx_by_name(existing, "Camera") is not None
+    ):
+        target_idx = get_plot_idx_by_name(existing, "Camera")
+        update_or_create_camera_trace(
+            patched_figure,
+            target_idx,
+            svm_watcher.cam_coords,
+            wireframe_scale=0.2,
+            linewidth=4,
+            color="red",
+            name="Camera",
+        )
+        return patched_figure, next_obs, existing
 
     # Add new points
-    points_trace = existing["data"][points_idx]
-
     points = svm_watcher.points[next_obs:new_next_obs]
     rgb = svm_watcher.rgb[next_obs:new_next_obs]
-    bounds = svm_watcher.bounds[new_next_obs - 1]
-    box_bounds = svm_watcher.bounds[new_next_obs - 1]
+    global_bounds = svm_watcher.bounds[new_next_obs - 1]
+    box_bounds = svm_watcher.box_bounds[
+        new_next_obs - 1
+    ]  # For some reason doing this causes various index and other errors
 
     points = torch.cat(points, dim=0)
     x, y, z = [v.cpu().detach().numpy().tolist() for v in points.unbind(1)]
-    patched_figure["data"][points_idx]["x"].extend(x)
-    patched_figure["data"][points_idx]["y"].extend(y)
-    patched_figure["data"][points_idx]["z"].extend(z)
+    points_trace = patched_figure["data"][points_idx]
+    points_trace["x"].extend(x)
+    points_trace["y"].extend(y)
+    points_trace["z"].extend(z)
 
     rgb = torch.cat(rgb, dim=0).cpu().detach().numpy()
     rgb = [clrs.label_rgb(clrs.convert_to_RGB_255(c)) for c in rgb]
+    points_trace["marker"]["color"].extend(rgb)
+    trace_names = ["Points"]
 
-    patched_figure["data"][points_idx]["marker"]["color"].extend(rgb)
+    # Camera
+    target_idx = get_plot_idx_by_name(existing, "Camera")
+    if target_idx is None:
+        update_or_create_camera_trace(
+            patched_figure,
+            target_idx,
+            svm_watcher.cam_coords,
+            wireframe_scale=0.2,
+            linewidth=4,
+            color="red",
+            name="Camera",
+        )
+    trace_names += ["Camera"]
 
-    # Update bounds
-    mins, maxs = bounds.unbind(-1)
-    maxlen = (maxs - mins).max().item()
-    update_axis(maxlen, bounds[0], patched_figure["layout"]["scene"]["xaxis"])
-    update_axis(maxlen, bounds[1], patched_figure["layout"]["scene"]["yaxis"])
-    update_axis(maxlen, bounds[2], patched_figure["layout"]["scene"]["zaxis"])
-    patched_figure["layout"]["scene"]["aspectmode"] = "data"
-    # patched_figure["layout"]["scene"]["xaxis"]["range"] = [
-    #     mins[0].item(),
-    #     maxs[0].item(),
-    # ]
-    # patched_figure["layout"]["scene"]["xaxis"]["type"] = "scatter"
+    # Add target box
+    target_idx = get_plot_idx_by_name(existing, "Target object")
+    nan_tensor = torch.Tensor([[float("NaN")] * 3])
+    target_box_idx = 7 if len(svm_watcher.box_bounds[new_next_obs - 1]) >= 8 else 0
+    target_box_bounds = (
+        svm_watcher.box_bounds[new_next_obs - 1][target_box_idx]
+        if target_box_idx is None
+        else nan_tensor.unsqueeze(1)
+    )
 
-    # patched_figure["layout"]["scene"]["yaxis"]["range"] = [
-    #     mins[1].item(),
-    #     maxs[1].item(),
-    # ]
-    # patched_figure["layout"]["scene"]["yaxis"]["type"] = "scatter"
+    logger.info(f"Target box idx: {target_box_idx}")
+    update_or_create_box_trace(
+        patched_figure,
+        # existing,
+        target_idx,
+        box_bounds=svm_watcher.box_bounds[new_next_obs - 1][target_box_idx],
+        box_name="Target object",
+        linewidth=app_config.target_box_width,
+        color="lime",
+        mode="lines",
+        linestyle="dash",
+    )
+    trace_names += ["Target object"]
 
-    # patched_figure["layout"]["scene"]["zaxis"]["range"] = [
-    #     mins[2].item(),
-    #     maxs[2].item(),
-    # ]
-    # patched_figure["layout"]["scene"]["zaxis"]["type"] = "scatter"
-    # patched_figure["layout"]["scene"]["zaxis"]["type"] = "scatter"
-    # patched_figure["layout"]["scene"]["zaxis"]["type"] = "scatter"
+    # # Add boxes
+    # boxes_idx = get_plot_idx_by_name(existing["data"], "IB")
+    # update_combined_box_trace(patched_figure['data'][boxes_idx], new_next_obs-1)
+    # n_boxes = len(svm_watcher.box_names[new_next_obs-1])
 
     # Add boxes
-    boxes_idx = get_plot_idx_by_name(existing["data"], "IB")
-    all_box_wires = get_bbox_wireframe(
-        svm_watcher.box_bounds[new_next_obs - 1], add_cross_face_bars=False
+    box_names = create_separate_box_traces(
+        patched_figure, existing, len(trace_names), new_next_obs - 1
     )
+    trace_names += box_names
+    patched_figure["layout"]["annotations"][0][
+        "text"
+    ] = f"Target: {box_names[target_box_idx]}"
+
+    # Update bounds
+    mins, maxs = global_bounds.unbind(-1)
+    box_mins = svm_watcher.box_bounds[new_next_obs - 1].min(dim=0).values[..., 0]
+    box_maxs = svm_watcher.box_bounds[new_next_obs - 1].max(dim=0).values[..., 1]
+    mins, maxs = torch.min(mins, box_mins), torch.max(maxs, box_maxs)
+    new_global_bounds = torch.stack([mins, maxs], dim=-1)
+    maxlen = (maxs - mins).max().item()
+    update_axis(
+        maxlen, new_global_bounds[0], patched_figure["layout"]["scene"]["xaxis"]
+    )
+    update_axis(
+        maxlen, new_global_bounds[1], patched_figure["layout"]["scene"]["yaxis"]
+    )
+    update_axis(
+        maxlen, new_global_bounds[2], patched_figure["layout"]["scene"]["zaxis"]
+    )
+    patched_figure["layout"]["scene"]["aspectmode"] = "data"
+    patched_figure["layout"]["uirevision"] = True
+
+    logger.debug(
+        f"[UPDATING CLIENT] obs {next_obs=} -> {new_next_obs=} (sending {len(points)} points & {len(box_names)} boxes)"
+    )
+    return [patched_figure, new_next_obs, trace_names]
+
+
+def update_combined_box_trace(patched_trace, obs_idx):
+    box_names = svm_watcher.box_names[obs_idx]
+    all_box_wires = get_bbox_wireframe(
+        svm_watcher.box_bounds[obs_idx], add_cross_face_bars=False
+    )
+    if len(box_names) > 0:
+        logger.info([svm_watcher._vocab[class_idx.item()] for class_idx in box_names])
+
     all_box_wires = all_box_wires.detach().cpu()
     if all_box_wires.ndim == 2:
         all_box_wires = all_box_wires.unsqueeze(0)
@@ -172,16 +247,106 @@ def add_new_points(submit_n_clicks, existing, next_obs):
         box_wires_padded = torch.cat((box_wires_padded, nan_tensor, wire))
 
     box_x, box_y, box_z = box_wires_padded.detach().cpu().numpy().T.astype(float)
-    patched_figure["data"][boxes_idx]["x"] = box_x.tolist()
-    patched_figure["data"][boxes_idx]["y"] = box_y.tolist()
-    patched_figure["data"][boxes_idx]["z"] = box_z.tolist()
-    logger.debug(
-        f"[UPDATING CLIENT] obs {next_obs=} -> {new_next_obs=} (sending {len(points)} points & {len(all_box_wires)} boxes)"
-    )
+    patched_trace["x"] = box_x.tolist()
+    patched_trace["y"] = box_y.tolist()
+    patched_trace["z"] = box_z.tolist()
 
-    # import pprint
 
-    # pp = pprint.PrettyPrinter(width=80, compact=True)
-    # pp.pprint(existing["data"][boxes_idx])
+def update_or_create_box_trace(
+    patched_figure,
+    target_idx,
+    box_bounds,
+    box_name,
+    linewidth=3,
+    color=None,
+    mode="lines+text",
+    linestyle="solid",
+    **scatter_kwargs,
+):
+    target_box_wires = get_bbox_wireframe(
+        box_bounds.unsqueeze(0), add_cross_face_bars=False
+    )[0]
+    t_box_x, t_box_y, t_box_z = target_box_wires.detach().cpu().numpy().T.astype(float)
 
-    return [patched_figure, new_next_obs]
+    if target_idx is None:
+        text = [""] * (len(t_box_x))
+        text[
+            7
+        ] = box_name  # Magic number -- we want to add labels _above_ a corner of the box. So we display text above a vertex that's on top
+        patched_figure["data"].append(
+            go.Scatter3d(
+                x=t_box_x.tolist(),
+                y=t_box_y.tolist(),
+                z=t_box_z.tolist(),
+                mode=mode,
+                marker={
+                    "size": 1,
+                    "color": color,
+                },
+                text=text,
+                textposition="top right",
+                line=dict(width=linewidth, color=color, dash=linestyle),
+                name=box_name,
+            ),
+        )
+    else:
+        patched_figure["data"][target_idx]["x"] = t_box_x.tolist()
+        patched_figure["data"][target_idx]["y"] = t_box_y.tolist()
+        patched_figure["data"][target_idx]["z"] = t_box_z.tolist()
+
+
+def create_separate_box_traces(
+    patched_figure, existing_figure, trace_start_idx, obs_idx
+):
+    counts = Counter()
+    box_class_names = []
+    for box_idx in range(len(svm_watcher.box_names[obs_idx])):
+        target_idx = trace_start_idx + box_idx
+        if len(existing_figure) <= target_idx:
+            target_idx = None
+        box_class = svm_watcher.box_names[obs_idx][box_idx].item()
+        box_class_name = svm_watcher._vocab[box_class]
+        counts[box_class] += 1
+        box_name = f"{box_class_name}-{counts[box_class]}"
+        box_class_names.append(box_name)
+        update_or_create_box_trace(
+            patched_figure=patched_figure,
+            target_idx=target_idx,
+            box_bounds=svm_watcher.box_bounds[obs_idx][box_idx],
+            box_name=f"{box_class_name}-{counts[box_class]}",
+        )
+    return box_class_names
+
+
+def update_or_create_camera_trace(
+    patched_figure,
+    trace_idx,
+    cam_coords,
+    wireframe_scale=0.5,
+    linewidth=3,
+    color="red",
+    name="Camera",
+):
+    x, y, z = cam_coords["x"], cam_coords["y"], cam_coords["z"]
+    if trace_idx is None:
+        patched_figure["data"].append(
+            go.Scatter3d(
+                x=x,
+                y=y,
+                z=z,
+                mode="lines",
+                marker={
+                    "size": 1,
+                    "color": color,
+                },
+                line=dict(
+                    width=linewidth,
+                    color=color,
+                ),
+                name=name,
+            )
+        )
+    else:
+        patched_figure["data"][trace_idx]["x"] = x
+        patched_figure["data"][trace_idx]["y"] = y
+        patched_figure["data"][trace_idx]["z"] = z

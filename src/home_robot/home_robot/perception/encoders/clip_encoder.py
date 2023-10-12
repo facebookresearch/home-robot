@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from PIL import Image
 
+
 class ClipEncoder:
     """Simple wrapper for encoding different things as text."""
 
@@ -22,7 +23,7 @@ class ClipEncoder:
     def encode_image(self, image: np.ndarray):
         """Encode this input image to a CLIP vector"""
         if isinstance(image, torch.Tensor):
-            image = image.cpu().numpy()
+            image = image.cpu().numpy() * 255
         image = image.astype(np.uint8)
         pil_image = Image.fromarray(image)
         processed_image = self.preprocess(pil_image).unsqueeze(0).to(self.device)
