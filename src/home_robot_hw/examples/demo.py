@@ -274,6 +274,7 @@ class DemoAgent:
         visualize: bool = False,
         task_goal: str = None,
         go_home_at_end: bool = False,
+        show_goal: bool = False,
     ) -> Optional[Instance]:
         """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0).
 
@@ -575,11 +576,7 @@ def main(
 
     if show_final_map:
         pc_xyz, pc_rgb = demo.collector.show()
-
-        import matplotlib.pyplot as plt
-
         obstacles, explored = demo.collector.get_2d_map()
-
         plt.subplot(1, 2, 1)
         plt.imshow(obstacles)
         plt.subplot(1, 2, 2)

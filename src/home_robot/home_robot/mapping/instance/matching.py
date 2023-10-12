@@ -63,9 +63,9 @@ def dot_product_similarity(feats1, feats2, normalize=True):
     Returns:
         N x M tensor of similarities
     """
-    if len(feats1) == 0:
+    if feats1 is None or len(feats1) == 0:
         return None
-    if len(feats2) == 0:
+    if feats2 is None or len(feats2) == 0:
         return None
     if not isinstance(feats1, Tensor):
         feats1 = torch.stack(feats1, dim=0)

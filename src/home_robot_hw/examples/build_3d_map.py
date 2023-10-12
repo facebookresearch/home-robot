@@ -96,10 +96,13 @@ def run_exploration(
     dry_run: bool = False,
     random_goals: bool = False,
     visualize: bool = False,
+    show_goal: bool = True,
 ):
     """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0).
 
     Args:
+        collector(DataCollector): provides interface for receiving data from environment
+        robot(RobotClient): provides abstract interface to robot control
         visualize(bool): true if we should do intermediate debug visualizations"""
     rate = rospy.Rate(rate)
 
@@ -353,8 +356,6 @@ def main(
                     img = np.zeros((H, W, 3))
                     img[:, :, 0] = obstacles
                     img[:, :, 2] = explored
-                    import torch
-
                     states = torch.zeros_like(obstacles).float()
                     space.draw_state_on_grid(states, start, weight=5)
                     space.draw_state_on_grid(states, goal, weight=5)
