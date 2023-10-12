@@ -39,8 +39,10 @@ class Interval(threading.Thread):
 
     """
 
-    def __init__(self, fn: Callable, sleep_time: float, count: int = None):
-        threading.Thread.__init__(self)
+    def __init__(
+        self, fn: Callable, sleep_time: float, count: int = None, daemon=False
+    ):
+        threading.Thread.__init__(self, daemon=daemon)
         self.event = threading.Event()
         self.fn = fn
         self.count = count

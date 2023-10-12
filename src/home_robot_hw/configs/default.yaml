@@ -29,7 +29,8 @@ trajectory_per_step_timeout: 3.0
 chat: True
 start_ui_server: False
 vlm_context_length: 20
- 
+limited_obs_publish_sleep: 0.5
+
 # High level stuff
 name: "stretch_demo"
 # command: "pick up a bottle and put it on the chair"
