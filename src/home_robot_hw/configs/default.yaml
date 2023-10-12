@@ -28,7 +28,8 @@ trajectory_per_step_timeout: 3.0
 # User interface
 chat: True
 start_ui_server: True
- 
+limited_obs_publish_sleep: 0.5
+
 # High level stuff
 name: "stretch_demo"
 exploration_steps: 20
