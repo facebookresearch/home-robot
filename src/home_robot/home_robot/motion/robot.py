@@ -74,7 +74,7 @@ class Footprint:
         return mask.squeeze(0).squeeze(0).bool()
 
 
-class Robot(abc.ABC):
+class RobotModel(abc.ABC):
     """placeholder"""
 
     def __init__(

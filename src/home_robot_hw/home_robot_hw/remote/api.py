@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 import rospy
@@ -10,7 +10,7 @@ import torch
 
 from home_robot.core.interfaces import Observations
 from home_robot.core.robot import ControlMode, RobotClient
-from home_robot.motion.robot import Robot
+from home_robot.motion.robot import RobotModel
 from home_robot.motion.stretch import (
     STRETCH_DEMO_PREGRASP_Q,
     STRETCH_NAVIGATION_Q,
@@ -135,8 +135,8 @@ class StretchClient(RobotClient):
 
     # Other interfaces
 
-    @property
-    def robot_model(self) -> Robot:
+    def get_robot_model(self) -> RobotModel:
+        """return a model of the robot for planning. Overrides base class method"""
         return self._robot_model
 
     @property
@@ -211,6 +211,17 @@ class StretchClient(RobotClient):
     def get_base_pose(self) -> np.ndarray:
         """Get the robot's base pose as XYT."""
         return self.nav.get_base_pose()
+
+    def navigate_to(
+        self,
+        xyt: Iterable[float],
+        relative: bool = False,
+        blocking: bool = True,
+    ):
+        """
+        Move to xyt in global coordinates or relative coordinates. Cannot be used in manipulation mode.
+        """
+        return self.nav.navigate_to(xyt, relative=relative, blocking=blocking)
 
     def get_observation(
         self, rotate_head_pts=False, start_pose: Optional[np.ndarray] = None

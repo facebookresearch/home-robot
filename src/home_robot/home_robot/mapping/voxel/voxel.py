@@ -19,7 +19,7 @@ from torch import Tensor
 
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.instance import Instance, InstanceMemory, InstanceView
-from home_robot.motion import PlanResult, Robot
+from home_robot.motion import PlanResult, RobotModel
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
@@ -833,7 +833,7 @@ class SparseVoxelMap(object):
         else:
             return None
 
-    def xyt_is_safe(self, xyt: np.ndarray, robot: Optional[Robot] = None) -> bool:
+    def xyt_is_safe(self, xyt: np.ndarray, robot: Optional[RobotModel] = None) -> bool:
         """Check to see if a given xyt position is known to be safe."""
         if robot is not None:
             raise NotImplementedError(
