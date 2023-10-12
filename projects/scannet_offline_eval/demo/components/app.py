@@ -173,7 +173,7 @@ class SparseVoxelMapDirectoryWatcher:
         # self.rgb_jpeg = cv2.imencode(".jpg", rgb_image.astype(np.uint8))[1].tobytes()
 
         # rgb_ten = rgb_image[..., RGB_TO_BGR] if self.convert_rgb_to_bgr else obs["rgb"]
-        rgb_ten = (torch.flip(obs["map_im"], dims=(0, 1)) > 0) * 255
+        rgb_ten = (torch.flip(obs["obstacles"], dims=(0, 1)) > 0) * 255
         rgb_ten = rgb_ten[256:-256, 256:-256]
         self.rgb_jpeg = cv2.imencode(".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8))[
             1

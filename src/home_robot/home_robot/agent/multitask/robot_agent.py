@@ -208,8 +208,10 @@ class RobotAgent:
     def __del__(self):
         """Clean up at the end if possible"""
         if self.parameters["start_ui_server"]:
+            print("Stopping UI server...")
             stop_demo_ui_server()
         if self._publisher is not None:
+            print("Stopping publisher...")
             self._publisher.cancel()
 
     def publish_limited_obs(self):
@@ -333,7 +335,7 @@ class RobotAgent:
             print(i, name, instance.score)
 
     def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = False):
-        if self.chat is not None:
+        if self._publisher is not None:
             self._publisher.start()
         # Tuck the arm away
         print("Sending arm to  home...")
