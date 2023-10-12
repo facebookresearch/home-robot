@@ -35,7 +35,6 @@ from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.visualizer import Visualizer
-from home_robot_hw.utils.collector import RosMapDataCollector
 
 
 def run_grasping(
@@ -198,7 +197,7 @@ def main(
         rospy.signal_shutdown("done")
         return
 
-    print("- Start ROS data collector")
+    print("- Start robot agent with data collection")
     parameters = get_config("src/home_robot_hw/configs/default.yaml")[0]
     demo = RobotAgent(robot, semantic_sensor, parameters)
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
@@ -253,8 +252,8 @@ def main(
                 )
 
     if show_final_map:
-        pc_xyz, pc_rgb = demo.collector.show()
-        obstacles, explored = demo.collector.get_2d_map()
+        pc_xyz, pc_rgb = demo.voxel_map.show()
+        obstacles, explored = demo.voxel_map.get_2d_map()
         plt.subplot(1, 2, 1)
         plt.imshow(obstacles)
         plt.subplot(1, 2, 2)
@@ -270,7 +269,7 @@ def main(
         open3d.io.write_point_cloud(output_pcd_filename, pcd)
     if len(output_pkl_filename) > 0:
         print(f"Write pkl to {output_pkl_filename}...")
-        demo.collector.voxel_map.write_to_pickle(output_pkl_filename)
+        demo.voxel_map.write_to_pickle(output_pkl_filename)
 
     demo.go_home()
     rospy.signal_shutdown("done")

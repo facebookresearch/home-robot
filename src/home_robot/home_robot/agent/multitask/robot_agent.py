@@ -16,7 +16,7 @@ from home_robot.mapping.voxel import (
     plan_to_frontier,
 )
 from home_robot.motion import RRTConnect, Shortcut
-from home_robot.perception.encoders import ClipEncoder
+from home_robot.perception.encoders import get_encoder
 
 
 class RobotAgent:
@@ -34,7 +34,7 @@ class RobotAgent:
         self.pos_err_threshold = parameters["trajectory_pos_err_threshold"]
         self.rot_err_threshold = parameters["trajectory_rot_err_threshold"]
 
-        self.encoder = ClipEncoder("ViT-B/32")
+        self.encoder = get_encoder(parameters["encoder"], parameters["encoder_args"])
 
         # Wrapper for SparseVoxelMap which connects to ROS
         self.voxel_map = SparseVoxelMap(
@@ -308,7 +308,7 @@ class RobotAgent:
                 )
             if visualize:
                 # After doing everything
-                self.collector.show(orig=show_goal)
+                self.voxel_map.show(orig=show_goal)
 
             # if it fails, skip; else, execute a trajectory to this position
             if res.success:
