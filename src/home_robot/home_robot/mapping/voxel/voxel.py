@@ -769,25 +769,24 @@ class SparseVoxelMap(object):
             traces["Points"] = ptc
 
         # Show instances
-        detected_boxes = None
-        if instances and len(self.get_instances()) > 0:
-            bounds, names = zip(
-                *[(v.bounds, v.category_id) for v in self.get_instances()]
-            )
-            detected_boxes = BBoxes3D(
-                bounds=[torch.stack(bounds, dim=0)],
-                # At some point we can color the boxes according to class, but that's not implemented yet
-                # features = [categorcolors],
-                names=[torch.stack(names, dim=0).unsqueeze(-1)],
-            )
-        elif instances and len(self.get_instances()) == 0:
-            detected_boxes = BBoxes3D(
-                bounds=[torch.zeros((2, 3, 2))],
-                # At some point we can color the boxes according to class, but that's not implemented yet
-                # features = [categorcolors],
-                names=[torch.zeros((2, 1), dtype=torch.long)],
-            )
-        if detected_boxes is not None:
+        if instances:
+            if len(self.get_instances()) > 0:
+                bounds, names = zip(
+                    *[(v.bounds, v.category_id) for v in self.get_instances()]
+                )
+                detected_boxes = BBoxes3D(
+                    bounds=[torch.stack(bounds, dim=0)],
+                    # At some point we can color the boxes according to class, but that's not implemented yet
+                    # features = [categorcolors],
+                    names=[torch.stack(names, dim=0).unsqueeze(-1)],
+                )
+            else:
+                detected_boxes = BBoxes3D(
+                    bounds=[torch.zeros((2, 3, 2))],
+                    # At some point we can color the boxes according to class, but that's not implemented yet
+                    # features = [categorcolors],
+                    names=[torch.zeros((2, 1), dtype=torch.long)],
+                )
             traces["IB"] = detected_boxes
 
         # Show cameras

@@ -4,16 +4,20 @@
 # LICENSE file in the root directory of this source tree.
 import asyncio
 import base64
+import math
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 import dash
 import dash_bootstrap_components as dbc
 import openai
+import plotly.graph_objects as go
+from dash import Patch
 from dash.exceptions import PreventUpdate
 from dash_extensions import WebSocket
 from dash_extensions.enrich import DashProxy, Input, Output, State, dcc, html
 from loguru import logger
+from pytorch3d.vis.plotly_vis import get_camera_wireframe
 
 from .app import SparseVoxelMapDirectoryWatcher, app, svm_watcher
 
@@ -68,16 +72,24 @@ class ClientRequestSourceConfig(SourceConfig):
 
     def make_html_element_and_setup_callbacks(self):
         @self.app.callback(
-            [Output(self.image_id, "src")],
+            [Output(self.image_id, "src"), Output("realtime-3d-camera-coords", "data")],
+            # [Output(self.image_id, "src")],
             [Input(self.trigger_id, "n_intervals")],
+            [State("realtime-3d-fig-names", "data")],
             #   [Input("gripper-feed-interval", "n_intervals")],
             blocking=False,
+            prevent_initial_callback=False,
         )
-        def update_gripper_feed(n_intervals):
-            if svm_watcher.rgb_jpeg is None:
+        def update_gripper_feed(n_intervals, trace_names):
+            if svm_watcher.rgb_jpeg is None or trace_names is None:
                 raise PreventUpdate
+
             # logger.debug(f"Updating gripper feed image {svm_watcher.rgb_jpeg.shape}")
-            return f"data:image/jpeg;base64, {base64.b64encode(svm_watcher.rgb_jpeg).decode()}"
+            return [
+                f"data:image/jpeg;base64, {base64.b64encode(svm_watcher.rgb_jpeg).decode()}",
+                svm_watcher.cam_coords,
+            ]
+            # return f"data:image/jpeg;base64, {base64.b64encode(svm_watcher.rgb_jpeg).decode()}"
 
         if not self.trigger_exists:
             if self.trigger_interval_kwargs is None:
@@ -101,7 +113,7 @@ class ServerSideEventSourceConfig(SourceConfig):
         raise NotImplementedError
 
 
-def make_feed(source_cfg):
+def make_feed(source_cfg, name="Live Gripper Feed"):
     trigger_element = source_cfg.make_html_element_and_setup_callbacks()
 
     return dbc.Row(
@@ -110,13 +122,13 @@ def make_feed(source_cfg):
                 [
                     dbc.Row(
                         html.H2(
-                            ["Live Gripper Feed"],
+                            [name],
                             className="text-secondary text-center",
                         ),
                     ),
                     html.Img(
-                        src=app.get_asset_url("images/stream_paused_4_3.jpg"),
-                        # style={"width": '95%'},  # "float": "left",
+                        src=app.get_asset_url("images/stream_paused_1_1_horiz.jpg"),
+                        # style={"width": '95%'},  # "float": "left,
                         id=source_cfg.image_id,
                         className="gripper-img img-fluid",
                     ),
