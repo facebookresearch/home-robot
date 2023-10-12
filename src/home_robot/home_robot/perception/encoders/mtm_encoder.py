@@ -101,6 +101,8 @@ class HomeRobotMTMEncoder:
         self._model_wrapper = ModelWrapper(model, True, device=device)
 
     def encode_image(self, image):
+        if isinstance(image, torch.Tensor):
+            image = image.cpu().numpy() * 255
         image = image.astype(np.uint8)
         pil_image = Image.fromarray(image)
         transformed_image = self.transform(pil_image)
