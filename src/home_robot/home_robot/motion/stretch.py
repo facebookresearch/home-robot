@@ -12,7 +12,7 @@ import pybullet as pb
 import home_robot.utils.bullet as hrb
 from home_robot.core.interfaces import ContinuousFullBodyAction
 from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver, PositionIKOptimizer
-from home_robot.motion.robot import Footprint, Robot
+from home_robot.motion.robot import Footprint, RobotModel
 from home_robot.utils.bullet import PybulletIKSolver
 from home_robot.utils.pose import to_matrix
 
@@ -191,7 +191,7 @@ class HelloStretchIdx:
     HEAD_TILT = 10
 
 
-class HelloStretchKinematics(Robot):
+class HelloStretchKinematics(RobotModel):
     """define motion planning structure for the robot"""
 
     # DEFAULT_BASE_HEIGHT = 0.09

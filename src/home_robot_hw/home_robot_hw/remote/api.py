@@ -2,13 +2,15 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import numpy as np
 import rospy
+import torch
 
 from home_robot.core.interfaces import Observations
-from home_robot.motion.robot import Robot
+from home_robot.core.robot import ControlMode, RobotClient
+from home_robot.motion.robot import RobotModel
 from home_robot.motion.stretch import (
     STRETCH_DEMO_PREGRASP_Q,
     STRETCH_NAVIGATION_Q,
@@ -18,7 +20,6 @@ from home_robot.motion.stretch import (
     HelloStretchKinematics,
 )
 from home_robot.utils.geometry import xyt2sophus
-from home_robot_hw.constants import ControlMode
 
 from .modules.head import StretchHeadClient
 from .modules.manip import StretchManipulationClient
@@ -26,7 +27,7 @@ from .modules.nav import StretchNavigationClient
 from .ros import StretchRosInterface
 
 
-class StretchClient:
+class StretchClient(RobotClient):
     """Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
 
     def __init__(
@@ -112,12 +113,6 @@ class StretchClient:
 
         return result_pre and result_post
 
-    def in_manipulation_mode(self):
-        return self._base_control_mode == ControlMode.MANIPULATION
-
-    def in_navigation_mode(self):
-        return self._base_control_mode == ControlMode.NAVIGATION
-
     # General control methods
 
     def wait(self):
@@ -140,8 +135,8 @@ class StretchClient:
 
     # Other interfaces
 
-    @property
-    def robot_model(self) -> Robot:
+    def get_robot_model(self) -> RobotModel:
+        """return a model of the robot for planning. Overrides base class method"""
         return self._robot_model
 
     @property
@@ -217,6 +212,17 @@ class StretchClient:
         """Get the robot's base pose as XYT."""
         return self.nav.get_base_pose()
 
+    def navigate_to(
+        self,
+        xyt: Iterable[float],
+        relative: bool = False,
+        blocking: bool = True,
+    ):
+        """
+        Move to xyt in global coordinates or relative coordinates. Cannot be used in manipulation mode.
+        """
+        return self.nav.navigate_to(xyt, relative=relative, blocking=blocking)
+
     def get_observation(
         self, rotate_head_pts=False, start_pose: Optional[np.ndarray] = None
     ) -> Observations:
@@ -252,5 +258,10 @@ class StretchClient:
             compass=np.array([theta]),
             camera_pose=self.head.get_pose(rotated=rotate_head_pts),
             joint=self.model.config_to_hab(joint_positions),
+            camera_K=self.get_camera_intrinsics(),
         )
         return obs
+
+    def get_camera_intrinsics(self) -> torch.Tensor:
+        """Get 3x3 matrix of camera intrisics K"""
+        return torch.from_numpy(self.head._ros_client.rgb_cam.K).float()

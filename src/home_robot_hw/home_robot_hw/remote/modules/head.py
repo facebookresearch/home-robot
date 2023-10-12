@@ -8,7 +8,7 @@ import numpy as np
 import rospy
 import trimesh.transformations as tra
 
-from home_robot.motion.robot import Robot
+from home_robot.motion.robot import RobotModel
 from home_robot.motion.stretch import HelloStretchIdx
 
 from .abstract import AbstractControlModule
@@ -25,7 +25,7 @@ class StretchHeadClient(AbstractControlModule):
     def __init__(
         self,
         ros_client,
-        robot_model: Robot,
+        robot_model: RobotModel,
     ):
         super().__init__()
 

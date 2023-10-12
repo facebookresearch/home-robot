@@ -13,8 +13,7 @@ import skimage.morphology
 import torch
 
 from home_robot.mapping.voxel import SparseVoxelMap
-from home_robot.motion.robot import Robot
-from home_robot.motion.space import XYT
+from home_robot.motion import XYT, RobotModel
 from home_robot.utils.geometry import angle_difference, interpolate_angles
 from home_robot.utils.morphology import (
     binary_dilation,
@@ -34,7 +33,7 @@ class SparseVoxelMapNavigationSpace(XYT):
     def __init__(
         self,
         voxel_map: SparseVoxelMap,
-        robot: Robot,
+        robot: RobotModel,
         step_size: float = 0.1,
         rotation_step_size: float = 0.5,
         use_orientation: bool = False,

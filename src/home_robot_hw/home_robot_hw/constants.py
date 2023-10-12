@@ -43,12 +43,5 @@ CONFIG_TO_ROS[HelloStretchIdx.ARM] = ROS_ARM_JOINTS
 T_LOC_STABILIZE = 1.0
 
 
-class ControlMode(Enum):
-    IDLE = 0
-    VELOCITY = 1
-    NAVIGATION = 2
-    MANIPULATION = 3
-
-
 # Relative resting pose for creating observations
 relative_resting_position = np.array([0.3878479, 0.12924957, 0.4224413])

@@ -9,7 +9,7 @@ import rospy
 from geometry_msgs.msg import Twist
 from std_srvs.srv import SetBoolRequest, TriggerRequest
 
-from home_robot.motion.robot import Robot
+from home_robot.motion.robot import RobotModel
 from home_robot.utils.geometry import (
     angle_difference,
     sophus2xyt,
@@ -25,7 +25,7 @@ from .abstract import AbstractControlModule, enforce_enabled
 class StretchNavigationClient(AbstractControlModule):
     block_spin_rate = 10
 
-    def __init__(self, ros_client, robot_model: Robot):
+    def __init__(self, ros_client, robot_model: RobotModel):
         super().__init__()
 
         self._ros_client = ros_client

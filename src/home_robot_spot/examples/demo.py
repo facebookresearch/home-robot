@@ -18,7 +18,6 @@ import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
-from examples.demo_utils.demo_ui import start_demo_ui_server, stop_demo_ui_server
 from examples.demo_utils.mock_agent import MockSpotDemoAgent
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -37,7 +36,11 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
 )
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.config import Config, get_config, load_config
-from home_robot.utils.demo_chat import DemoChat
+from home_robot.utils.demo_chat import (
+    DemoChat,
+    start_demo_ui_server,
+    stop_demo_ui_server,
+)
 from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path

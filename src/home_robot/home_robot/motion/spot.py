@@ -4,10 +4,10 @@
 # LICENSE file in the root directory of this source tree.
 import numpy as np
 
-from home_robot.motion.robot import Footprint, Robot
+from home_robot.motion.robot import Footprint, RobotModel
 
 
-class SimpleSpotKinematics(Robot):
+class SimpleSpotKinematics(RobotModel):
     """Placeholder kinematics model for the Boston Dynamics spot robot."""
 
     def __init__(self, *args, **kwargs):
