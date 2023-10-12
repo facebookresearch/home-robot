@@ -27,7 +27,7 @@ trajectory_per_step_timeout: 3.0
 
 # User interface
 chat: True
-start_ui_server: True
+start_ui_server: False
  
 # High level stuff
 exploration_steps: 50

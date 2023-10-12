@@ -157,10 +157,7 @@ class RobotAgent:
         obs = self.semantic_sensor.predict(obs)
 
         # Add observation - helper function will unpack it
-        self.voxel_map.add_obs(
-            obs,
-            K=self.robot.get_camera_intrinsics(),
-        )
+        self.voxel_map.add_obs(obs)
         if visualize_map:
             # Now draw 2d
             self.voxel_map.get_2d_map(debug=True)
@@ -218,7 +215,6 @@ class RobotAgent:
                     break
             else:
                 # TODO: remove debug code
-                # breakpoint()
                 print("-> could not plan to instance", i)
                 if i not in self._object_attempts:
                     self._object_attempts[i] = 1
