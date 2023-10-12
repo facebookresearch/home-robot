@@ -159,6 +159,8 @@ class SparseVoxelMap(object):
         # Track the center of the grid - (0, 0) in our coordinate system
         # We then just need to update everything when we want to track obstacles
         self.grid_origin = Tensor(self.grid_size + [0], device=map_2d_device) // 2
+        # Used to track the offset from our observations so maps dont use too much space
+
         # Used for tensorized bounds checks
         self._grid_size_t = Tensor(self.grid_size, device=map_2d_device)
 
@@ -435,6 +437,8 @@ class SparseVoxelMap(object):
         x1 = int(map_xy[0] + self._disk_size + 1)
         y0 = int(map_xy[1] - self._disk_size)
         y1 = int(map_xy[1] + self._disk_size + 1)
+        assert x0 >= 0
+        assert y0 >= 0
         self._visited[x0:x1, y0:y1] += self._visited_disk
 
     def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
@@ -588,6 +592,7 @@ class SparseVoxelMap(object):
         # Convert metric measurements to discrete
         # Gets the xyz correctly - for now everything is assumed to be within the correct distance of origin
         xyz, _, counts, _ = self.voxel_pcd.get_pointcloud()
+
         device = xyz.device
         xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
         xyz[xyz[:, -1] < 0, -1] = 0
@@ -746,6 +751,11 @@ class SparseVoxelMap(object):
                 f"Uknown backend {backend}, must be 'open3d' or 'pytorch3d"
             )
 
+    def get_xyz_rgb(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Return xyz and rgb of the current map"""
+        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
+        return points, rgb
+
     def _show_pytorch3d(
         self, instances: bool = True, mock_plot: bool = False, **plot_scene_kwargs
     ):
@@ -753,7 +763,7 @@ class SparseVoxelMap(object):
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 
-        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
+        points, rgb = self.get_xyz_rgb()
 
         traces = {}
 

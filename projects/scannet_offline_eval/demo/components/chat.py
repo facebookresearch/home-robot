@@ -13,11 +13,38 @@ import openai
 from dash import Patch, dcc, html
 from dash.dependencies import Input, Output, State
 
-from .app import app
+from home_robot.utils.demo_chat import DemoChat
+
+from .app import app, app_config
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 prompt_file = app.get_asset_url("../assets/prompts/demo.txt")
 description = open("assets/prompts/demo.txt", "r").read()
+import os
+
+chat_log_dir = os.path.dirname(app_config.directory_watch_path)
+if "viz_data" in chat_log_dir:
+    chat_log_dir = os.path.dirname(chat_log_dir)
+chat_log = DemoChat(log_file_path=f"{chat_log_dir}/demo_chat.json")
+# Conent of the demo_chat:
+# [
+#     {
+#         "sender": "user",
+#         "message": "bring me water."
+#     },
+#     {
+#         "sender": "user",
+#         "message": "y"
+#     },
+#     {
+#         "sender": "system",
+#         "message": "please type any task you want the robot to do: "
+#     },
+#     {
+#         "sender": "system",
+#         "message": "Plan: for task: y"
+#     }
+# ]
 
 from loguru import logger
 
@@ -204,6 +231,7 @@ def clear_input(n_submit):
     prevent_initial_call=True,
 )
 def run_chatbot(n_submit, user_input, chat_history):
+    # breakpoint()
     # n_submit, user_input, chat_history
     if n_submit is None:
         return "", None
@@ -222,15 +250,16 @@ def run_chatbot(n_submit, user_input, chat_history):
     # First add the user input to the chat history
     msg_history = msg_str_to_arr(chat_history)
     msg_history.append({"role": "user", "content": user_input})
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=msg_history,
-        max_tokens=250,
-        stop=[f"{user_name}:"],
-        temperature=0.2,
-    )
-    model_output = response.choices[0].message.content.strip()
-    msg_history.append({"role": "assistant", "content": model_output})
+    response = chat_log.input(user_input, role="user")
+    # response = openai.ChatCompletion.create(
+    #     model="gpt-3.5-turbo",
+    #     messages=msg_history,
+    #     max_tokens=250,
+    #     stop=[f"{user_name}:"],
+    #     temperature=0.2,
+    # )
+    # model_output = response.choices[0].message.content.strip()
+    msg_history.append({"role": "assistant", "content": response})
     chat_history = msg_arr_to_str(msg_history)
 
     return chat_history, None

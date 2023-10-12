@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import datetime
+import math
 import os
 import pickle
 import random
@@ -37,20 +38,26 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
 )
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.config import Config, get_config, load_config
+from home_robot.utils.demo_chat import DemoChat
 from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
-## Temporary hack until we make accel-cortex pip installable
-print("Make sure path to accel-cortex base folder is set")
-sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
-import grpc
-import src.rpc
-import task_rpc_env_pb2
-from src.utils.observations import ObjectImage, Observations, ProtoConverter
-from task_rpc_env_pb2_grpc import AgentgRPCStub
+try:
+    sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
+    import grpc
+    import src.rpc
+    import src.rpc.task_rpc_env_pb2
+    from src.utils.observations import ObjectImage, Observations, ProtoConverter
+    from task_rpc_env_pb2_grpc import AgentgRPCStub
+except Exception as e:
+    ## Temporary hack until we make accel-cortex pip installable
+    print(e)
+    print(
+        "Make sure path to accel-cortex base folder is set in the ACCEL_CORTEX environment variable."
+    )
 
 
 # NOTE: this requires 'pip install atomicwrites'
@@ -83,7 +90,7 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             embeds = torch.zeros(0, 512)
 
         # Map
-        obstacles, explored = model.get_2d_map()
+        obstacles, explored = model.voxel_map.get_2d_map()
         map_im = obstacles.int() + explored.int()
 
         logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
@@ -140,8 +147,15 @@ class SpotDemoAgent:
         dock: Optional[int] = None,
         path: str = None,
     ):
+        self.spot_config = spot_config
+        self.path = path
         self.parameters = parameters
-        self.encoder = ClipEncoder(self.parameters["clip"])
+        if self.parameters["encoder"] == "clip":
+            self.encoder = ClipEncoder(self.parameters["clip"])
+        else:
+            raise NotImplementedError(
+                f"unsupported encoder {self.parameters['encoder']}"
+            )
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
             local_radius=parameters["local_radius"],
@@ -154,6 +168,7 @@ class SpotDemoAgent:
             encoder=self.encoder,
         )
         logger.info("Created SparseVoxelMap")
+        self.step = 0
         # Create kinematic model (very basic for now - just a footprint)
         self.robot_model = SimpleSpotKinematics()
         # Create navigation space example
@@ -173,14 +188,16 @@ class SpotDemoAgent:
         config = load_config(visualize=False)
 
         print("- Create and load vocabulary and perception model")
-        self.semantic_sensor = OvmmPerception(config, 0, True, module="detic")
+        self.semantic_sensor = OvmmPerception(
+            config, 0, True, module="detic", module_kwargs={"confidence_threshold": 0.6}
+        )
         obj_name_to_id, rec_name_to_id = read_category_map_file(
-            config.ENVIRONMENT.category_map_file
+            self.parameters["category_map_file"]
         )
         self.vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
         self.semantic_sensor.update_vocabulary_list(self.vocab, 0)
         self.semantic_sensor.set_vocabulary(0)
-        
+
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
         with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
             pickle.dump(self.semantic_sensor.seg_id_to_name, f)
@@ -195,8 +212,6 @@ class SpotDemoAgent:
             use_midas=parameters["use_midas"],
             use_zero_depth=parameters["use_zero_depth"],
         )
-        self.spot_config = spot_config
-        self.path = path
 
         # Create grasp object
         self.gaze = GraspController(
@@ -209,6 +224,11 @@ class SpotDemoAgent:
             hor_grasp=True,
         )
 
+        if self.parameters["chat"]:
+            self.chat = DemoChat(f"{self.path}/demo_chat.json")
+        else:
+            self.chat = None
+
     def set_objects_for_grasping(self, objects: List[List[str]]):
         """Set the objects used for grasping"""
         self.gaze.set_objects(objects)
@@ -216,6 +236,10 @@ class SpotDemoAgent:
     def backup_from_invalid_state(self):
         """Helper function to get the robot unstuck (it is too close to geometry)"""
         self.spot.navigate_to([-0.25, 0, 0], relative=True, blocking=True)
+
+    def should_visualize(self) -> bool:
+        """Returns true if we are expected to do visualizations in this script (not externally)"""
+        return self.parameters["visualize"]
 
     def plan_to_frontier(
         self,
@@ -323,10 +347,25 @@ class SpotDemoAgent:
                 self.update()
 
         # Should we display after spinning? If visualize is true we will
-        if self.parameters["visualize"]:
+        if self.should_visualize():
             self.voxel_map.show()
 
-    def update(self, step=0):
+    def say(self, msg: str):
+        """Provide input either on the command line or via chat client"""
+        if self.chat is not None:
+            self.chat.output(msg)
+        else:
+            print(msg)
+
+    def ask(self, msg: str) -> str:
+        """Receive input from the user either via the command line or something else"""
+        if self.chat is not None:
+            return self.chat.input(msg)
+        else:
+            return input(msg)
+
+    def update(self):
+        """Update sensor measurements"""
         time.sleep(0.1)
         obs = self.spot.get_rgbd_obs()
         print("Observed from coordinates:", obs.gps, obs.compass)
@@ -335,6 +374,7 @@ class SpotDemoAgent:
         filename = f"{self.path}/viz_data/"
         os.makedirs(filename, exist_ok=True)
         publish_obs(self.navigation_space, filename)
+        self.step += 1
 
     def visualize(self, start, goal, step):
         """Update visualization for demo"""
@@ -361,6 +401,7 @@ class SpotDemoAgent:
 
     def place_in_an_instance(
         self,
+        instance_id: int,
         instance_pose,
         location,
         vf,
@@ -369,24 +410,37 @@ class SpotDemoAgent:
     ):
         """Move to a position to place in an environment."""
         # TODO: Check if vf is correct
-        self.spot.navigate_to(np.array([vf[0], vf[1], instance_pose[2]]), blocking=True)
+        # if self.parameters["use_get_close"]:
+        self.spot.navigate_to(instance_pose, blocking=True)
+        # Compute distance
+        dxy = location[:2] - instance_pose[:2]
+        theta = math.atan2(dxy[1], dxy[0])
+        print(f"Now rotate towards placement location with {theta=}...")
+        self.spot.navigate_to(
+            np.array([instance_pose[0], instance_pose[1], theta]), blocking=True
+        )
+        dist_to_place = np.linalg.norm(dxy)
+        dist_to_move = max(0, dist_to_place - self.parameters["place_offset"])
+        print(f"Moving {dist_to_move} closer to {location}...")
+        self.spot.navigate_to(
+            np.array([dist_to_move, 0, 0]), relative=True, blocking=True
+        )
 
         # Transform placing position to body frame coordinates
-        x, y, yaw = self.spot.spot.get_xy_yaw()
-        local_xyt = xyt_global_to_base(location, np.array([x, y, yaw]))
+        local_xyt = xyt_global_to_base(location, self.spot.current_position)
 
         # z is the height of the receptacle minus the height of spot + the desired delta for placing
         z = location[2] - self.spot.spot.body.z + place_height
         local_xyz = np.array([local_xyt[0], local_xyt[1], z])
         rotations = np.array([0, 0, 0])
+        local_xyz[0] += self.parameters["gripper_offset_x"]
 
         # Now we place
         self.spot.spot.move_gripper_to_point(local_xyz, rotations)
-        time.sleep(2)
-        arm = self.spot.spot.get_arm_joint_positions()
-        arm[-1] = place_rotation[-1]
-        arm[-2] = place_rotation[0]
-        self.spot.spot.set_arm_joint_positions(arm, travel_time=1.5)
+        # arm = self.spot.spot.get_arm_joint_positions()
+        # arm[-1] = place_rotation[-1]
+        # arm[-2] = place_rotation[0]
+        # self.spot.spot.set_arm_joint_positions(arm, travel_time=1.5)
         time.sleep(2)
         self.spot.spot.open_gripper()
 
@@ -406,7 +460,7 @@ class SpotDemoAgent:
         instance = instances[instance_id]
 
         # TODO this can be random
-        view = instance.instance_views[-1]
+        view = instance.get_best_view(metric=self.parameters["best_view_metric"])
         goal_position = np.asarray(view.pose)
         start = self.spot.current_position
         start_is_valid = self.navigation_space.is_valid(start)
@@ -444,7 +498,7 @@ class SpotDemoAgent:
                 if res.success:
                     break
 
-            if res.success:
+            if res is not None and res.success:
                 logger.success("Res success: {}", res.success)
                 self.spot.execute_plan(
                     res,
@@ -455,6 +509,8 @@ class SpotDemoAgent:
                 goal_position = goal
             else:
                 logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
+                should_plan = False
+
         # Finally, navigate to the final position
         logger.info(
             "Navigating to goal position: {}, start = {}",
@@ -462,22 +518,32 @@ class SpotDemoAgent:
             self.spot.current_position,
         )
         self.spot.navigate_to(goal_position, blocking=True)
+        logger.info(
+            "Navigating to goal position: {}, reached = {}",
+            goal_position,
+            self.spot.current_position,
+        )
+        logger.info(f"Used motion planning to find gaze location: {should_plan}")
 
         if visualize:
             cropped_image = view.cropped_image
             plt.imshow(cropped_image)
             plt.show()
-            plt.imsave(f"instance_{instance_id}.png", cropped_image)
+            plt.imsave(
+                f"instance_{instance_id}.png", cropped_image.cpu().numpy() / 255.0
+            )
 
+        logger.info("Wait for a second and then try to grasp/place!")
+        time.sleep(1.0)
         return True
 
     def goto(self, goal: np.ndarray):
-        """Send the spot to the correct location."""
+        """Send the spot to the correct location from wherever it is. Try to plan there."""
         start = self.spot.current_position
 
         #  Build plan
         res = self.planner.plan(start, goal)
-        logger.info("[demo.goto] Goal: {}", goal)
+        logger.info("[demo.goto] Goal: {} From: {}", goal, start)
         if res:
             logger.success("[demo.goto] Res success: {}", res.success)
         else:
@@ -526,6 +592,13 @@ class SpotDemoAgent:
             pc_xyz, ground_normal, nbr_dist, residual_thresh
         )
 
+        # Add parameter to improve placement performance
+        if self.parameters["force_place_at_center"]:
+            # We will still use the height from the navigation client
+            mean_xyz = pc_xyz.mean(dim=0)
+            location[0] = mean_xyz[0]
+            location[1] = mean_xyz[1]
+
         # # Navigate close to that location
         # # TODO solve the system of equations to get k such that the distance is .75 meters
         instance_pose = self.get_pose_for_best_view(instance_id)
@@ -539,12 +612,14 @@ class SpotDemoAgent:
         if "command" in self.parameters:
             return self.parameters["command"]
         else:
-            return input("please type any task you want the robot to do: ")
+            return self.chat.input("please type any task you want the robot to do: ")
 
     def confirm_plan(self, plan: str):
         print(f"Received plan: {plan}")
         if "confirm_plan" not in self.parameters or self.parameters["confirm_plan"]:
-            execute = input("Do you want to execute (replan otherwise)? (y/n): ")
+            execute = self.chat.input(
+                "Do you want to execute (replan otherwise)? (y/n): "
+            )
             return execute[0].lower() == "y"
         else:
             if plan[:7] == "explore":
@@ -562,7 +637,8 @@ class SpotDemoAgent:
 
         robot_center = np.zeros(3)
         robot_center[:2] = self.spot.current_position[:2]
-        self.voxel_map.show(backend="open3d", orig=robot_center, instances=True)
+        if self.should_visualize():
+            self.voxel_map.show(backend="open3d", orig=robot_center, instances=True)
         instances = self.voxel_map.get_instances()
         blacklist = []
         while True:
@@ -574,9 +650,9 @@ class SpotDemoAgent:
             if args.enable_vlm == 1:
                 # get world_representation for planning
                 while True:
-                    self.navigate_to_an_instance(
-                        instance_id=0, should_plan=self.parameters["plan_to_instance"]
-                    )
+                    # self.navigate_to_an_instance(
+                    #    instance_id=0, should_plan=self.parameters["plan_to_instance"]
+                    # )
                     world_representation = get_obj_centric_world_representation(
                         instances, args.context_length
                     )
@@ -659,14 +735,14 @@ class SpotDemoAgent:
                 print(objects)
                 # TODO: Add better handling
                 if pick_instance_id is None:
-                    new_id = input(
+                    new_id = self.chat.input(
                         "enter a new instance to pick up from the list above: "
                     )
                     if isinstance(new_id, int):
                         pick_instance_id = new_id
                         break
                 if place_instance_id is None:
-                    new_id = input(
+                    new_id = self.chat.input(
                         "enter a new instance to place from the list above: "
                     )
                     if isinstance(new_id, int):
@@ -674,14 +750,14 @@ class SpotDemoAgent:
                         break
                 success = True
             else:
-                print("Navigating to instance ")
-                print(f"Instance id: {pick_instance_id}")
+                self.say("Navigating to instance ")
+                self.say(f"Instance id: {pick_instance_id}")
                 success = self.navigate_to_an_instance(
                     pick_instance_id,
-                    visualize=self.parameters["visualize"],
+                    visualize=self.should_visualize(),
                     should_plan=self.parameters["plan_to_instance"],
                 )
-                print(f"Success: {success}")
+                self.say(f"Success: {success}")
 
                 # # try to pick up this instance
                 # if success:
@@ -692,7 +768,7 @@ class SpotDemoAgent:
                     int(instances[pick_instance_id].category_id.item())
                 ]
                 if self.parameters["verify_before_grasp"]:
-                    opt = input(f"Grasping {object_category_name}..., y/n?: ")
+                    opt = self.ask(f"Grasping {object_category_name}..., y/n?: ")
                 else:
                     opt = "y"
                 if opt == "n":
@@ -729,7 +805,7 @@ class SpotDemoAgent:
                     print(f"Instance id: {place_instance_id}")
                     success = self.navigate_to_an_instance(
                         place_instance_id,
-                        visualize=self.parameters["visualize"],
+                        visualize=self.should_visualize(),
                         should_plan=self.parameters["plan_to_instance"],
                     )
                     print(f"navigated to place {success=}")
@@ -750,7 +826,12 @@ class SpotDemoAgent:
                     )
                     rot = self.gaze.get_pick_location()
                     self.place_in_an_instance(
-                        instance_pose, location, vf, place_rotation=rot
+                        place_instance_id,
+                        instance_pose,
+                        location,
+                        vf,
+                        place_rotation=rot,
+                        place_height=self.parameters["place_height"],
                     )
 
                 """
@@ -780,11 +861,11 @@ class SpotDemoAgent:
         """Run exploration in different environments. Will explore until there's nothing else to find."""
         # Track the number of times exploration failed
         explore_failures = 0
-        for step in range(int(self.parameters["exploration_steps"])):
+        for exploration_step in range(int(self.parameters["exploration_steps"])):
             # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
             print(
                 "-" * 20,
-                step + 1,
+                exploration_step + 1,
                 "/",
                 int(self.parameters["exploration_steps"]),
                 "-" * 20,
@@ -879,10 +960,11 @@ class SpotDemoAgent:
                 self.spot.navigate_to(goal)
 
             if not self.parameters["use_async_subscriber"]:
-                self.update(step + 1)
+                # Synchronous updates
+                self.update()
 
-            if step % 1 == 0 and self.parameters["visualize"]:
-                self.visualize(start, goal, step)
+            if self.step % 1 == 0 and self.should_visualize():
+                self.visualize(start, goal)
 
 
 # def main(dock: Optional[int] = 549):
@@ -928,8 +1010,8 @@ def main(dock: Optional[int] = None, args=None):
         logger.success("Spot started")
         logger.info("Sleep 1s")
         time.sleep(0.5)
-        logger.info("Start exploring!")
         x0, y0, theta0 = spot.current_position
+        logger.info(f"Start exploring from {x0=}, {y0=}, {theta0=}")
 
         # Start thread to update voxel map
         if parameters["use_async_subscriber"]:
@@ -950,12 +1032,16 @@ def main(dock: Optional[int] = None, args=None):
 
     finally:
         if parameters["write_data"]:
+            demo.voxel_map.write_to_pickle(f"{path}/spot_observations.pkl")
             if start is None:
                 start = demo.spot.current_position
             if voxel_map.get_instances() is not None:
-                pc_xyz, pc_rgb = voxel_map.show(
-                    backend="open3d", instances=False, orig=np.zeros(3)
-                )
+                if demo.should_visualize():
+                    pc_xyz, pc_rgb = voxel_map.show(
+                        backend="open3d", instances=False, orig=np.zeros(3)
+                    )
+                else:
+                    pc_xyz, pc_rgb = voxel_map.get_xyz_rgb()
                 pcd_filename = f"{path}/spot_output_{timestamp}.pcd"
                 pkl_filename = f"{path}/spot_output_{timestamp}.pkl"
                 logger.info("Writing data...")
@@ -976,7 +1062,8 @@ def main(dock: Optional[int] = None, args=None):
                 if goal is not None:
                     navigation_space.draw_state_on_grid(img, goal, weight=5)
                 plt.imshow(img)
-                plt.show()
+                if demo.should_visualize():
+                    plt.show()
                 plt.imsave(f"{path}/exploration_step_final.png", img)
 
         spot.navigate_to(np.array([x0, y0, theta0]))

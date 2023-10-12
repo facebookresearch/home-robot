@@ -1,5 +1,7 @@
 # Perception parameters
+encoder: "clip"
 clip: "ViT-B/32"
+category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
 
 # Planner parameters
 step_size: 1  # (originally .1, we can make it all the way to 2 maybe actually)
@@ -7,6 +9,9 @@ rotation_step_size: 1
 visualize: False
 exploration_steps: 100
 shortcut_iter: 500
+# extend_mode: "joint"  # joint = rotate and move at the same time
+# This is what it was during testing in Fremont
+exetnd_mode: "separate"
 
 # Frontier search parameters
 frontier_step_dist: 1
@@ -37,6 +42,12 @@ plan_to_instance: False
 verify_before_grasp: False
 nbr_dist: 0.2  # 0.15
 residual_thresh: 0.03
+# Chris added these 2 parameters:
+pick_place_radius: 2.0
+place_offset: 0.75  # after orienting to the place location, move until within this offset
+force_place_at_center: True
+gripper_offset_x: 0
+place_height: 0.3
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
@@ -55,3 +66,6 @@ place_categories: ["chair", "sofa"]
 use_get_close: False
 best_view_metric: "area"
 confirm_plan: True
+
+# User interface
+chat: False

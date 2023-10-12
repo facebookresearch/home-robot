@@ -39,7 +39,7 @@ class GraspController:
 
     def set_objects(self, objects: List[List[str]]):
         """set the objects"""
-        self.labels = [f"an image of {y}" for x in objects for y in x]
+        self.labels = [f"an image of {y.replace('_', ' ')}" for x in objects for y in x]
         self.detector = OwlVit(self.labels, self.confidence, self.show_img)
 
     def reset_to_look(self):
