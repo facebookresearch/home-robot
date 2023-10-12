@@ -9,8 +9,8 @@ obs_max_height: 1.8
 obs_min_density: 10  # This many points makes it an obstacle
 pad_obstacles: 1  # Add this many units (voxel_size) to the area around obstacles
 local_radius: 0.8  # Area around the robot to mark as explored (kind of a hack)
-smooth_kernel_size: 2 
-pad_obstacles: 0
+smooth_kernel_size: 2
+pad_obstacles: 1
 min_depth: 0.1
 max_depth: 4.0
 
@@ -30,6 +30,7 @@ chat: True
 start_ui_server: True
  
 # High level stuff
-exploration_steps: 20
+name: "stretch_demo"
+exploration_steps: 10
 # object_to_find: "bottle"
 # location_to_place: "chair"

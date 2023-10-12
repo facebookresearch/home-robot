@@ -135,7 +135,9 @@ class RobotAgent:
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
         timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-        self.path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
+        self.path = os.path.expanduser(
+            f"data/hw_exps/{self.parameters['name']}/{timestamp}"
+        )
         os.makedirs(self.path, exist_ok=True)
         if parameters["start_ui_server"]:
             start_demo_ui_server()
