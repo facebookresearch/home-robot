@@ -28,6 +28,7 @@ class RosLidar(object):
         # Get range and angle data from the scan message
         ranges = np.array(scan_msg.ranges)
         ranges[np.isnan(ranges)] = self._max_dist
+        ranges[np.isinf(ranges)] = self._max_dist
         angles = np.linspace(scan_msg.angle_min, scan_msg.angle_max, len(ranges))
 
         # Convert polar coordinates (ranges, angles) to Cartesian coordinates (x, y)

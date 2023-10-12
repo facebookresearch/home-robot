@@ -7,7 +7,7 @@ import sys
 import time
 import timeit
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import matplotlib.pyplot as plt
@@ -124,6 +124,23 @@ def run_grasping(
         print(" - Done placing!")
 
 
+def get_task_goals(parameters: Dict[str, Any]) -> Tuple[str, str]:
+    """Helper for extracting task information"""
+    if "object_to_find" in parameters:
+        object_to_find = parameters["object_to_find"]
+        if len(object_to_find) == 0:
+            object_to_find = None
+    else:
+        object_to_find = None
+    if "location_to_place" in parameters:
+        location_to_place = parameters["location_to_place"]
+        if len(location_to_place) == 0:
+            location_to_place = None
+    else:
+        location_to_place = None
+    return object_to_find, location_to_place
+
+
 @click.command()
 @click.option("--rate", default=5, type=int)
 @click.option("--visualize", default=False, is_flag=True)
@@ -138,8 +155,6 @@ def run_grasping(
 @click.option("--navigate-home", default=False, is_flag=True)
 @click.option("--force-explore", default=False, is_flag=True)
 @click.option("--no-manip", default=False, is_flag=True)
-@click.option("--object-to-find", default="bottle", type=str)
-@click.option("--location-to-place", default="chair", type=str)
 @click.option(
     "--input-path",
     type=click.Path(),
@@ -162,8 +177,6 @@ def main(
     force_explore: bool = False,
     no_manip: bool = False,
     explore_iter: int = 10,
-    object_to_find: str = "bottle",
-    location_to_place: str = "chair",
     **kwargs,
 ):
     """
@@ -186,6 +199,11 @@ def main(
     robot = StretchClient()
     robot.nav.navigate_to([0, 0, 0])
 
+    print("- Load parameters")
+    parameters = get_config("src/home_robot_hw/configs/default.yaml")[0]
+    print(parameters)
+    object_to_find, location_to_place = get_task_goals(parameters)
+
     print("- Create semantic sensor based on detic")
     config, semantic_sensor = create_semantic_sensor(device_id, verbose)
 
@@ -198,19 +216,21 @@ def main(
         return
 
     print("- Start robot agent with data collection")
-    parameters = get_config("src/home_robot_hw/configs/default.yaml")[0]
     demo = RobotAgent(robot, semantic_sensor, parameters)
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
-    print(f"\nSearch for {object_to_find} and {location_to_place}")
-    matches = demo.get_found_instances_by_class(object_to_find)
-    print(f"Currently {len(matches)} matches for {object_to_find}.")
+    if object_to_find is not None:
+        print(f"\nSearch for {object_to_find} and {location_to_place}")
+        matches = demo.get_found_instances_by_class(object_to_find)
+        print(f"Currently {len(matches)} matches for {object_to_find}.")
+    else:
+        matches = []
 
     if len(matches) == 0 or force_explore:
         print(f"Exploring for {object_to_find}, {location_to_place}...")
         demo.run_exploration(
             rate,
             manual_wait,
-            explore_iter=explore_iter,
+            explore_iter=parameters["exploration_steps"],
             task_goal=object_to_find,
             go_home_at_end=navigate_home,
         )

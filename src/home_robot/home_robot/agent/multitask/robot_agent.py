@@ -192,10 +192,13 @@ class RobotAgent:
         return emb
 
     def get_found_instances_by_class(
-        self, goal: str, threshold: int = 0, debug: bool = False
+        self, goal: Optional[str], threshold: int = 0, debug: bool = False
     ) -> Optional[List[Tuple[int, Instance]]]:
         """Check to see if goal is in our instance memory or not. Return a list of everything with the correct class."""
         matching_instances = []
+        if goal is None:
+            # No goal means no matches
+            return []
         instances = self.voxel_map.get_instances()
         for i, instance in enumerate(instances):
             oid = int(instance.category_id.item())
