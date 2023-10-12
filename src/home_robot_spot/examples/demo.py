@@ -19,6 +19,7 @@ import open3d
 import torch
 from atomicwrites import atomic_write
 from examples.demo_utils.demo_ui import start_demo_ui_server, stop_demo_ui_server
+from examples.demo_utils.mock_agent import MockSpotDemoAgent
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -997,7 +998,10 @@ def main(dock: Optional[int] = None, args=None):
     logger.add(f"{path}/{timestamp}.log", backtrace=True, diagnose=True)
     os.makedirs(path, exist_ok=True)
     logger.info("Saving viz data to {}", path)
-    demo = SpotDemoAgent(parameters, spot_config, dock, path)
+    if args.mock_agent:
+        demo = MockSpotDemoAgent(parameters, spot_config, dock, path)
+    else:
+        demo = SpotDemoAgent(parameters, spot_config, dock, path)
     spot = demo.spot
     voxel_map = demo.voxel_map
     semantic_sensor = demo.semantic_sensor
@@ -1131,6 +1135,13 @@ if __name__ == "__main__":
         help="For minigpt4 configs: override some settings in the used config, the key-value pair "
         "in xxx=yyy format will be merged into config file (deprecate), "
         "change to --cfg-options instead.",
+    )
+    parser.add_argument(
+        "--mock_agent",
+        "-m",
+        default=False,
+        action="store_true",
+        help="Use a mock agent instead of the real one",
     )
     args = parser.parse_args()
     main(args=args)
