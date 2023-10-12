@@ -27,12 +27,15 @@ from home_robot.utils.demo_chat import (
     start_demo_ui_server,
     stop_demo_ui_server,
 )
+from home_robot.utils.threading import Interval
 
 
-def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
+def publish_obs(
+    model: SparseVoxelMapNavigationSpace, path: str, state: str, timestep: int
+):
     """publish observation for use by the UI"""
     # NOTE: this requires 'pip install atomicwrites'
-    timestep = len(model.voxel_map.observations) - 1
+    # timestep = len(model.voxel_map.observations) - 1
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
         instances = model.voxel_map.get_instances()
         model_obs = model.voxel_map.observations[-1]
@@ -61,11 +64,11 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
 
         # Map
         obstacles, explored = model.voxel_map.get_2d_map()
-        map_im = obstacles.int() + explored.int()
 
-        logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
+        logger.info(f"Saving observation to pickle file: {f'{path}/{timestep}.pkl'}")
         pickle.dump(
             dict(
+                limited_obs=False,
                 rgb=model_obs.rgb.cpu().detach(),
                 depth=model_obs.depth.cpu().detach(),
                 instance_image=model_obs.instance.cpu().detach(),
@@ -78,7 +81,9 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
                 box_names=names,
                 box_scores=scores,
                 box_embeddings=embeds,
-                map_im=map_im.cpu().detach(),
+                obstacles=obstacles.cpu().detach(),
+                explored=explored.cpu().detach(),
+                current_state=state,
             ),
             f,
         )
@@ -100,8 +105,9 @@ class RobotAgent:
         self.normalize_embeddings = True
         self.pos_err_threshold = parameters["trajectory_pos_err_threshold"]
         self.rot_err_threshold = parameters["trajectory_rot_err_threshold"]
-
+        self.current_state = "WAITING"
         self.encoder = get_encoder(parameters["encoder"], parameters["encoder_args"])
+        self.obs_count = 0
 
         # Wrapper for SparseVoxelMap which connects to ROS
         self.voxel_map = SparseVoxelMap(
@@ -146,15 +152,40 @@ class RobotAgent:
         else:
             self.chat = None
 
+        if self.chat:
+            self._publisher = Interval(
+                self.publish_limited_obs,
+                sleep_time=parameters["limited_obs_publish_sleep"],
+            )
+
     def __del__(self):
         """Clean up at the end if possible"""
         if self.parameters["start_ui_server"]:
             stop_demo_ui_server()
+        self._publisher.cancel()
+
+    def publish_limited_obs(self):
+        obs = self.robot.get_observation()
+        self.obs_count += 1
+        with atomic_write(f"{self.path}/{self.obs_count}.pkl", mode="wb") as f:
+            logger.info(
+                f"Saving limited observation to pickle file: {f'{self.path}/{self.obs_count}.pkl'}"
+            )
+            pickle.dump(
+                dict(
+                    obs=obs,
+                    limited_obs=True,
+                    current_state=self.state,
+                ),
+                f,
+            )
+        return True
 
     def update(self, visualize_map=False):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
         obs = self.robot.get_observation()
-
+        self.obs_count += 1
+        obs_count = self.obs_count
         # Semantic prediction
         obs = self.semantic_sensor.predict(obs)
 
@@ -166,11 +197,11 @@ class RobotAgent:
 
         # Send message to user interface
         if self.chat is not None:
-            publish_obs(self.space, self.path)
+            publish_obs(self.space, self.path, self.current_state, obs_count)
 
     def move_to_any_instance(self, matches: List[Tuple[int, Instance]]):
         """Check instances and find one we can move to"""
-
+        self.current_state = "NAV_TO_INSTANCE"
         self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start)
@@ -254,6 +285,8 @@ class RobotAgent:
             print(i, name, instance.score)
 
     def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = False):
+        if self.chat is not None:
+            self._publisher.start()
         # Tuck the arm away
         print("Sending arm to  home...")
         self.robot.switch_to_manipulation_mode()
@@ -303,6 +336,7 @@ class RobotAgent:
         """Simple helper function to send the robot home safely after a trial."""
         print("Go back to (0, 0, 0) to finish...")
         print("- change posture and switch to navigation mode")
+        self.current_state = "NAV_TO_HOME"
         self.robot.move_to_nav_posture()
         self.robot.head.look_close(blocking=False)
         self.robot.switch_to_navigation_mode()
@@ -362,6 +396,7 @@ class RobotAgent:
 
         Args:
             visualize(bool): true if we should do intermediate debug visualizations"""
+        self.current_state = "EXPLORE"
         self.robot.move_to_nav_posture()
 
         print("Go to (0, 0, 0) to start with...")
@@ -422,6 +457,7 @@ class RobotAgent:
                     break
 
         if go_home_at_end:
+            self.current_state = "NAV_TO_HOME"
             # Finally - plan back to (0,0,0)
             print("Go back to (0, 0, 0) to finish...")
             start = self.robot.get_base_pose()
@@ -438,5 +474,4 @@ class RobotAgent:
                     )
             else:
                 print("WARNING: planning to home failed!")
-
         return matches
