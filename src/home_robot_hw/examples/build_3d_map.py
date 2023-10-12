@@ -19,8 +19,7 @@ from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.mapping.voxel import plan_to_frontier
 
 # Import planning tools for exploration
-from home_robot.motion.rrt_connect import RRTConnect
-from home_robot.motion.shortcut import Shortcut
+from home_robot.motion import RRTConnect, Shortcut
 from home_robot.motion.stretch import HelloStretchKinematics
 from home_robot.utils.config import load_config
 from home_robot.utils.geometry import xyt2sophus

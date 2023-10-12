@@ -4,4 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from .base import Planner, PlanResult
 from .robot import Robot
+from .rrt import RRT
+from .rrt_connect import RRTConnect
+from .shortcut import Shortcut
 from .space import XYT, ConfigurationSpace, Node
