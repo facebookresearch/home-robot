@@ -24,6 +24,10 @@ dilate_obstacle_size: 5
 trajectory_pos_err_threshold: 0.15
 trajectory_rot_err_threshold: 0.3
 trajectory_per_step_timeout: 3.0
+
+# User interface
+chat: True
+start_ui_server: True
  
 # High level stuff
 exploration_steps: 50

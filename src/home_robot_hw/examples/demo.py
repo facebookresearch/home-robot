@@ -29,7 +29,6 @@ from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.config import get_config, load_config
 
 # Chat and UI tools
-from home_robot.utils.demo_chat import DemoChat
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.remote import StretchClient

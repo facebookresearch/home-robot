@@ -12,13 +12,15 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
-import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
-from examples.demo_utils.demo_ui import start_demo_ui_server, stop_demo_ui_server
+from loguru import logger
+from PIL import Image
+
+import home_robot_spot.nav_client as nc
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -36,23 +38,24 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
 )
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.config import Config, get_config, load_config
-from home_robot.utils.demo_chat import DemoChat
+from home_robot.utils.demo_chat import (
+    DemoChat,
+    start_demo_ui_server,
+    stop_demo_ui_server,
+)
 from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-from loguru import logger
-from PIL import Image
 
 try:
     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
     import grpc
-    from task_rpc_env_pb2_grpc import AgentgRPCStub
-
     import src.rpc
     import src.rpc.task_rpc_env_pb2
     from src.utils.observations import ObjectImage, Observations, ProtoConverter
+    from task_rpc_env_pb2_grpc import AgentgRPCStub
 except Exception as e:
     ## Temporary hack until we make accel-cortex pip installable
     print(e)
