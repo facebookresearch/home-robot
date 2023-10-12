@@ -207,12 +207,18 @@ class RobotAgent:
 
     def __del__(self):
         """Clean up at the end if possible"""
+        self.finish()
+
+    def finish(self):
+        """Clean up at the end if possible"""
+        print("Finishing different processes:")
         if self.parameters["start_ui_server"]:
-            print("Stopping UI server...")
+            print("- Stopping UI server...")
             stop_demo_ui_server()
         if self._publisher is not None:
-            print("Stopping publisher...")
+            print("- Stopping publisher...")
             self._publisher.cancel()
+        print("... Done.")
 
     def publish_limited_obs(self):
         obs = self.robot.get_observation()
@@ -399,6 +405,7 @@ class RobotAgent:
         if res.success:
             print("- executing full plan to home!")
             self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+            print("Done!")
         else:
             print("Can't go home!")
 

@@ -321,7 +321,15 @@ def main(
             print(f"Write pkl to {output_pkl_filename}...")
             demo.voxel_map.write_to_pickle(output_pkl_filename)
 
+        from PIL import Image
+
+        for i, instance in enumerate(demo.voxel_map.get_instances()):
+            for j, view in enumerate(instance.instance_views):
+                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
+                image.save(f"instance{i}_view{j}.png")
+
         demo.go_home()
+        demo.finish()
         rospy.signal_shutdown("done")
 
 
