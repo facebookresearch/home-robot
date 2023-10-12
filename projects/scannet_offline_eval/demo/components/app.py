@@ -109,9 +109,44 @@ class SparseVoxelMapDirectoryWatcher:
         if not self._vocab:
             self.load_vocab()
 
+        if obs["limited_obs"]:
+            obs["rgb"] = torch.from_numpy(obs["obs"].rgb)
+            obs["depth"] = obs["obs"].depth
+            obs["camera_pose"] = torch.from_numpy(obs["obs"].camera_pose).float()
+
+        # print(obs['obs'].rgb)
+        # # Assuming obs["rgb"] is your BGR image in tensor form
+        # bgr_image = obs["rgb"].cpu().numpy()
+
+        # # Convert the BGR image to RGB
+        # rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+
+        # # Encode the RGB image to JPEG format
+        # self.rgb_jpeg = cv2.imencode(".jpg", rgb_image.astype(np.uint8))[1].tobytes()
+        rgb_image = obs["rgb"]
+        rgb_ten = rgb_image[..., RGB_TO_BGR] if self.convert_rgb_to_bgr else obs["rgb"]
+        # rgb_ten = (torch.flip(obs["obstacles"], dims=(0, 1)) > 0) * 255
+        # rgb_ten = rgb_ten[256:-256, 256:-256]
+
+        self.rgb_jpeg = cv2.imencode(".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8))[
+            1
+        ].tobytes()  # * 255
+
+        pose = obs["camera_pose"].cpu().detach()
+        R = pose[:3, :3]
+        t = pose[:3, -1]
+        cam_points = get_camera_wireframe(0.2)
+        # Convert p3d (opengl) to opencv
+        cam_points[:, 1] *= -1
+        # cam_points[:, 2] *= -1
+        cam_points_world = cam_points @ R.T + t.unsqueeze(0)  # (cam_points @ R) # + t)
+        x, y, z = [v.cpu().numpy().tolist() for v in cam_points_world.unbind(1)]
+        self.cam_coords = {"x": x, "y": y, "z": z}
+        if obs["limited_obs"]:
+            return True
+
         old_points = self.svm.voxel_pcd._points
         old_rgb = self.svm.voxel_pcd._rgb
-        rgb_image = obs["rgb"]
         if obs["rgb"].max() > 1.0:  # added nomalization
             obs["rgb"] = obs["rgb"] / 255.0
         svm_watcher.svm.add(**obs)
@@ -163,32 +198,6 @@ class SparseVoxelMapDirectoryWatcher:
         else:
             logger.warning("No box names in obs")
 
-        # # Assuming obs["rgb"] is your BGR image in tensor form
-        # bgr_image = obs["rgb"].cpu().numpy()
-
-        # # Convert the BGR image to RGB
-        # rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
-
-        # # Encode the RGB image to JPEG format
-        # self.rgb_jpeg = cv2.imencode(".jpg", rgb_image.astype(np.uint8))[1].tobytes()
-
-        # rgb_ten = rgb_image[..., RGB_TO_BGR] if self.convert_rgb_to_bgr else obs["rgb"]
-        rgb_ten = (torch.flip(obs["map_im"], dims=(0, 1)) > 0) * 255
-        rgb_ten = rgb_ten[256:-256, 256:-256]
-        self.rgb_jpeg = cv2.imencode(".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8))[
-            1
-        ].tobytes()  # * 255
-
-        pose = obs["camera_pose"].cpu().detach()
-        R = pose[:3, :3]
-        t = pose[:3, -1]
-        cam_points = get_camera_wireframe(0.2)
-        # Convert p3d (opengl) to opencv
-        cam_points[:, 1] *= -1
-        # cam_points[:, 2] *= -1
-        cam_points_world = cam_points @ R.T + t.unsqueeze(0)  # (cam_points @ R) # + t)
-        x, y, z = [v.cpu().numpy().tolist() for v in cam_points_world.unbind(1)]
-        self.cam_coords = {"x": x, "y": y, "z": z}
         # breakpoint()
         logger.debug(f"Added obs {len(self.points)} and {len(self.rgb)} rgbs.")
         return True
