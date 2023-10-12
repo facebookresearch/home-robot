@@ -1,4 +1,5 @@
 # Encoder setup
+# Encoder is used to compute per-object embeddings.
 encoder: "clip"
 encoder_args: "ViT-B/32"
 
@@ -14,13 +15,15 @@ pad_obstacles: 2
 min_depth: 0.1
 max_depth: 3.5
 
-# Navigation space
+# Navigation space - used for motion planning and computing goals.
 step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
 rotation_step_size: 0.2 
 dilate_frontier_size: 12  # Used to shrink the frontier back from the edges of the world
 dilate_obstacle_size: 5  # Used when selecting goals and computing what the "frontier" is 
 
-# Trajectory following
+# Trajectory following - how closely we follow intermediate waypoints
+# These should be less strict than whatever parameters the low-level controller is using; this will
+# make sure that the motions end up looking smooth.
 trajectory_pos_err_threshold: 0.15
 trajectory_rot_err_threshold: 0.3
 trajectory_per_step_timeout: 3.0
@@ -29,7 +32,7 @@ trajectory_per_step_timeout: 3.0
 name: "stretch_demo"  # for logging - currently not used
 chat: True
 start_ui_server: False
-vlm_context_length: 20
+vlm_context_length: 20  # How long messages sent to the vlm server can be if we are using it
 limited_obs_publish_sleep: 0
 
 # High level stuff: commands to execute 
