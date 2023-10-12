@@ -263,4 +263,4 @@ class StretchClient(RobotClient):
 
     def get_camera_intrinsics(self) -> torch.Tensor:
         """Get 3x3 matrix of camera intrisics K"""
-        return torch.from_numpy(self.robot.head._ros_client.rgb_cam.K).float()
+        return torch.from_numpy(self.head._ros_client.rgb_cam.K).float()

@@ -31,8 +31,8 @@ class RobotAgent:
         self.robot = robot
         self.semantic_sensor = semantic_sensor
         self.normalize_embeddings = True
-        self.pos_err_threshold = 0.15
-        self.rot_err_threshold = 0.3
+        self.pos_err_threshold = parameters["trajectory_pos_err_threshold"]
+        self.rot_err_threshold = parameters["trajectory_rot_err_threshold"]
 
         self.encoder = ClipEncoder("ViT-B/32")
 
@@ -53,9 +53,12 @@ class RobotAgent:
         self.space = SparseVoxelMapNavigationSpace(
             self.voxel_map,
             self.robot.get_robot_model(),
-            step_size=0.1,
-            dilate_frontier_size=12,  # 0.6 meters back from every edge = 12 * 0.02 = 0.24
-            dilate_obstacle_size=2,
+            step_size=parameters["step_size"],
+            rotation_step_size=parameters["rotation_step_size"],
+            dilate_frontier_size=parameters[
+                "dilate_frontier_size"
+            ],  # 0.6 meters back from every edge = 12 * 0.02 = 0.24
+            dilate_obstacle_size=parameters["dilate_obstacle_size"],
         )
 
         # Dictionary storing attempts to visit each object

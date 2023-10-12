@@ -261,7 +261,7 @@ def main(
         plt.imshow(explored)
         plt.show()
     else:
-        pc_xyz, pc_rgb = demo.collector.get_xyz_rgb()
+        pc_xyz, pc_rgb = demo.voxel_map.get_xyz_rgb()
 
     # Create pointcloud and write it out
     if len(output_pcd_filename) > 0:
