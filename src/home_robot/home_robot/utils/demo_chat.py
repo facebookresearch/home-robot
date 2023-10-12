@@ -96,7 +96,7 @@ class DemoChat:
             # breakpoint()
             fcntl.flock(f, fcntl.LOCK_EX)
             log_data = json.load(f)
-            new_entry = {"role": role, "content": message}
+            new_entry = {"role": role, "content": message, "timestamp": time.time()}
             log_data.append(new_entry)
             f.seek(0)
             json.dump(log_data, f, indent=4)

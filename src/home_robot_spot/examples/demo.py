@@ -12,15 +12,13 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
+import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
-from loguru import logger
-from PIL import Image
-
-import home_robot_spot.nav_client as nc
+from examples.demo_utils.mock_agent import MockSpotDemoAgent
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -48,14 +46,17 @@ from home_robot.utils.point_cloud import numpy_to_pcd
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
+from loguru import logger
+from PIL import Image
 
 try:
     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
     import grpc
+    from task_rpc_env_pb2_grpc import AgentgRPCStub
+
     import src.rpc
     import src.rpc.task_rpc_env_pb2
     from src.utils.observations import ObjectImage, Observations, ProtoConverter
-    from task_rpc_env_pb2_grpc import AgentgRPCStub
 except Exception as e:
     ## Temporary hack until we make accel-cortex pip installable
     print(e)
@@ -1000,7 +1001,10 @@ def main(dock: Optional[int] = None, args=None):
     logger.add(f"{path}/{timestamp}.log", backtrace=True, diagnose=True)
     os.makedirs(path, exist_ok=True)
     logger.info("Saving viz data to {}", path)
-    demo = SpotDemoAgent(parameters, spot_config, dock, path)
+    if args.mock_agent:
+        demo = MockSpotDemoAgent(parameters, spot_config, dock, path)
+    else:
+        demo = SpotDemoAgent(parameters, spot_config, dock, path)
     spot = demo.spot
     voxel_map = demo.voxel_map
     semantic_sensor = demo.semantic_sensor
@@ -1134,6 +1138,13 @@ if __name__ == "__main__":
         help="For minigpt4 configs: override some settings in the used config, the key-value pair "
         "in xxx=yyy format will be merged into config file (deprecate), "
         "change to --cfg-options instead.",
+    )
+    parser.add_argument(
+        "--mock_agent",
+        "-m",
+        default=False,
+        action="store_true",
+        help="Use a mock agent instead of the real one",
     )
     args = parser.parse_args()
     main(args=args)
