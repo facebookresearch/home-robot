@@ -26,6 +26,9 @@ chat_log_dir = os.path.dirname(app_config.directory_watch_path)
 if "viz_data" in chat_log_dir:
     chat_log_dir = os.path.dirname(chat_log_dir)
 chat_log = DemoChat(log_file_path=f"{chat_log_dir}/demo_chat.json")
+print(f"Chat log dir: {chat_log_dir}")
+print(f"Chat log: {chat_log}")
+
 # Conent of the demo_chat:
 # [
 #     {

@@ -45,23 +45,14 @@ from home_robot.utils.demo_chat import (
 )
 from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
+from home_robot.utils.rpc import (
+    get_obj_centric_world_representation,
+    get_output_from_world_representation,
+    get_vlm_rpc_stub,
+)
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-
-try:
-    sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
-    import grpc
-    import src.rpc
-    import src.rpc.task_rpc_env_pb2
-    from src.utils.observations import ObjectImage, Observations, ProtoConverter
-    from task_rpc_env_pb2_grpc import AgentgRPCStub
-except Exception as e:
-    ## Temporary hack until we make accel-cortex pip installable
-    print(e)
-    print(
-        "Make sure path to accel-cortex base folder is set in the ACCEL_CORTEX environment variable."
-    )
 
 
 # NOTE: this requires 'pip install atomicwrites'
@@ -117,30 +108,6 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             f,
         )
     # logger.success("Done saving observation to pickle file.")
-
-
-def get_obj_centric_world_representation(instance_memory, max_context_length):
-    """Get version that LLM can handle - convert images into torch if not already"""
-    obs = Observations(object_images=[])
-    for global_id, instance in enumerate(instance_memory):
-        instance_crops = instance.instance_views
-        crop = random.sample(instance_crops, 1)[0].cropped_image
-        if isinstance(crop, np.ndarray):
-            crop = torch.from_numpy(crop)
-        obs.object_images.append(
-            ObjectImage(
-                crop_id=global_id,
-                image=crop.contiguous(),
-            )
-        )
-    # TODO: the model currenly can only handle 20 crops
-    if len(obs.object_images) > max_context_length:
-        logger.warning(
-            "\nWarning: this version of minigpt4 can only handle limited size of crops -- sampling a subset of crops from the instance memory..."
-        )
-        obs.object_images = random.sample(obs.object_images, max_context_length)
-
-    return obs
 
 
 class SpotDemoAgent:
@@ -662,12 +629,8 @@ class SpotDemoAgent:
                     )
                     # task is the prompt, save it
                     data["prompt"] = self.get_language_task()
-                    output = stub.stream_act_on_observations(
-                        ProtoConverter.wrap_obs_iterator(
-                            episode_id=random.randint(1, 1000000),
-                            obs=world_representation,
-                            goal=data["prompt"],
-                        )
+                    output = get_output_from_world_representation(
+                        world_representation, goal=data["prompt"]
                     )
                     plan = output.action
                     if self.confirm_plan(plan):
@@ -977,10 +940,11 @@ def main(dock: Optional[int] = None, args=None):
     print(f"{level=}")
     data: Dict[str, List[str]] = {}
     if args.enable_vlm == 1:
-        channel = grpc.insecure_channel(
-            f"{args.vlm_server_addr}:{args.vlm_server_port}"
-        )
-        stub = AgentgRPCStub(channel)
+        stub = get_vlm_rpc_stub(args.vlm_server_addr, args.vlm_server_port)
+        # channel = grpc.insecure_channel(
+        #    f"{args.vlm_server_addr}:{args.vlm_server_port}"
+        # )
+        # stub = AgentgRPCStub(channel)
     else:
         # No vlm to use, just default behavior
         stub = None
