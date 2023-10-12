@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import datetime
 import fcntl
 import json
 import logging
@@ -96,7 +97,11 @@ class DemoChat:
             # breakpoint()
             fcntl.flock(f, fcntl.LOCK_EX)
             log_data = json.load(f)
-            new_entry = {"role": role, "content": message, "timestamp": time.time()}
+            new_entry = {
+                "role": role,
+                "content": message,
+                "timestamp": f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}",
+            }
             log_data.append(new_entry)
             f.seek(0)
             json.dump(log_data, f, indent=4)
