@@ -50,17 +50,6 @@ class RobotClient(ABC):
         return self._base_control_mode == ControlMode.NAVIGATION
 
     @abstractmethod
-    def get_camera_intrinsics(self) -> torch.Tensor:
-        """Get 3x3 matrix of camera intrisics K"""
-        raise NotImplementedError()
-
-    @abstractmethod
     def get_robot_model() -> RobotModel:
         """return a model of the robot for planning"""
         raise NotImplementedError()
-
-
-class DataCollector(ABC):
-    """Basic robot data collection interface. One common pattern is to wrap an env() object."""
-
-    pass
