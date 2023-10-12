@@ -27,9 +27,9 @@ trajectory_per_step_timeout: 3.0
 
 # User interface
 chat: True
-start_ui_server: False
+start_ui_server: True
  
 # High level stuff
-exploration_steps: 50
+exploration_steps: 20
 # object_to_find: "bottle"
 # location_to_place: "chair"

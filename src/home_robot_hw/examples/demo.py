@@ -193,82 +193,93 @@ def main(
     output_pcd_filename = output_filename + "_" + formatted_datetime + ".pcd"
     output_pkl_filename = output_filename + "_" + formatted_datetime + ".pkl"
 
-    click.echo("Will connect to a Stretch robot and collect a short trajectory.")
-    print("- Connect to Stretch")
-    robot = StretchClient()
-    robot.nav.navigate_to([0, 0, 0])
+    try:
+        click.echo("Will connect to a Stretch robot and collect a short trajectory.")
+        print("- Connect to Stretch")
+        robot = StretchClient()
+        robot.nav.navigate_to([0, 0, 0])
 
-    print("- Load parameters")
-    parameters = get_config("src/home_robot_hw/configs/default.yaml")[0]
-    print(parameters)
-    object_to_find, location_to_place = get_task_goals(parameters)
+        print("- Load parameters")
+        parameters = get_config("src/home_robot_hw/configs/default.yaml")[0]
+        print(parameters)
+        object_to_find, location_to_place = get_task_goals(parameters)
 
-    print("- Create semantic sensor based on detic")
-    config, semantic_sensor = create_semantic_sensor(device_id, verbose)
+        print("- Create semantic sensor based on detic")
+        config, semantic_sensor = create_semantic_sensor(device_id, verbose)
 
-    # Run grasping test - just grab whatever is in front of the robot
-    if test_grasping:
-        run_grasping(
-            robot, semantic_sensor, to_grasp=object_to_find, to_place=location_to_place
-        )
-        rospy.signal_shutdown("done")
-        return
+        # Run grasping test - just grab whatever is in front of the robot
+        if test_grasping:
+            run_grasping(
+                robot,
+                semantic_sensor,
+                to_grasp=object_to_find,
+                to_place=location_to_place,
+            )
+            rospy.signal_shutdown("done")
+            return
 
-    print("- Start robot agent with data collection")
-    demo = RobotAgent(robot, semantic_sensor, parameters)
-    demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
-    if object_to_find is not None:
-        print(f"\nSearch for {object_to_find} and {location_to_place}")
-        matches = demo.get_found_instances_by_class(object_to_find)
-        print(f"Currently {len(matches)} matches for {object_to_find}.")
-    else:
-        matches = []
+        print("- Start robot agent with data collection")
+        demo = RobotAgent(robot, semantic_sensor, parameters)
+        demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
+        if object_to_find is not None:
+            print(f"\nSearch for {object_to_find} and {location_to_place}")
+            matches = demo.get_found_instances_by_class(object_to_find)
+            print(f"Currently {len(matches)} matches for {object_to_find}.")
+        else:
+            matches = []
 
-    if len(matches) == 0 or force_explore:
-        print(f"Exploring for {object_to_find}, {location_to_place}...")
-        demo.run_exploration(
-            rate,
-            manual_wait,
-            explore_iter=parameters["exploration_steps"],
-            task_goal=object_to_find,
-            go_home_at_end=navigate_home,
-        )
-    print("Done collecting data.")
-    matches = demo.get_found_instances_by_class(object_to_find)
-    print("-> Found", len(matches), f"instances of class {object_to_find}.")
-    # demo.voxel_map.show(orig=np.zeros(3))
-
-    # Look at all of our instances - choose and move to one
-    print(f"- Move to any instance of {object_to_find}")
-    smtai = demo.move_to_any_instance(matches)
-    if not smtai:
-        print("Moving to instance failed!")
-    else:
-        print(f"- Grasp {object_to_find} using FUNMAP")
-        if not no_manip:
-            run_grasping(robot, semantic_sensor, to_grasp=object_to_find, to_place=None)
-
-        matches = demo.get_found_instances_by_class(location_to_place)
-        if len(matches) == 0:
-            print(f"!!! No location {location_to_place} found. Exploring !!!")
+        if len(matches) == 0 or force_explore:
+            print(f"Exploring for {object_to_find}, {location_to_place}...")
             demo.run_exploration(
                 rate,
                 manual_wait,
-                explore_iter=explore_iter,
-                task_goal=location_to_place,
+                explore_iter=parameters["exploration_steps"],
+                task_goal=object_to_find,
                 go_home_at_end=navigate_home,
             )
+        print("Done collecting data.")
+        matches = demo.get_found_instances_by_class(object_to_find)
+        print("-> Found", len(matches), f"instances of class {object_to_find}.")
+        # demo.voxel_map.show(orig=np.zeros(3))
 
-        print(f"- Move to any instance of {location_to_place}")
-        smtai2 = demo.move_to_any_instance(matches)
-        if not smtai2:
-            print(f"Going to instance of {location_to_place} failed!")
+        # Look at all of our instances - choose and move to one
+        print(f"- Move to any instance of {object_to_find}")
+        smtai = demo.move_to_any_instance(matches)
+        if not smtai:
+            print("Moving to instance failed!")
         else:
-            print(f"- Placing on {location_to_place} using FUNMAP")
+            print(f"- Grasp {object_to_find} using FUNMAP")
             if not no_manip:
                 run_grasping(
-                    robot, semantic_sensor, to_grasp=None, to_place=location_to_place
+                    robot, semantic_sensor, to_grasp=object_to_find, to_place=None
                 )
+
+            matches = demo.get_found_instances_by_class(location_to_place)
+            if len(matches) == 0:
+                print(f"!!! No location {location_to_place} found. Exploring !!!")
+                demo.run_exploration(
+                    rate,
+                    manual_wait,
+                    explore_iter=explore_iter,
+                    task_goal=location_to_place,
+                    go_home_at_end=navigate_home,
+                )
+
+            print(f"- Move to any instance of {location_to_place}")
+            smtai2 = demo.move_to_any_instance(matches)
+            if not smtai2:
+                print(f"Going to instance of {location_to_place} failed!")
+            else:
+                print(f"- Placing on {location_to_place} using FUNMAP")
+                if not no_manip:
+                    run_grasping(
+                        robot,
+                        semantic_sensor,
+                        to_grasp=None,
+                        to_place=location_to_place,
+                    )
+    except Exception as e:
+        print(e)
 
     if show_final_map:
         pc_xyz, pc_rgb = demo.voxel_map.show()
