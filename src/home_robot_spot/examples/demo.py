@@ -108,6 +108,12 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
             ),
             f,
         )
+
+    for i, instance in enumerate(model.voxel_map.get_instances()):
+        for j, view in enumerate(instance.instance_views):
+            image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
+            image.save(f"{path}/instances/instance{i}_view{j}.png")
+
     # logger.success("Done saving observation to pickle file.")
 
 
@@ -121,6 +127,7 @@ class SpotDemoAgent:
     ):
         self.spot_config = spot_config
         self.path = path
+        self.current_state = "WAITING"
         self.parameters = parameters
         if self.parameters["encoder"] == "clip":
             self.encoder = ClipEncoder(self.parameters["clip"])
@@ -171,6 +178,7 @@ class SpotDemoAgent:
         self.semantic_sensor.set_vocabulary(0)
 
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
+        os.makedirs(f"{self.path}/viz_data/instances/", exist_ok=True)
         with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
             pickle.dump(self.semantic_sensor.seg_id_to_name, f)
 
@@ -312,6 +320,7 @@ class SpotDemoAgent:
     def rotate_in_place(self):
         # Do a 360 degree turn to get some observations (this helps debug the robot)
         logger.info("Rotate in place")
+        self.current_state = "SCANNING"
         x0, y0, theta0 = self.spot.current_position
         for i in range(8):
             self.spot.navigate_to([x0, y0, theta0 + (i + 1) * np.pi / 4], blocking=True)
@@ -383,6 +392,7 @@ class SpotDemoAgent:
         """Move to a position to place in an environment."""
         # TODO: Check if vf is correct
         # if self.parameters["use_get_close"]:
+        self.current_state = "PLACING OBJECT"
         self.spot.navigate_to(instance_pose, blocking=True)
         # Compute distance
         dxy = location[:2] - instance_pose[:2]
@@ -436,6 +446,7 @@ class SpotDemoAgent:
         goal_position = np.asarray(view.pose)
         start = self.spot.current_position
         start_is_valid = self.navigation_space.is_valid(start)
+        self.current_state = "NAV_TO_INSTANCE"
 
         print("\n----- NAVIGATE TO THE RIGHT INSTANCE ------")
         print("Start is valid:", start_is_valid)
@@ -829,6 +840,7 @@ class SpotDemoAgent:
         """Run exploration in different environments. Will explore until there's nothing else to find."""
         # Track the number of times exploration failed
         explore_failures = 0
+        self.current_state = "EXPLORE"
         for exploration_step in range(int(self.parameters["exploration_steps"])):
             # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
             print(
@@ -859,6 +871,7 @@ class SpotDemoAgent:
                 res = self.plan_to_frontier()
                 if res.success:
                     explore_failures = 0
+
                 else:
                     explore_failures += 1
                     logger.warning("Exploration failed: " + str(res.reason))
