@@ -13,10 +13,14 @@ import dash
 import dash_bootstrap_components as dbc
 import openai
 from dash import Patch, dcc, html
-from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
+
+# from dash.dependencies import Input, Output, State
+from dash_extensions.enrich import ALL, Input, Output, State, ctx, dcc, html
+
 from home_robot.utils.demo_chat import DemoChat
 
-from .app import app, app_config
+from .app import app, app_config, svm_watcher
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 prompt_file = app.get_asset_url("../assets/prompts/demo.txt")
@@ -53,12 +57,35 @@ print(f"Chat log: {chat_log}")
 from loguru import logger
 
 
+# Add modal that displays crop on click
+# Look at us, using fancy patttern-matching callbacks to handle dynamic webpages
+@app.callback(
+    [
+        Output("image-modal", "is_open"),
+        Output("image-modal-im", "src"),
+        Output("image-modal-title", "children"),
+    ],
+    Input({"type": "pattern-matched-image", "index": ALL}, "n_clicks"),
+    [
+        State({"type": "pattern-matched-image", "index": ALL}, "src"),
+        State("image-modal", "is_open"),
+    ],
+)
+def toggle_modal(n_clicks, src, is_open):
+    n_clicks = ctx.triggered[0]["value"]
+    if not n_clicks:
+        raise PreventUpdate
+    button_id = ctx.triggered_id
+    logger.debug(f"Showing modal of {button_id}")
+    # return [not is_open, src[0]]
+    header = f"Crop of {button_id['index']}"
+    if n_clicks:
+        return [not is_open, src[0], header]
+    return [is_open, src[0], header]
+
+
 def make_layout(height="50vh"):
     # Define Layout
-    # conversation =
-
-    # controls =
-
     return dbc.Row(
         [
             html.Div(
@@ -93,6 +120,24 @@ def make_layout(height="50vh"):
                 ],
                 className="chat-input",
             ),
+            dbc.Modal(
+                children=[
+                    dbc.ModalHeader(
+                        dbc.ModalTitle("Crop of Instance", id="image-modal-title")
+                    ),
+                    dbc.ModalBody(
+                        children=[
+                            html.Img(
+                                src=None, className="chat-modal-im", id="image-modal-im"
+                            ),
+                        ],
+                        className="center",
+                    ),
+                ],
+                size="xl",
+                is_open=False,
+                id="image-modal",
+            ),
         ],
         className="chat-window",
     )
@@ -108,7 +153,7 @@ def replace_instance_with_image(text):
     instances = re.findall(r"Instance id: (\d+)", text)
     text = re.sub(r"Instance id: \d+", "specified instance", text)
 
-    image_src = None
+    image_src, instance = None, None
     for instance in instances:
         image_path = (
             f"{app_config.directory_watch_path}/instances/instance{instance}_view0.png"
@@ -119,12 +164,12 @@ def replace_instance_with_image(text):
 
         # Create an HTML image tag with the Base64 encoded image
         image_src = f"data:image/png;base64,{base64_image}"
-    return image_src
+    return image_src, instance
 
 
 def textbox(text, box="user"):
     # Replace instances in text with their corresponding images
-    image_src = replace_instance_with_image(text)
+    image_src, instance = replace_instance_with_image(text)
 
     style = {
         "max-width": "60%",
@@ -184,10 +229,12 @@ def textbox(text, box="user"):
             dbc.CardBody(text),
         ]
         if image_src is not None:
+            image_id = f"instance-{instance}"
             children.append(
                 html.Img(
                     src=image_src,
                     className="chat_thumbnail_im",
+                    id={"type": "pattern-matched-image", "index": image_id},
                     style={
                         # 'display': 'block',
                         # "border-radius": 50,
@@ -200,6 +247,7 @@ def textbox(text, box="user"):
                     },
                 )
             )
+
         textbox = dbc.Card(
             children=children,
             style=style,
@@ -236,7 +284,7 @@ def msg_str_to_arr(msg_history_str):
 # Chat callback
 ###########################
 @app.callback(
-    Output("display-conversation", "children"),
+    [Output("display-conversation", "children")],
     [Input("store-conversation", "data")],
     # prevent_initial_call=True
 )
@@ -271,8 +319,8 @@ def clear_input(n_submit):
 # )
 # Here we want to show the following:
 #  1. user message being submitted immediately
-#  2. display loading initially
-#  3. when LLM responds, show that message and remove the loading
+#  2. display loading gif for the chatbot
+#  3. when chatbot responds, show that message and remove the loading gif
 @app.callback(
     [Output("store-conversation", "data"), Output("loading-component", "children")],
     [Input("user-input", "n_submit")],
@@ -299,7 +347,32 @@ def run_chatbot(n_submit, user_input, chat_history):
     # First add the user input to the chat history
     msg_history = msg_str_to_arr(chat_history)
     msg_history.append({"role": "user", "content": user_input})
-    response = chat_log.input(user_input, role="user")
+    # response = chat_log.input(user_input, role="user")
+    # msg_history.append({"role": "assistant", "content": response})
+
+    # TODO: REMOVE
+    hard_coded_instance = 1
+    if len(msg_history) <= 2:
+        msg_history.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": f"Plan: goto('bottle-1') -- Instance id: 1",
+                    "timestamp": f"{datetime.now():%Y-%m-%d-%H-%M-%S}",
+                },
+                {
+                    "role": "assistant",
+                    "content": "Execute this plan? [Y/N]",
+                    "timestamp": f"{datetime.now():%Y-%m-%d-%H-%M-%S}",
+                },
+            ]
+        )
+    else:
+        svm_watcher.target_instance_id = hard_coded_instance
+        svm_watcher.unpause()
+    ###########################
+
+    # output(self, message: str, role: str = "system")
     # response = openai.ChatCompletion.create(
     #     model="gpt-3.5-turbo",
     #     messages=msg_history,
@@ -308,7 +381,6 @@ def run_chatbot(n_submit, user_input, chat_history):
     #     temperature=0.2,
     # )
     # model_output = response.choices[0].message.content.strip()
-    msg_history.append({"role": "assistant", "content": response})
     chat_history = msg_arr_to_str(msg_history)
 
     return chat_history, None

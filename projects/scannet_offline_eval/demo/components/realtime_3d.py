@@ -107,11 +107,6 @@ def add_new_points(submit_n_clicks, camera_coords, existing, next_obs):
         next_obs = 0
 
     patched_figure = Patch()
-    if next_obs >= new_next_obs:
-        logger.debug(
-            f"[NOOP] Client has current obs (client: {next_obs}, server: {new_next_obs})"
-        )
-        raise PreventUpdate
     if (
         ctx.triggered_id == "realtime-3d-camera-coords"
         and get_plot_idx_by_name(existing, "Camera") is not None
@@ -126,7 +121,32 @@ def add_new_points(submit_n_clicks, camera_coords, existing, next_obs):
             color="red",
             name="Camera",
         )
+        target_idx = get_plot_idx_by_name(existing, "Target object")
+        nan_tensor = torch.Tensor([[float("NaN")] * 3])
+
+        target_box_idx = svm_watcher.target_instance_id
+        target_box_bounds = (
+            svm_watcher.box_bounds[new_next_obs - 1][target_box_idx]
+            if target_box_idx is not None
+            else nan_tensor.unsqueeze(-1).expand(1, 3, 2).squeeze(0)
+        )
+        update_or_create_box_trace(
+            patched_figure,
+            # existing,
+            target_idx,
+            box_bounds=target_box_bounds,
+            box_name="Target object",
+            linewidth=app_config.target_box_width,
+            color="lime",
+            mode="lines",
+            linestyle="solid",
+        )
         return patched_figure, next_obs, existing
+    elif next_obs >= new_next_obs:
+        logger.debug(
+            f"[NOOP] Client has current obs (client: {next_obs}, server: {new_next_obs})"
+        )
+        raise PreventUpdate
 
     # Add new points
     points = svm_watcher.points[next_obs:new_next_obs]
@@ -135,17 +155,17 @@ def add_new_points(submit_n_clicks, camera_coords, existing, next_obs):
     box_bounds = svm_watcher.box_bounds[
         new_next_obs - 1
     ]  # For some reason doing this causes various index and other errors
+    if len(points) > 0:
+        points = torch.cat(points, dim=0)
+        x, y, z = [v.cpu().detach().numpy().tolist() for v in points.unbind(1)]
+        points_trace = patched_figure["data"][points_idx]
+        points_trace["x"].extend(x)
+        points_trace["y"].extend(y)
+        points_trace["z"].extend(z)
 
-    points = torch.cat(points, dim=0)
-    x, y, z = [v.cpu().detach().numpy().tolist() for v in points.unbind(1)]
-    points_trace = patched_figure["data"][points_idx]
-    points_trace["x"].extend(x)
-    points_trace["y"].extend(y)
-    points_trace["z"].extend(z)
-
-    rgb = torch.cat(rgb, dim=0).cpu().detach().numpy()
-    rgb = [clrs.label_rgb(clrs.convert_to_RGB_255(c)) for c in rgb]
-    points_trace["marker"]["color"].extend(rgb)
+        rgb = torch.cat(rgb, dim=0).cpu().detach().numpy()
+        rgb = [clrs.label_rgb(clrs.convert_to_RGB_255(c)) for c in rgb]
+        points_trace["marker"]["color"].extend(rgb)
     trace_names = ["Points"]
 
     # Camera
@@ -165,24 +185,24 @@ def add_new_points(submit_n_clicks, camera_coords, existing, next_obs):
     # Add target box
     target_idx = get_plot_idx_by_name(existing, "Target object")
     nan_tensor = torch.Tensor([[float("NaN")] * 3])
-    target_box_idx = 7 if len(svm_watcher.box_bounds[new_next_obs - 1]) >= 8 else 0
+
+    target_box_idx = svm_watcher.target_instance_id
     target_box_bounds = (
         svm_watcher.box_bounds[new_next_obs - 1][target_box_idx]
-        if target_box_idx is None
-        else nan_tensor.unsqueeze(1)
+        if target_box_idx is not None
+        else nan_tensor.unsqueeze(-1).expand(1, 3, 2).squeeze(0)
     )
-
-    logger.info(f"Target box idx: {target_box_idx}")
+    # logger.info(f"Target box idx: {target_box_idx}")
     update_or_create_box_trace(
         patched_figure,
         # existing,
         target_idx,
-        box_bounds=svm_watcher.box_bounds[new_next_obs - 1][target_box_idx],
+        box_bounds=target_box_bounds,
         box_name="Target object",
         linewidth=app_config.target_box_width,
         color="lime",
         mode="lines",
-        linestyle="dash",
+        linestyle="solid",
     )
     trace_names += ["Target object"]
 
@@ -196,15 +216,21 @@ def add_new_points(submit_n_clicks, camera_coords, existing, next_obs):
         patched_figure, existing, len(trace_names), new_next_obs - 1
     )
     trace_names += box_names
-    patched_figure["layout"]["annotations"][0][
-        "text"
-    ] = f"Target: {box_names[target_box_idx]}"
+    # patched_figure["layout"]["annotations"][0][
+    #     "text"
+    # ] = f"Target: {box_names[target_box_idx]}"
 
     # Update bounds
     mins, maxs = global_bounds.unbind(-1)
     box_mins = svm_watcher.box_bounds[new_next_obs - 1].min(dim=0).values[..., 0]
     box_maxs = svm_watcher.box_bounds[new_next_obs - 1].max(dim=0).values[..., 1]
     mins, maxs = torch.min(mins, box_mins), torch.max(maxs, box_maxs)
+    cam_coords_cat = torch.stack(
+        [torch.tensor(svm_watcher.cam_coords[axis]) for axis in ["x", "y", "z"]], dim=0
+    )
+    cam_mins = cam_coords_cat.min(dim=-1).values
+    cam_maxs = cam_coords_cat.max(dim=-1).values
+    mins, maxs = torch.min(mins, cam_mins), torch.max(maxs, cam_maxs)
     new_global_bounds = torch.stack([mins, maxs], dim=-1)
     maxlen = (maxs - mins).max().item()
     update_axis(
@@ -271,8 +297,8 @@ def update_or_create_box_trace(
     if target_idx is None:
         text = [""] * (len(t_box_x))
         text[
-            7
-        ] = box_name  # Magic number -- we want to add labels _above_ a corner of the box. So we display text above a vertex that's on top
+            7  # Magic number -- we want to add labels _above_ a corner of the box. So we display text above a vertex that's on top
+        ] = box_name
         patched_figure["data"].append(
             go.Scatter3d(
                 x=t_box_x.tolist(),

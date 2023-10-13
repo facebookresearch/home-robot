@@ -13,8 +13,9 @@ from pathlib import Path
 from typing import Callable, Optional, Union
 
 import torch
-from home_robot.utils.threading import Interval
 from loguru import logger
+
+from home_robot.utils.threading import Interval
 
 
 def get_most_recent_viz_directory() -> Optional[str]:
@@ -71,10 +72,11 @@ class DirectoryWatcher:
         if file_path.exists():
             logger.info(f"[LOADING] from {self.current_obs_number}.pkl")
             with open(file_path, "rb") as f:
-                self.observations.append(pickle.load(f))
+                current_obs = pickle.load(f)
+            # self.observations.append(current_obs)
             self.current_obs_number += 1
             if self.on_new_obs_callback is not None:
-                self.on_new_obs_callback(self.observations[-1])
+                self.on_new_obs_callback(current_obs)
         else:
             for i in range(self.obs_lookahead):
                 file_path = (

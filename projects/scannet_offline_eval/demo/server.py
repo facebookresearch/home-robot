@@ -33,7 +33,7 @@ figure = svm_watcher.svm.show(
     backend="pytorch3d",
     instances=False,
     mock_plot=True,
-    pointcloud_marker_size=4,  # int(app_config.pointcloud_voxel_size * 100)
+    pointcloud_marker_size=3,  # int(app_config.pointcloud_voxel_size * 100)
 )
 camera = dict(eye=dict(x=0.0, y=0.0, z=app_config.camera_initial_distance))
 figure.update_layout(
@@ -83,7 +83,8 @@ app.layout = dbc.Container(
                                     disabled=False,
                                 ),
                             ),
-                            name="Live 2D Map",
+                            name="Live Camera Feed",
+                            # name="Live 2D Map",
                         ),
                         make_chat_layout(),
                     ],

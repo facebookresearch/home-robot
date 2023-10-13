@@ -4,6 +4,13 @@ Copyright (c) Meta Platforms, Inc. and affiliates.
 This source code is licensed under the MIT license found in the
 LICENSE file in the root directory of this source tree.
 */
+.center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
 .header {
     height: 90px;
     align-items: center;
@@ -18,20 +25,43 @@ LICENSE file in the root directory of this source tree.
 
 .main-body {
     height: calc(90vh - 100px);
+    margin: 0px 20px 0px 20px !important
 }
 
-.gripper-img {
+.map-img {
     border: 2px solid #555;
     max-height: 100%;
     width: auto;
 }
 
-.gripper-feed {
+.map-feed {
     height: 25vh;
     width: 100%;
     /* margin-top: 25px; */
     margin-bottom: 25px;
     text-align: center;
+}
+
+.ego-img {
+    border: 2px solid #555;
+    max-height: 100%;
+    width: auto;
+}
+
+.ego-feed {
+    height: 40vh;
+    width: 100%;
+    /* margin-top: 25px; */
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+
+.chat-modal-im {
+    height: 40vh !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 

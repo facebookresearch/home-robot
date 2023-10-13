@@ -18,6 +18,7 @@ import torch
 # from dash_extensions.websockets import SocketPool, run_server
 from dash_extensions.enrich import BlockingCallbackTransform, DashProxy
 from loguru import logger
+from matplotlib import pyplot as plt
 from pytorch3d.vis.plotly_vis import get_camera_wireframe
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
 
@@ -31,9 +32,9 @@ from .directory_watcher import DirectoryWatcher, get_most_recent_viz_directory
 @dataclass
 class AppConfig:
     pointcloud_update_freq_ms: int = 2000
-    video_feed_update_freq_ms: int = 1000
+    video_feed_update_freq_ms: int = 500  # 500
 
-    directory_watcher_update_freq_ms: int = 600
+    directory_watcher_update_freq_ms: int = 500  # 500
     directory_watch_path: Optional[str] = get_most_recent_viz_directory()
     pointcloud_voxel_size: float = 0.035
     convert_rgb_to_bgr: bool = True
@@ -82,15 +83,27 @@ class SparseVoxelMapDirectoryWatcher:
             on_new_obs_callback=self.add_obs,
             rate_limit=fps,
         )
+        logger.info(f"Watching directory {watch_dir}")
+        # General state -- updates posted to chat
+        self.robot_state = None
+
+        # Feed
+        self.rgb_jpeg = None
+        self.depth_jpeg = None
+        self.convert_rgb_to_bgr = convert_rgb_to_bgr
+        self.map_im = None
+        self.cam_coords = dict(x=[], y=[], z=[])
+
+        # 3D
         self.points = []
         self.rgb = []
         self.bounds = []
         self.box_bounds = []
         self.box_names = []
-        self.rgb_jpeg = None
-        self.cam_coords = dict(x=[], y=[], z=[])
-        self.convert_rgb_to_bgr = convert_rgb_to_bgr
+        self.target_instance_id = None
         self.watch_dir = watch_dir
+
+        self.current_obs_number = -1
         self._vocab = self.load_vocab()
 
     def load_vocab(self):
@@ -105,33 +118,38 @@ class SparseVoxelMapDirectoryWatcher:
     def add_obs(self, obs) -> bool:
         if obs is None:
             return True
-
+        self.current_obs_number = self.obs_watcher.current_obs_number
         if not self._vocab:
             self.load_vocab()
 
         if obs["limited_obs"]:
             obs["rgb"] = torch.from_numpy(obs["obs"].rgb)
-            obs["depth"] = obs["obs"].depth
+            obs["depth"] = torch.from_numpy(obs["obs"].depth)
             obs["camera_pose"] = torch.from_numpy(obs["obs"].camera_pose).float()
 
-        # print(obs['obs'].rgb)
-        # # Assuming obs["rgb"] is your BGR image in tensor form
-        # bgr_image = obs["rgb"].cpu().numpy()
+        # TODO: REMOVE
+        if self.robot_state == "EXPLORE" and obs["current_state"] != "EXPLORE":
+            self.pause()
+        ################
+        self.robot_state = obs["current_state"]
 
-        # # Convert the BGR image to RGB
-        # rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
-
-        # # Encode the RGB image to JPEG format
-        # self.rgb_jpeg = cv2.imencode(".jpg", rgb_image.astype(np.uint8))[1].tobytes()
+        # Update RGB
         rgb_image = obs["rgb"]
         rgb_ten = rgb_image[..., RGB_TO_BGR] if self.convert_rgb_to_bgr else obs["rgb"]
-        # rgb_ten = (torch.flip(obs["obstacles"], dims=(0, 1)) > 0) * 255
-        # rgb_ten = rgb_ten[256:-256, 256:-256]
-
         self.rgb_jpeg = cv2.imencode(".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8))[
             1
         ].tobytes()  # * 255
 
+        # Update Depth
+        depth_im = obs["depth"]
+        cmap = plt.get_cmap("jet")
+        # Apply the colormap to the normalized depth values
+        colored_depth = cmap(depth_im.cpu().numpy() / 4.0) * 255
+        self.depth_jpeg = cv2.imencode(".jpg", colored_depth.astype(np.uint8))[
+            1
+        ].tobytes()  # * 255
+
+        # Update camera pose
         pose = obs["camera_pose"].cpu().detach()
         R = pose[:3, :3]
         t = pose[:3, -1]
@@ -145,6 +163,14 @@ class SparseVoxelMapDirectoryWatcher:
         if obs["limited_obs"]:
             return True
 
+        # Update map
+        rgb_ten = (torch.flip(obs["obstacles"], dims=(0, 1)) > 0) * 255
+        rgb_ten = rgb_ten[256:-256, 256:-256]
+        self.map_im = cv2.imencode(".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8))[
+            1
+        ].tobytes()  # * 255
+
+        # Add only new points
         old_points = self.svm.voxel_pcd._points
         old_rgb = self.svm.voxel_pcd._rgb
         if obs["rgb"].max() > 1.0:  # added nomalization
@@ -187,7 +213,7 @@ class SparseVoxelMapDirectoryWatcher:
         self.rgb.append(new_rgb.cpu())
         self.bounds.append(new_bounds)
 
-        # Record bounding box update
+        # Add bounding boxes
         if "box_bounds" in obs:
             self.box_bounds.append(obs["box_bounds"].cpu())
         else:
