@@ -107,9 +107,18 @@ if __name__ == "__main__":
         default=8901,
         help="The port to use (default: 8901)",
     )
+    parser.add_argument(
+        "--path",
+        type=str,
+        default=None,
+        help="The path to the directory to watch (default: None)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
+    if args.path is not None:
+        app_config.directory_watch_path = args.path
+
     logger.warning("Starting server. Data consumer is currently paused:")
     svm_watcher.pause()
     svm_watcher.begin()

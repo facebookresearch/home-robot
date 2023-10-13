@@ -2,8 +2,10 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import base64
 import logging
 import os
+import re
 from datetime import datetime
 from textwrap import dedent
 
@@ -12,7 +14,6 @@ import dash_bootstrap_components as dbc
 import openai
 from dash import Patch, dcc, html
 from dash.dependencies import Input, Output, State
-
 from home_robot.utils.demo_chat import DemoChat
 
 from .app import app, app_config
@@ -94,7 +95,34 @@ def make_layout(height="50vh"):
     )
 
 
+def encode_image_to_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+
+def replace_instance_with_image(text):
+    # Find all instances of "instance id:x" in the text
+    instances = re.findall(r"Instance id: (\d+)", text)
+    text = re.sub(r"Instance id: \d+", "specified instance", text)
+
+    image_src = None
+    for instance in instances:
+        image_path = (
+            f"{app_config.directory_watch_path}/instances/instance{instance}_view0.png"
+        )
+
+        # Encode the image to Base64
+        base64_image = encode_image_to_base64(image_path)
+
+        # Create an HTML image tag with the Base64 encoded image
+        image_src = f"data:image/png;base64,{base64_image}"
+    return image_src
+
+
 def textbox(text, box="user"):
+    # Replace instances in text with their corresponding images
+    image_src = replace_instance_with_image(text)
+
     style = {
         "max-width": "60%",
         "width": "max-content",
@@ -148,11 +176,29 @@ def textbox(text, box="user"):
         full_thumbnail = html.Div(
             [full_thumbnail], style={"float": "left", "margin-right": 5}
         )
+        children = [
+            html.P("EAI-Cortex", className="chat-body chat-username"),
+            dbc.CardBody(text),
+        ]
+        if image_src is not None:
+            children.append(
+                html.Img(
+                    src=image_src,
+                    className="chat_thumbnail_im",
+                    style={
+                        # 'display': 'block',
+                        # "border-radius": 50,
+                        "height": 50,
+                        # # "margin-right": 5,
+                        "margin-left": "auto",
+                        "margin-right": "auto",
+                        # # "float": "left",
+                        "text-align": "center",
+                    },
+                )
+            )
         textbox = dbc.Card(
-            children=[
-                html.P("EAI-Cortex", className="chat-body chat-username"),
-                dbc.CardBody(text),
-            ],
+            children=children,
             style=style,
             color="light",
             inverse=False,
