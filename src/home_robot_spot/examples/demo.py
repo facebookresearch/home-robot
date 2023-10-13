@@ -111,8 +111,10 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
 
     for i, instance in enumerate(model.voxel_map.get_instances()):
         for j, view in enumerate(instance.instance_views):
-            image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
-            image.save(f"{path}/instances/instance{i}_view{j}.png")
+            filename = f"{path}/instances/instance{i}_view{j}.png"
+            if not os.path.exists(filename):
+                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
+                image.save(filename)
 
     # logger.success("Done saving observation to pickle file.")
 
