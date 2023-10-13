@@ -35,8 +35,7 @@ def publish_obs(
 ):
     """publish observation for use by the UI"""
     # NOTE: this requires 'pip install atomicwrites'
-    # timestep = len(model.voxel_map.observations) - 1
-    with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
+    with atomic_write(f"{path}/viz_data/{timestep}.pkl", mode="wb") as f:
         instances = model.voxel_map.get_instances()
         model_obs = model.voxel_map.observations[-1]
         if len(instances) > 0:
@@ -98,9 +97,12 @@ class RobotAgent:
         robot: RobotClient,
         semantic_sensor,
         parameters: Dict[str, Any],
+        rpc_stub=None,
     ):
         self.parameters = parameters
         self.robot = robot
+        self.rpc_stub = rpc_stub
+
         self.semantic_sensor = semantic_sensor
         self.normalize_embeddings = True
         self.pos_err_threshold = parameters["trajectory_pos_err_threshold"]
@@ -141,41 +143,95 @@ class RobotAgent:
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
         timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-        self.path = os.path.expanduser(
-            f"data/hw_exps/{self.parameters['name']}/{timestamp}"
-        )
+        # f"data/hw_exps/{self.parameters['name']}/{timestamp}"
+        self.path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
+        print(f"Writing logs to {self.path}")
         os.makedirs(self.path, exist_ok=True)
+        os.makedirs(f"{self.path}/viz_data", exist_ok=True)
+        with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
+            pickle.dump(self.semantic_sensor.seg_id_to_name, f)
+
         if parameters["start_ui_server"]:
             start_demo_ui_server()
         if parameters["chat"]:
             self.chat = DemoChat(f"{self.path}/demo_chat.json")
+            if self.parameters["limited_obs_publish_sleep"] > 0:
+                self._publisher = Interval(
+                    self.publish_limited_obs,
+                    sleep_time=self.parameters["limited_obs_publish_sleep"],
+                )
+            else:
+                self._publisher = None
         else:
             self.chat = None
+            self._publisher = None
 
-        if self.chat:
-            self._publisher = Interval(
-                self.publish_limited_obs,
-                sleep_time=parameters["limited_obs_publish_sleep"],
-            )
+    def get_plan_from_vlm(self):
+        """This is a connection to a remote thing for getting language commands"""
+        assert self.rpc_stub is not None, "must have RPC stub to connect to remote VLM"
+        # This is not a very stable import
+        # So we guard it under this part where it's necessary
+        from home_robot.utils.rpc import (
+            get_obj_centric_world_representation,
+            get_output_from_world_representation,
+        )
+
+        instances = self.voxel_map.get_instances()
+        world_representation = get_obj_centric_world_representation(
+            instances, self.parameters["vlm_context_length"]
+        )
+        output = get_output_from_world_representation(
+            self.rpc_stub, world_representation, self.get_command()
+        )
+        return output
+
+    def say(self, msg: str):
+        """Provide input either on the command line or via chat client"""
+        if self.chat is not None:
+            self.chat.output(msg)
+        else:
+            print(msg)
+
+    def ask(self, msg: str) -> str:
+        """Receive input from the user either via the command line or something else"""
+        if self.chat is not None:
+            return self.chat.input(msg)
+        else:
+            return input(msg)
+
+    def get_command(self):
+        if "command" in self.parameters:
+            return self.parameters["command"]
+        else:
+            return self.ask("please type any task you want the robot to do: ")
 
     def __del__(self):
         """Clean up at the end if possible"""
+        self.finish()
+
+    def finish(self):
+        """Clean up at the end if possible"""
+        print("Finishing different processes:")
         if self.parameters["start_ui_server"]:
+            print("- Stopping UI server...")
             stop_demo_ui_server()
-        self._publisher.cancel()
+        if self._publisher is not None:
+            print("- Stopping publisher...")
+            self._publisher.cancel()
+        print("... Done.")
 
     def publish_limited_obs(self):
         obs = self.robot.get_observation()
         self.obs_count += 1
-        with atomic_write(f"{self.path}/{self.obs_count}.pkl", mode="wb") as f:
-            logger.info(
-                f"Saving limited observation to pickle file: {f'{self.path}/{self.obs_count}.pkl'}"
+        with atomic_write(f"{self.path}/viz_data/{self.obs_count}.pkl", mode="wb") as f:
+            logger.trace(
+                f"Saving limited observation to pickle file: {f'{self.path}/viz_data/{self.obs_count}.pkl'}"
             )
             pickle.dump(
                 dict(
                     obs=obs,
                     limited_obs=True,
-                    current_state=self.state,
+                    current_state=self.current_state,
                 ),
                 f,
             )
@@ -285,7 +341,7 @@ class RobotAgent:
             print(i, name, instance.score)
 
     def start(self, goal: Optional[str] = None, visualize_map_at_start: bool = False):
-        if self.chat is not None:
+        if self._publisher is not None:
             self._publisher.start()
         # Tuck the arm away
         print("Sending arm to  home...")
@@ -349,6 +405,7 @@ class RobotAgent:
         if res.success:
             print("- executing full plan to home!")
             self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+            print("Done!")
         else:
             print("Can't go home!")
 

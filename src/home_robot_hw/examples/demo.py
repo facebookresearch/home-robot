@@ -30,6 +30,7 @@ from home_robot.utils.config import get_config, load_config
 
 # Chat and UI tools
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
+from home_robot.utils.rpc import get_vlm_rpc_stub
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
@@ -160,6 +161,9 @@ def get_task_goals(parameters: Dict[str, Any]) -> Tuple[str, str]:
     default="output.pkl",
     help="Input path with default value 'output.npy'",
 )
+@click.option("--use-vlm", default=False, is_flag=True, help="use remote vlm to plan")
+@click.option("--vlm-server-addr", default="127.0.0.1")
+@click.option("--vlm-server-port", default="50054")
 def main(
     rate,
     visualize,
@@ -176,6 +180,9 @@ def main(
     force_explore: bool = False,
     no_manip: bool = False,
     explore_iter: int = 10,
+    use_vlm: bool = False,
+    vlm_server_addr: str = "127.0.0.1",
+    vlm_server_port: str = "50054",
     **kwargs,
 ):
     """
@@ -193,41 +200,46 @@ def main(
     output_pcd_filename = output_filename + "_" + formatted_datetime + ".pcd"
     output_pkl_filename = output_filename + "_" + formatted_datetime + ".pkl"
 
+    if use_vlm:
+        stub = get_vlm_rpc_stub(vlm_server_addr, vlm_server_port)
+    else:
+        stub = None
+
+    click.echo("Will connect to a Stretch robot and collect a short trajectory.")
+    print("- Connect to Stretch")
+    robot = StretchClient()
+    robot.nav.navigate_to([0, 0, 0])
+
+    print("- Load parameters")
+    parameters = get_config("src/home_robot_hw/configs/default.yaml")[0]
+    print(parameters)
+    object_to_find, location_to_place = get_task_goals(parameters)
+
+    print("- Create semantic sensor based on detic")
+    config, semantic_sensor = create_semantic_sensor(device_id, verbose)
+
+    # Run grasping test - just grab whatever is in front of the robot
+    if test_grasping:
+        run_grasping(
+            robot,
+            semantic_sensor,
+            to_grasp=object_to_find,
+            to_place=location_to_place,
+        )
+        rospy.signal_shutdown("done")
+        return
+
+    print("- Start robot agent with data collection")
+    demo = RobotAgent(robot, semantic_sensor, parameters, rpc_stub=stub)
+    demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
+    if object_to_find is not None:
+        print(f"\nSearch for {object_to_find} and {location_to_place}")
+        matches = demo.get_found_instances_by_class(object_to_find)
+        print(f"Currently {len(matches)} matches for {object_to_find}.")
+    else:
+        matches = []
+
     try:
-        click.echo("Will connect to a Stretch robot and collect a short trajectory.")
-        print("- Connect to Stretch")
-        robot = StretchClient()
-        robot.nav.navigate_to([0, 0, 0])
-
-        print("- Load parameters")
-        parameters = get_config("src/home_robot_hw/configs/default.yaml")[0]
-        print(parameters)
-        object_to_find, location_to_place = get_task_goals(parameters)
-
-        print("- Create semantic sensor based on detic")
-        config, semantic_sensor = create_semantic_sensor(device_id, verbose)
-
-        # Run grasping test - just grab whatever is in front of the robot
-        if test_grasping:
-            run_grasping(
-                robot,
-                semantic_sensor,
-                to_grasp=object_to_find,
-                to_place=location_to_place,
-            )
-            rospy.signal_shutdown("done")
-            return
-
-        print("- Start robot agent with data collection")
-        demo = RobotAgent(robot, semantic_sensor, parameters)
-        demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
-        if object_to_find is not None:
-            print(f"\nSearch for {object_to_find} and {location_to_place}")
-            matches = demo.get_found_instances_by_class(object_to_find)
-            print(f"Currently {len(matches)} matches for {object_to_find}.")
-        else:
-            matches = []
-
         if len(matches) == 0 or force_explore:
             print(f"Exploring for {object_to_find}, {location_to_place}...")
             demo.run_exploration(
@@ -242,67 +254,83 @@ def main(
         print("-> Found", len(matches), f"instances of class {object_to_find}.")
         # demo.voxel_map.show(orig=np.zeros(3))
 
-        # Look at all of our instances - choose and move to one
-        print(f"- Move to any instance of {object_to_find}")
-        smtai = demo.move_to_any_instance(matches)
-        if not smtai:
-            print("Moving to instance failed!")
+        if stub is not None:
+            print("!!!!!!!!!!!!!!!!!!!!!")
+            print("Query the LLM.")
+            print(demo.get_plan_from_vlm())
+
+        if len(matches) == 0:
+            print("No matching objects. We're done here.")
         else:
-            print(f"- Grasp {object_to_find} using FUNMAP")
-            if not no_manip:
-                run_grasping(
-                    robot, semantic_sensor, to_grasp=object_to_find, to_place=None
-                )
-
-            matches = demo.get_found_instances_by_class(location_to_place)
-            if len(matches) == 0:
-                print(f"!!! No location {location_to_place} found. Exploring !!!")
-                demo.run_exploration(
-                    rate,
-                    manual_wait,
-                    explore_iter=explore_iter,
-                    task_goal=location_to_place,
-                    go_home_at_end=navigate_home,
-                )
-
-            print(f"- Move to any instance of {location_to_place}")
-            smtai2 = demo.move_to_any_instance(matches)
-            if not smtai2:
-                print(f"Going to instance of {location_to_place} failed!")
+            # Look at all of our instances - choose and move to one
+            print(f"- Move to any instance of {object_to_find}")
+            smtai = demo.move_to_any_instance(matches)
+            if not smtai:
+                print("Moving to instance failed!")
             else:
-                print(f"- Placing on {location_to_place} using FUNMAP")
+                print(f"- Grasp {object_to_find} using FUNMAP")
                 if not no_manip:
                     run_grasping(
-                        robot,
-                        semantic_sensor,
-                        to_grasp=None,
-                        to_place=location_to_place,
+                        robot, semantic_sensor, to_grasp=object_to_find, to_place=None
                     )
+
+                matches = demo.get_found_instances_by_class(location_to_place)
+                if len(matches) == 0:
+                    print(f"!!! No location {location_to_place} found. Exploring !!!")
+                    demo.run_exploration(
+                        rate,
+                        manual_wait,
+                        explore_iter=explore_iter,
+                        task_goal=location_to_place,
+                        go_home_at_end=navigate_home,
+                    )
+
+                print(f"- Move to any instance of {location_to_place}")
+                smtai2 = demo.move_to_any_instance(matches)
+                if not smtai2:
+                    print(f"Going to instance of {location_to_place} failed!")
+                else:
+                    print(f"- Placing on {location_to_place} using FUNMAP")
+                    if not no_manip:
+                        run_grasping(
+                            robot,
+                            semantic_sensor,
+                            to_grasp=None,
+                            to_place=location_to_place,
+                        )
     except Exception as e:
-        print(e)
+        raise (e)
+    finally:
+        if show_final_map:
+            pc_xyz, pc_rgb = demo.voxel_map.show()
+            obstacles, explored = demo.voxel_map.get_2d_map()
+            plt.subplot(1, 2, 1)
+            plt.imshow(obstacles)
+            plt.subplot(1, 2, 2)
+            plt.imshow(explored)
+            plt.show()
+        else:
+            pc_xyz, pc_rgb = demo.voxel_map.get_xyz_rgb()
 
-    if show_final_map:
-        pc_xyz, pc_rgb = demo.voxel_map.show()
-        obstacles, explored = demo.voxel_map.get_2d_map()
-        plt.subplot(1, 2, 1)
-        plt.imshow(obstacles)
-        plt.subplot(1, 2, 2)
-        plt.imshow(explored)
-        plt.show()
-    else:
-        pc_xyz, pc_rgb = demo.voxel_map.get_xyz_rgb()
+        # Create pointcloud and write it out
+        if len(output_pcd_filename) > 0:
+            print(f"Write pcd to {output_pcd_filename}...")
+            pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
+            open3d.io.write_point_cloud(output_pcd_filename, pcd)
+        if len(output_pkl_filename) > 0:
+            print(f"Write pkl to {output_pkl_filename}...")
+            demo.voxel_map.write_to_pickle(output_pkl_filename)
 
-    # Create pointcloud and write it out
-    if len(output_pcd_filename) > 0:
-        print(f"Write pcd to {output_pcd_filename}...")
-        pcd = numpy_to_pcd(pc_xyz, pc_rgb / 255)
-        open3d.io.write_point_cloud(output_pcd_filename, pcd)
-    if len(output_pkl_filename) > 0:
-        print(f"Write pkl to {output_pkl_filename}...")
-        demo.voxel_map.write_to_pickle(output_pkl_filename)
+        from PIL import Image
 
-    demo.go_home()
-    rospy.signal_shutdown("done")
+        for i, instance in enumerate(demo.voxel_map.get_instances()):
+            for j, view in enumerate(instance.instance_views):
+                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
+                image.save(f"instance{i}_view{j}.png")
+
+        demo.go_home()
+        demo.finish()
+        rospy.signal_shutdown("done")
 
 
 if __name__ == "__main__":
