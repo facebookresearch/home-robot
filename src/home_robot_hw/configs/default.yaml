@@ -29,15 +29,17 @@ trajectory_rot_err_threshold: 0.3
 trajectory_per_step_timeout: 3.0
 
 # User interface
+# Choose one of: (object_to_find, location_to_place), command, or chat
+# Don't use all of them!
 name: "stretch_demo"  # for logging - currently not used
-chat: True
+chat: False
 start_ui_server: False
 vlm_context_length: 20  # How long messages sent to the vlm server can be if we are using it
 limited_obs_publish_sleep: 0.5
 
 # High level stuff: commands to execute 
-# command: "pick up a bottle and put it on the chair"
+command: "pick up a bottle and put it on the chair"
 # name: "spot"
-exploration_steps: 20
+exploration_steps: 10
 # object_to_find: "bottle"
 # location_to_place: "chair"
