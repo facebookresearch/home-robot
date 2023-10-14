@@ -59,29 +59,37 @@ from loguru import logger
 
 # Add modal that displays crop on click
 # Look at us, using fancy patttern-matching callbacks to handle dynamic webpages
+# We could display all crops. If we don't need that, then this could be a client-side callback
 @app.callback(
     [
         Output("image-modal", "is_open"),
         Output("image-modal-im", "src"),
         Output("image-modal-title", "children"),
+        Output("modal-ctx", "data"),
     ],
     Input({"type": "pattern-matched-image", "index": ALL}, "n_clicks"),
     [
         State({"type": "pattern-matched-image", "index": ALL}, "src"),
         State("image-modal", "is_open"),
+        State("modal-ctx", "data"),
     ],
 )
-def toggle_modal(n_clicks, src, is_open):
+def toggle_modal(n_clicks, src, is_open, last_ctx):
     n_clicks = ctx.triggered[0]["value"]
-    if not n_clicks:
+    trigger_id = ctx.triggered_id["index"]
+    # curr_ctx = {'value': n_clicks, 'index': trigger_id}
+    if not n_clicks or (trigger_id in last_ctx and last_ctx[trigger_id] == n_clicks):
         raise PreventUpdate
-    button_id = ctx.triggered_id
-    logger.debug(f"Showing modal of {button_id}")
+    # last_ctx[trigger_id] = n_clicks
+    new_ctx = Patch()
+    new_ctx[trigger_id] = n_clicks
+
+    logger.debug(f"Showing modal of {trigger_id} {n_clicks}")
     # return [not is_open, src[0]]
-    header = f"Crop of {button_id['index']}"
+    header = f"Crop of {trigger_id}"
     if n_clicks:
-        return [not is_open, src[0], header]
-    return [is_open, src[0], header]
+        return [not is_open, src[0], header, new_ctx]
+    return [is_open, src[0], header, new_ctx]
 
 
 def make_layout(height="50vh"):
@@ -138,6 +146,7 @@ def make_layout(height="50vh"):
                 is_open=False,
                 id="image-modal",
             ),
+            dcc.Store(id="modal-ctx", data={}),
         ],
         className="chat-window",
     )
@@ -283,25 +292,25 @@ def msg_str_to_arr(msg_history_str):
 ###########################
 # Chat callback
 ###########################
-@app.callback(
-    [Output("display-conversation", "children")],
-    [Input("store-conversation", "data")],
-    # prevent_initial_call=True
-)
-def update_display(chat_history):
-    # We shouldn't do this mod2 -- what if the user sends multiple messages?
-    # Also recreating the chat history causes a brief flashing of objects
-    # Instead we should just append a div
-    msgs = msg_str_to_arr(chat_history)
-    children = [
-        textbox(msg["content"], msg["role"]) for msg in msgs if msg["role"] != "system"
-    ]
-    logger.info(len(children))
-    return children
-    return [
-        textbox(x, box="user") if i % 2 == 0 else textbox(x, box="AI")
-        for i, x in enumerate(chat_history.split("<split>")[:-1])
-    ]
+# @app.callback(
+#     [Output("display-conversation", "children")],
+#     [Input("store-conversation", "data")],
+#     # prevent_initial_call=True
+# )
+# def update_display(chat_history):
+#     # We shouldn't do this mod2 -- what if the user sends multiple messages?
+#     # Also recreating the chat history causes a brief flashing of objects
+#     # Instead we should just append a div
+#     msgs = msg_str_to_arr(chat_history)
+#     children = [
+#         textbox(msg["content"], msg["role"]) for msg in msgs if msg["role"] != "system"
+#     ]
+#     logger.info(len(children))
+#     return children
+#     return [
+#         textbox(x, box="user") if i % 2 == 0 else textbox(x, box="AI")
+#         for i, x in enumerate(chat_history.split("<split>")[:-1])
+#     ]
 
 
 @app.callback(
@@ -322,7 +331,11 @@ def clear_input(n_submit):
 #  2. display loading gif for the chatbot
 #  3. when chatbot responds, show that message and remove the loading gif
 @app.callback(
-    [Output("store-conversation", "data"), Output("loading-component", "children")],
+    [
+        Output("store-conversation", "data"),
+        Output("loading-component", "children"),
+        Output("display-conversation", "children"),
+    ],
     [Input("user-input", "n_submit")],
     [State("user-input", "value"), State("store-conversation", "data")],
     prevent_initial_call=True,
@@ -346,14 +359,18 @@ def run_chatbot(n_submit, user_input, chat_history):
 
     # First add the user input to the chat history
     msg_history = msg_str_to_arr(chat_history)
-    msg_history.append({"role": "user", "content": user_input})
+    patched_children = Patch()
+    new_msgs = [{"role": "user", "content": user_input}]
+    user_msg = textbox(new_msgs[0]["content"], new_msgs[0]["role"])
+    patched_children.append(user_msg)
+
     # response = chat_log.input(user_input, role="user")
     # msg_history.append({"role": "assistant", "content": response})
 
     # TODO: REMOVE
     hard_coded_instance = 1
     if len(msg_history) <= 2:
-        msg_history.extend(
+        new_msgs.extend(
             [
                 {
                     "role": "assistant",
@@ -381,6 +398,15 @@ def run_chatbot(n_submit, user_input, chat_history):
     #     temperature=0.2,
     # )
     # model_output = response.choices[0].message.content.strip()
+    msg_history.extend(new_msgs)
     chat_history = msg_arr_to_str(msg_history)
+    # msgs = msg_str_to_arr(chat_history)
+    for msg in new_msgs[1:]:
+        if msg["role"] == "system":
+            continue
+        patched_children.append(textbox(msg["content"], msg["role"]))
 
-    return chat_history, None
+    # children = [
+    #     textbox(msg["content"], msg["role"]) for msg in msgs if msg["role"] != "system"
+    # ]
+    return chat_history, None, patched_children

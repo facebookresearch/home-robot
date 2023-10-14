@@ -17,6 +17,7 @@ from components.gripper_feed import (
     ClientRequestSourceConfig,
     WebsocketSourceConfig,
     make_feed,
+    make_feed_with_cam_coord_callback,
 )
 from components.index_layout import make_header_layout
 from components.realtime_3d import make_layout as make_realtime_3d_layout
@@ -47,7 +48,7 @@ figure.update_layout(
     ),
 )
 
-app.config.suppress_callback_exceptions = True
+# app.config.suppress_callback_exceptions = True
 app.layout = dbc.Container(
     children=[
         make_header_layout(),
@@ -55,16 +56,7 @@ app.layout = dbc.Container(
             [
                 dbc.Col(
                     [
-                        make_realtime_3d_layout(
-                            figure,
-                            app_config.pointcloud_update_freq_ms,
-                        )
-                    ],
-                    width=8,
-                ),
-                dbc.Col(
-                    children=[
-                        make_feed(
+                        make_feed_with_cam_coord_callback(
                             # # Run publisher_server.py to set up server
                             # WebsocketSourceConfig(
                             #     app=app,
@@ -83,12 +75,59 @@ app.layout = dbc.Container(
                                     disabled=False,
                                 ),
                             ),
-                            name="Live Camera Feed",
+                            name="Egocentric Camera [RGBD]",
+                            base_css_class="ego",
                             # name="Live 2D Map",
+                        ),
+                        make_feed(
+                            ClientRequestSourceConfig(
+                                app=app,
+                                image_id="depth-feed-img",
+                                trigger_id="gripper-feed-interval",  # realtime-3d
+                                trigger_exists=True,
+                                svm_watcher=svm_watcher,
+                                svm_watcher_attr="depth_jpeg",
+                                # trigger_interval_kwargs=dict(
+                                #     interval=int(app_config.video_feed_update_freq_ms) * 2,
+                                #     disabled=False,
+                                # ),
+                            ),
+                            name="",
+                            base_css_class="ego",
+                        ),
+                    ],
+                    width=3,
+                ),
+                dbc.Col(
+                    [
+                        make_realtime_3d_layout(
+                            figure,
+                            app_config.pointcloud_update_freq_ms,
+                        )
+                    ],
+                    width=7,
+                ),
+                dbc.Col(
+                    children=[
+                        make_feed(
+                            ClientRequestSourceConfig(
+                                app=app,
+                                image_id="map-2d-img",
+                                trigger_id="realtime-3d-interval",  # realtime-3d
+                                trigger_exists=True,
+                                svm_watcher=svm_watcher,
+                                svm_watcher_attr="map_im",
+                                # trigger_interval_kwargs=dict(
+                                #     interval=int(app_config.video_feed_update_freq_ms) * 2,
+                                #     disabled=False,
+                                # ),
+                            ),
+                            name="Birds-Eye Obstacle Map",
+                            base_css_class="map",
                         ),
                         make_chat_layout(),
                     ],
-                    width=3,
+                    width=2,
                 ),
             ],
             className="main-body",
