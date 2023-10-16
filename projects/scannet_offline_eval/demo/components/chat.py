@@ -24,7 +24,7 @@ from loguru import logger
 
 from home_robot.utils.demo_chat import DemoChat
 
-from .app import app, app_config, svm_watcher
+from .app import HARD_CODE_RESPONSES, app, app_config, svm_watcher
 
 
 @dataclass
@@ -103,7 +103,7 @@ class Chatbox:
     def add_assistant_msg_callback(self, user_input, msg_history):
         patched_children = Patch()
         patched_msg_hist = Patch()
-        if False:
+        if not app.HARD_CODE_RESPONSES:
             response = self.chat_log.input(user_input, role="user")
             response_msg = {"role": "assistant", "content": response}
             patch_in_new_msg(

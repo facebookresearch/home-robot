@@ -28,6 +28,8 @@ from home_robot.utils.point_cloud_torch import get_bounds
 
 from .directory_watcher import DirectoryWatcher, get_most_recent_viz_directory
 
+HARD_CODE_RESPONSES = False
+
 
 @dataclass
 class AppConfig:
@@ -128,8 +130,9 @@ class SparseVoxelMapDirectoryWatcher:
             obs["camera_pose"] = torch.from_numpy(obs["obs"].camera_pose).float()
 
         # TODO: REMOVE
-        if self.robot_state == "EXPLORE" and obs["current_state"] != "EXPLORE":
-            self.pause()
+        if HARD_CODE_RESPONSES:
+            if self.robot_state == "EXPLORE" and obs["current_state"] != "EXPLORE":
+                self.pause()
         ################
         self.robot_state = obs["current_state"]
 
