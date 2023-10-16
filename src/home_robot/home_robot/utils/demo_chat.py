@@ -55,7 +55,9 @@ class DemoChat:
             with open(self.log_file_path, "w") as f:
                 json.dump([], f)
 
-    def input(self, message: str = None, role: str = "system") -> List[Dict]:
+    def input(
+        self, message: str = None, role: str = "system", poll_delay: float = 1.0
+    ) -> List[Dict]:
         """
         Reads the chat log file and returns its contents.
 
@@ -69,7 +71,7 @@ class DemoChat:
 
         # Wait for new entries
         while True:
-            time.sleep(2)  # Polling delay
+            time.sleep(poll_delay)  # Polling delay
             logging.info(f"Polling chat log file {self.log_file_path}...")
             with open(self.log_file_path, "r") as f:
                 fcntl.flock(f, fcntl.LOCK_SH)
@@ -94,7 +96,6 @@ class DemoChat:
         """
         logging.info(f"Writing {message=} to chat log {self.log_file_path}")
         with open(self.log_file_path, "r+") as f:
-            # breakpoint()
             fcntl.flock(f, fcntl.LOCK_EX)
             log_data = json.load(f)
             new_entry = {

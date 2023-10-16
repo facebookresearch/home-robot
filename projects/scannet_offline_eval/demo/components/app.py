@@ -124,9 +124,23 @@ class SparseVoxelMapDirectoryWatcher:
             self.load_vocab()
 
         if "limited_obs" in obs and obs["limited_obs"]:
-            obs["rgb"] = torch.from_numpy(obs["obs"].rgb)
-            obs["depth"] = torch.from_numpy(obs["obs"].depth)
-            obs["camera_pose"] = torch.from_numpy(obs["obs"].camera_pose).float()
+            obs["rgb"] = (
+                torch.from_numpy(obs["obs"].rgb)
+                if isinstance(obs["obs"].rgb, np.ndarray)
+                else obs["obs"].rgb
+            )
+            obs["depth"] = (
+                torch.from_numpy(obs["obs"].depth)
+                if isinstance(obs["obs"].depth, np.ndarray)
+                else obs["obs"].depth
+            )
+            obs["camera_pose"] = (
+                torch.from_numpy(obs["obs"].camera_pose).float()
+                if isinstance(obs["obs"].camera_pose, np.ndarray)
+                else obs["obs"].camera_pose.float()
+            )
+        else:
+            logger.warning("No limited obs in obs")
 
         # TODO: REMOVE
         if HARD_CODE_RESPONSES:

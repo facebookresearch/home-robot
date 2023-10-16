@@ -103,10 +103,10 @@ class Chatbox:
     def add_assistant_msg_callback(self, user_input, msg_history):
         patched_children = Patch()
         patched_msg_hist = Patch()
-        if not app.HARD_CODE_RESPONSES:
+        if True or not HARD_CODE_RESPONSES:
             response = self.chat_log.input(user_input, role="user")
             response_msg = {"role": "assistant", "content": response}
-            patch_in_new_msg(
+            self.patch_in_new_msg(
                 response_msg, msg_history, patched_msg_hist, patched_children
             )
         else:

@@ -9,8 +9,6 @@ import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 
-import home_robot.utils.bullet as hrb
-
 
 class Footprint:
     """contains information about robot footprint"""
@@ -83,16 +81,22 @@ class RobotModel(abc.ABC):
         urdf_path: Optional[str] = None,
         visualize=False,
         assets_path=None,
+        backend: Optional[str] = None,
     ):
         # Load and create planner
-        self.backend = hrb.PbClient(visualize=visualize)
-        if urdf_path is not None:
-            # Create object reference
-            self.ref = self.backend.add_articulated_object(
-                name, urdf_path, assets_path=assets_path
-            )
+        if backend == "bullet":
+            import home_robot.utils.bullet as hrb
 
-    def get_backend(self) -> hrb.PbClient:
+            self.backend = hrb.PbClient(visualize=visualize)
+            if urdf_path is not None:
+                # Create object reference
+                self.ref = self.backend.add_articulated_object(
+                    name, urdf_path, assets_path=assets_path
+                )
+        else:
+            self.backend = None
+
+    def get_backend(self):
         """Return model of the robot in bullet - environment for 3d collision checks"""
         return self.backend
 
