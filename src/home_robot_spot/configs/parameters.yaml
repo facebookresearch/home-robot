@@ -64,8 +64,9 @@ pick_categories: ["bottle", "cup"]
 place_categories: ["chair", "sofa"]
 use_get_close: False
 best_view_metric: "area"
-command: "move a stuffed toy to a chair"
+# command: "move a stuffed toy to a chair"
 confirm_plan: False
 
+
 # User interface
-chat: False
+chat: True

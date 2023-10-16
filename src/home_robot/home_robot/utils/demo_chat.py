@@ -96,7 +96,6 @@ class DemoChat:
         """
         logging.info(f"Writing {message=} to chat log {self.log_file_path}")
         with open(self.log_file_path, "r+") as f:
-            # breakpoint()
             fcntl.flock(f, fcntl.LOCK_EX)
             log_data = json.load(f)
             new_entry = {
