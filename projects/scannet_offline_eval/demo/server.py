@@ -6,13 +6,16 @@ import logging
 import os
 import time
 from datetime import datetime
+from pathlib import Path
 from textwrap import dedent
 
 import dash
 import dash_bootstrap_components as dbc
 import openai
 from components.app import app, app_config, svm_watcher
-from components.chat import make_layout as make_chat_layout
+
+# from components.chat_old import make_layout as make_chat_layout
+from components.chat import Chatbox, ChatBoxConfig
 from components.gripper_feed import (
     ClientRequestSourceConfig,
     WebsocketSourceConfig,
@@ -47,6 +50,12 @@ figure.update_layout(
         t=20,
     ),
 )
+
+chatbox_config = ChatBoxConfig(
+    chat_log_fpath=Path(os.path.dirname(app_config.directory_watch_path))
+    / "demo_chat.json"
+)
+chatbox = Chatbox(chatbox_config, name="chatbox")
 
 # app.config.suppress_callback_exceptions = True
 app.layout = dbc.Container(
@@ -96,7 +105,7 @@ app.layout = dbc.Container(
                             base_css_class="ego",
                         ),
                     ],
-                    width=3,
+                    width=2,
                 ),
                 dbc.Col(
                     [
@@ -125,9 +134,10 @@ app.layout = dbc.Container(
                             name="Birds-Eye Obstacle Map",
                             base_css_class="map",
                         ),
-                        make_chat_layout(),
+                        # make_chat_layout(),
+                        chatbox.register_callbacks(app).layout,
                     ],
-                    width=2,
+                    width=3,
                 ),
             ],
             className="main-body",

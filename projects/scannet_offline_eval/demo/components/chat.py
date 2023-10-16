@@ -6,7 +6,10 @@ import base64
 import logging
 import os
 import re
+from dataclasses import dataclass
 from datetime import datetime
+from functools import cached_property
+from pathlib import Path
 from textwrap import dedent
 
 import dash
@@ -17,22 +20,217 @@ from dash.exceptions import PreventUpdate
 
 # from dash.dependencies import Input, Output, State
 from dash_extensions.enrich import ALL, Input, Output, State, ctx, dcc, html
+from loguru import logger
 
 from home_robot.utils.demo_chat import DemoChat
 
 from .app import app, app_config, svm_watcher
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
-prompt_file = app.get_asset_url("../assets/prompts/demo.txt")
-description = open("assets/prompts/demo.txt", "r").read()
-import os
 
-chat_log_dir = os.path.dirname(app_config.directory_watch_path)
-if "viz_data" in chat_log_dir:
-    chat_log_dir = os.path.dirname(chat_log_dir)
-chat_log = DemoChat(log_file_path=f"{chat_log_dir}/demo_chat.json")
-print(f"Chat log dir: {chat_log_dir}")
-print(f"Chat log: {chat_log}")
+@dataclass
+class ChatBoxConfig:
+    chat_log_fpath: Path
+    modal: bool = True
+
+
+class Chatbox:
+    def __init__(self, config: ChatBoxConfig, name="chatbox"):  #
+        super().__init__()
+        self.name = name
+        self.chat_log = DemoChat(log_file_path=config.chat_log_fpath)
+
+    def register_callbacks(self, app):
+        app.callback(  # Modal
+            [
+                Output(f"{self.name}-modal", "is_open"),
+                Output(f"{self.name}-modal-im", "src"),
+                Output(f"{self.name}-modal-title", "children"),
+                Output(f"{self.name}-modal-ctx", "data"),
+            ],
+            Input(
+                {"type": f"{self.name}-pattern-matched-image", "index": ALL}, "n_clicks"
+            ),
+            [
+                State(
+                    {"type": f"{self.name}-pattern-matched-image", "index": ALL}, "src"
+                ),
+                State(f"{self.name}-modal", "is_open"),
+                State(f"{self.name}-modal-ctx", "data"),
+            ],
+        )(toggle_modal)
+
+        app.callback(  # User input
+            Output(f"{self.name}-user-input", "value"),
+            [Input(f"{self.name}-user-input", "n_submit")],
+        )(clear_input)
+
+        app.callback(  # User message
+            [
+                Output(f"{self.name}-store-conversation", "data", allow_duplicate=True),
+                Output(
+                    f"{self.name}-display-conversation",
+                    "children",
+                    allow_duplicate=True,
+                ),
+                Output(f"{self.name}-last-displayed-user-msg", "data"),
+            ],
+            [Input(f"{self.name}-user-input", "n_submit")],
+            [
+                State(f"{self.name}-user-input", "value"),
+                State(f"{self.name}-store-conversation", "data"),
+            ],
+            prevent_initial_call=True,
+        )(self.add_user_msg_callback)
+
+        app.callback(  # User message
+            [
+                Output(f"{self.name}-store-conversation", "data", allow_duplicate=True),
+                Output(
+                    f"{self.name}-display-conversation",
+                    "children",
+                    allow_duplicate=True,
+                ),
+                Output(f"{self.name}-loading-component", "children"),
+            ],
+            [
+                Input(f"{self.name}-last-displayed-user-msg", "data"),
+            ],
+            [State(f"{self.name}-store-conversation", "data")],
+            prevent_initial_call=True,
+        )(self.add_assistant_msg_callback)
+        return self
+
+    def add_assistant_msg_callback(self, user_input, msg_history):
+        patched_children = Patch()
+        patched_msg_hist = Patch()
+        if False:
+            response = self.chat_log.input(user_input, role="user")
+            response_msg = {"role": "assistant", "content": response}
+            patch_in_new_msg(
+                response_msg, msg_history, patched_msg_hist, patched_children
+            )
+        else:
+            # TODO: REMOVE
+            hard_coded_instance = 1
+            if (
+                len(msg_history) <= 2
+            ):  # No matter what the user types in, initially respond with this plan
+                self.patch_in_new_msg(
+                    {
+                        "role": "assistant",
+                        "content": f"Plan: goto('bottle-1') -- Instance id: 1",
+                        "timestamp": f"{datetime.now():%Y-%m-%d-%H-%M-%S}",
+                    },
+                    msg_history,
+                    patched_msg_hist,
+                    patched_children,
+                )
+                self.patch_in_new_msg(
+                    {
+                        "role": "assistant",
+                        "content": "Execute this plan? [Y/N]",
+                        "timestamp": f"{datetime.now():%Y-%m-%d-%H-%M-%S}",
+                    },
+                    msg_history,
+                    patched_msg_hist,
+                    patched_children,
+                )
+            else:  # After that, assume the user confirmed and start the interface and
+                svm_watcher.target_instance_id = hard_coded_instance
+                svm_watcher.unpause()
+            ###########################
+        return patched_msg_hist, patched_children, None
+
+    def add_user_msg_callback(self, n_submit, user_input, msg_history):
+        if (n_submit is None) or (user_input is None) or (user_input == ""):
+            raise PreventUpdate
+        patched_children = Patch()
+        patched_msg_hist = Patch()
+
+        if len(msg_history) == 0:
+            pass  # Add prompt information here
+        # First add the user message
+        user_msg = {"role": "user", "content": user_input}
+        self.patch_in_new_msg(user_msg, msg_history, patched_msg_hist, patched_children)
+        return patched_msg_hist, patched_children, user_input
+
+    @cached_property
+    def layout(self):
+        # Define Layout
+        return dbc.Row(
+            [
+                # Titel
+                html.Div(
+                    html.H2("Chat with Cortex", className="text-center text-secondary"),
+                    className="chat-header",
+                ),
+                # Conversation display
+                html.Div(
+                    id=f"{self.name}-display-conversation",
+                    className="chat-conversation",
+                ),
+                dcc.Loading(
+                    html.Div(id=f"{self.name}-loading-component"),
+                    type="default",
+                    className="gif-loading",
+                ),
+                dcc.Store(
+                    id=f"{self.name}-store-conversation", data=[]
+                ),  # Complete message history
+                dcc.Store(
+                    id=f"{self.name}-last-displayed-user-msg", data=""
+                ),  # Allows us to immediately display msg and then trigger VLM callback
+                # User input box
+                dbc.InputGroup(
+                    children=[
+                        dbc.Input(
+                            id=f"{self.name}-user-input",
+                            placeholder="Write to the chatbot...",
+                            type="text",
+                            debounce=True,
+                            autoComplete="off",
+                        ),
+                    ],
+                    className="chat-input",
+                ),
+                # Modal that shows crops
+                dbc.Modal(
+                    children=[
+                        dbc.ModalHeader(
+                            dbc.ModalTitle(
+                                "Crop of Instance", id=f"{self.name}-modal-title"
+                            )
+                        ),
+                        dbc.ModalBody(
+                            children=[
+                                html.Img(
+                                    src=None,
+                                    className="chat-modal-im",
+                                    id=f"{self.name}-modal-im",
+                                ),
+                            ],
+                            className="center",
+                        ),
+                    ],
+                    size="xl",
+                    is_open=False,
+                    id=f"{self.name}-modal",
+                ),
+                dcc.Store(id=f"{self.name}-modal-ctx", data={}),
+            ],
+            className="chat-window",
+        )
+
+    def patch_in_new_msg(
+        self, new_msg, msg_hist, patched_msg_hist, patched_convo_elems
+    ):
+        new_convo_elem = textbox(new_msg["content"], new_msg["role"], self.name)
+        msg_hist.append(new_msg)
+        if patched_msg_hist is not None:
+            patched_msg_hist.append(new_msg)
+        if patched_convo_elems is not None:
+            patched_convo_elems.append(new_convo_elem)
+
 
 # Conent of the demo_chat:
 # [
@@ -54,26 +252,10 @@ print(f"Chat log: {chat_log}")
 #     }
 # ]
 
-from loguru import logger
-
 
 # Add modal that displays crop on click
 # Look at us, using fancy patttern-matching callbacks to handle dynamic webpages
 # We could display all crops. If we don't need that, then this could be a client-side callback
-@app.callback(
-    [
-        Output("image-modal", "is_open"),
-        Output("image-modal-im", "src"),
-        Output("image-modal-title", "children"),
-        Output("modal-ctx", "data"),
-    ],
-    Input({"type": "pattern-matched-image", "index": ALL}, "n_clicks"),
-    [
-        State({"type": "pattern-matched-image", "index": ALL}, "src"),
-        State("image-modal", "is_open"),
-        State("modal-ctx", "data"),
-    ],
-)
 def toggle_modal(n_clicks, src, is_open, last_ctx):
     n_clicks = ctx.triggered[0]["value"]
     trigger_id = ctx.triggered_id["index"]
@@ -90,66 +272,6 @@ def toggle_modal(n_clicks, src, is_open, last_ctx):
     if n_clicks:
         return [not is_open, src[0], header, new_ctx]
     return [is_open, src[0], header, new_ctx]
-
-
-def make_layout(height="50vh"):
-    # Define Layout
-    return dbc.Row(
-        [
-            html.Div(
-                html.H2("Chat with Cortex", className="text-center text-secondary"),
-                className="chat-header",
-            ),
-            dcc.Store(id="store-conversation", data=""),
-            html.Div(
-                id="display-conversation",
-                className="chat-conversation",
-                style={
-                    # "overflow-y": "auto",
-                    # "display": "flex",
-                    # "height": f"calc({height} - 140px)",
-                    # "flex-direction": "column-reverse",
-                },
-            ),
-            dcc.Loading(
-                html.Div(id="loading-component"),
-                type="default",
-                className="gif-loading",
-            ),
-            dbc.InputGroup(
-                children=[
-                    dbc.Input(
-                        id="user-input",
-                        placeholder="Write to the chatbot...",
-                        type="text",
-                        debounce=True,
-                        autoComplete="off",
-                    ),
-                ],
-                className="chat-input",
-            ),
-            dbc.Modal(
-                children=[
-                    dbc.ModalHeader(
-                        dbc.ModalTitle("Crop of Instance", id="image-modal-title")
-                    ),
-                    dbc.ModalBody(
-                        children=[
-                            html.Img(
-                                src=None, className="chat-modal-im", id="image-modal-im"
-                            ),
-                        ],
-                        className="center",
-                    ),
-                ],
-                size="xl",
-                is_open=False,
-                id="image-modal",
-            ),
-            dcc.Store(id="modal-ctx", data={}),
-        ],
-        className="chat-window",
-    )
 
 
 def encode_image_to_base64(image_path):
@@ -176,7 +298,7 @@ def replace_instance_with_image(text):
     return image_src, instance
 
 
-def textbox(text, box="user"):
+def textbox(text, box="user", pattern_match_id=""):
     # Replace instances in text with their corresponding images
     image_src, instance = replace_instance_with_image(text)
 
@@ -243,7 +365,10 @@ def textbox(text, box="user"):
                 html.Img(
                     src=image_src,
                     className="chat_thumbnail_im",
-                    id={"type": "pattern-matched-image", "index": image_id},
+                    id={
+                        "type": f"{pattern_match_id}-pattern-matched-image",
+                        "index": image_id,
+                    },
                     style={
                         # 'display': 'block',
                         # "border-radius": 50,
@@ -270,143 +395,13 @@ def textbox(text, box="user"):
         raise ValueError("Incorrect option for `box`.")
 
 
-def msg_arr_to_str(msg_history_arr):
-    return "<split>".join(
-        [f"{msg['role']}<rolesep>{msg['content']}" for msg in msg_history_arr]
-    )
-
-
-def msg_str_to_arr(msg_history_str):
-    if not msg_history_str:
-        return []
-    msg_history = msg_history_str.split("<split>")
-    msg_history = [
-        dict(role=msg.split("<rolesep>")[0], content=msg.split("<rolesep>")[1])
-        for msg in msg_history
-    ]
-    for m in msg_history:
-        logger.info(m)
-    return msg_history
-
-
-###########################
-# Chat callback
-###########################
-# @app.callback(
-#     [Output("display-conversation", "children")],
-#     [Input("store-conversation", "data")],
-#     # prevent_initial_call=True
-# )
-# def update_display(chat_history):
-#     # We shouldn't do this mod2 -- what if the user sends multiple messages?
-#     # Also recreating the chat history causes a brief flashing of objects
-#     # Instead we should just append a div
-#     msgs = msg_str_to_arr(chat_history)
-#     children = [
-#         textbox(msg["content"], msg["role"]) for msg in msgs if msg["role"] != "system"
-#     ]
-#     logger.info(len(children))
-#     return children
-#     return [
-#         textbox(x, box="user") if i % 2 == 0 else textbox(x, box="AI")
-#         for i, x in enumerate(chat_history.split("<split>")[:-1])
-#     ]
-
-
-@app.callback(
-    Output("user-input", "value"),
-    [Input("user-input", "n_submit")],
-)
 def clear_input(n_submit):
     return ""
 
 
-# @app.callback(
-#     [Output("loading-component", "children")],
-#     [State("store-conversation", "data")],
-#     [State("user-input", "value"), State("store-conversation", "data")],
-# )
-# Here we want to show the following:
-#  1. user message being submitted immediately
-#  2. display loading gif for the chatbot
-#  3. when chatbot responds, show that message and remove the loading gif
-@app.callback(
-    [
-        Output("store-conversation", "data"),
-        Output("loading-component", "children"),
-        Output("display-conversation", "children"),
-    ],
-    [Input("user-input", "n_submit")],
-    [State("user-input", "value"), State("store-conversation", "data")],
-    prevent_initial_call=True,
-)
-def run_chatbot(n_submit, user_input, chat_history):
-    # breakpoint()
-    # n_submit, user_input, chat_history
-    if n_submit is None:
-        return "", None
-
-    if user_input is None or user_input == "":
-        return chat_history, None
-
-    user_name = "User"
-    system_name = "Guide"
-    if not chat_history:
-        chat_history = f"system<rolesep>{description}"
-    # msg_history = msg_history_str.split("<split>") if msg_history_str else [f'system<rolesep>{description}']
-    # if len(msg_history) == 0:
-    #     msg_history = [f'role<rolesep>{description}'] #[{'role': 'system', 'content': description}]
-
-    # First add the user input to the chat history
-    msg_history = msg_str_to_arr(chat_history)
-    patched_children = Patch()
-    new_msgs = [{"role": "user", "content": user_input}]
-    user_msg = textbox(new_msgs[0]["content"], new_msgs[0]["role"])
-    patched_children.append(user_msg)
-
-    # response = chat_log.input(user_input, role="user")
-    # msg_history.append({"role": "assistant", "content": response})
-
-    # TODO: REMOVE
-    hard_coded_instance = 1
-    if len(msg_history) <= 2:
-        new_msgs.extend(
-            [
-                {
-                    "role": "assistant",
-                    "content": f"Plan: goto('bottle-1') -- Instance id: 1",
-                    "timestamp": f"{datetime.now():%Y-%m-%d-%H-%M-%S}",
-                },
-                {
-                    "role": "assistant",
-                    "content": "Execute this plan? [Y/N]",
-                    "timestamp": f"{datetime.now():%Y-%m-%d-%H-%M-%S}",
-                },
-            ]
-        )
-    else:
-        svm_watcher.target_instance_id = hard_coded_instance
-        svm_watcher.unpause()
-    ###########################
-
-    # output(self, message: str, role: str = "system")
-    # response = openai.ChatCompletion.create(
-    #     model="gpt-3.5-turbo",
-    #     messages=msg_history,
-    #     max_tokens=250,
-    #     stop=[f"{user_name}:"],
-    #     temperature=0.2,
-    # )
-    # model_output = response.choices[0].message.content.strip()
-    msg_history.extend(new_msgs)
-    chat_history = msg_arr_to_str(msg_history)
-    # msgs = msg_str_to_arr(chat_history)
-    for msg in new_msgs[1:]:
-        if msg["role"] == "system":
-            continue
-        patched_children.append(textbox(msg["content"], msg["role"]))
-
-    # children = [
-    #     textbox(msg["content"], msg["role"]) for msg in msgs if msg["role"] != "system"
-    # ]
-    return chat_history, None, patched_children
+# chat_log_dir = os.path.dirname(app_config.directory_watch_path)
+# if "viz_data" in chat_log_dir:
+#     chat_log_dir = os.path.dirname(chat_log_dir)
+# chat_log = DemoChat(log_file_path=f"{chat_log_dir}/demo_chat.json")
+# print(f"Chat log dir: {chat_log_dir}")
+# print(f"Chat log: {chat_log}")
