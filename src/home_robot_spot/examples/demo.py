@@ -10,6 +10,7 @@ import random
 import shutil
 import sys
 import time
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
@@ -51,9 +52,14 @@ from home_robot.utils.rpc import (
     get_output_from_world_representation,
     get_vlm_rpc_stub,
 )
+from home_robot.utils.threading import Interval
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
+
+
+class StateEnum(Enum):
+    WAITING = "WAITING"
 
 
 # NOTE: this requires 'pip install atomicwrites'
@@ -137,7 +143,7 @@ class SpotDemoAgent:
         self.spot_config = spot_config
         self.path = path
         self.current_state = "WAITING"
-        self.current_obs = 0
+        self.obs_count = 0
         self.parameters = parameters
         if self.parameters["encoder"] == "clip":
             self.encoder = ClipEncoder(self.parameters["clip"])
@@ -145,6 +151,7 @@ class SpotDemoAgent:
             raise NotImplementedError(
                 f"unsupported encoder {self.parameters['encoder']}"
             )
+        self.vis_folder = f"{self.path}/viz_data/"
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
             local_radius=parameters["local_radius"],
@@ -215,10 +222,32 @@ class SpotDemoAgent:
             hor_grasp=True,
         )
 
-        if self.parameters["chat"]:
+        if parameters["chat"]:
             self.chat = DemoChat(f"{self.path}/demo_chat.json")
+            if self.parameters["limited_obs_publish_sleep"] > 0:
+                self._publisher = Interval(
+                    self.publish_limited_obs,
+                    sleep_time=self.parameters["limited_obs_publish_sleep"],
+                )
+            else:
+                self._publisher = None
         else:
             self.chat = None
+            self._publisher = None
+        # if self.parameters["chat"]:
+        #     self.chat = DemoChat(f"{self.path}/demo_chat.json")
+        # else:
+        #     self.chat = None
+
+    def start(self):
+        if self._publisher is not None:
+            self._publisher.start()
+
+    def finish(self):
+        if self._publisher is not None:
+            print("- Stopping publisher...")
+            self._publisher.cancel()
+        print("... Done.")
 
     def set_objects_for_grasping(self, objects: List[List[str]]):
         """Set the objects used for grasping"""
@@ -331,6 +360,7 @@ class SpotDemoAgent:
     def rotate_in_place(self):
         # Do a 360 degree turn to get some observations (this helps debug the robot)
         logger.info("Rotate in place")
+        old_state = self.current_state
         self.current_state = "SCANNING"
         x0, y0, theta0 = self.spot.current_position
         for i in range(8):
@@ -341,6 +371,7 @@ class SpotDemoAgent:
         # Should we display after spinning? If visualize is true we will
         if self.should_visualize():
             self.voxel_map.show()
+        self.current_state = old_state
 
     def say(self, msg: str):
         """Provide input either on the command line or via chat client"""
@@ -360,21 +391,22 @@ class SpotDemoAgent:
         """Update sensor measurements"""
         time.sleep(0.1)
         obs = self.spot.get_rgbd_obs()
-        print("Observed from coordinates:", obs.gps, obs.compass)
+        logger.info("Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs, xyz_frame="world")
-        filename = f"{self.path}/viz_data/"
-        os.makedirs(filename, exist_ok=True)
-        self.current_obs += 1
+        os.makedirs(self.vis_folder, exist_ok=True)
+        self.obs_count += 1
         publish_obs(
-            self.navigation_space, filename, self.current_state, self.current_obs
+            self.navigation_space, self.vis_folder, self.current_state, self.obs_count
         )
         self.step += 1
 
-    def limited_update(self):
+    def publish_limited_obs(self):
+        if self.current_state == "WAITING":
+            return True
         obs = self.spot.get_rgbd_obs()
         self.obs_count += 1
-        with atomic_write(f"{self.path}/viz_data/{self.obs_count}.pkl", mode="wb") as f:
+        with atomic_write(f"{self.vis_folder}/{self.obs_count}.pkl", mode="wb") as f:
             logger.trace(
                 f"Saving limited observation to pickle file: {f'{self.path}/viz_data/{self.obs_count}.pkl'}"
             )
@@ -423,6 +455,7 @@ class SpotDemoAgent:
         """Move to a position to place in an environment."""
         # TODO: Check if vf is correct
         # if self.parameters["use_get_close"]:
+        old_state = self.current_state
         self.current_state = "PLACING OBJECT"
         self.spot.navigate_to(instance_pose, blocking=True)
         # Compute distance
@@ -460,6 +493,7 @@ class SpotDemoAgent:
         # reset arm
         time.sleep(0.5)
         self.spot.reset_arm()
+        self.current_state = old_state
 
     def navigate_to_an_instance(
         self,
@@ -477,6 +511,7 @@ class SpotDemoAgent:
         goal_position = np.asarray(view.pose)
         start = self.spot.current_position
         start_is_valid = self.navigation_space.is_valid(start)
+        old_state = self.current_state
         self.current_state = "NAV_TO_INSTANCE"
 
         print("\n----- NAVIGATE TO THE RIGHT INSTANCE ------")
@@ -549,6 +584,7 @@ class SpotDemoAgent:
 
         logger.info("Wait for a second and then try to grasp/place!")
         time.sleep(1.0)
+        self.current_state = old_state
         return True
 
     def goto(self, goal: np.ndarray):
@@ -873,6 +909,7 @@ class SpotDemoAgent:
         """Run exploration in different environments. Will explore until there's nothing else to find."""
         # Track the number of times exploration failed
         explore_failures = 0
+        old_state = self.current_state
         self.current_state = "EXPLORE"
         for exploration_step in range(int(self.parameters["exploration_steps"])):
             # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
@@ -979,6 +1016,7 @@ class SpotDemoAgent:
 
             if self.step % 1 == 0 and self.should_visualize():
                 self.visualize(start, goal)
+        self.current_state = old_state
 
 
 # def main(dock: Optional[int] = 549):
@@ -1027,6 +1065,7 @@ def main(dock: Optional[int] = None, args=None):
 
         # Turn on the robot using the client above
         spot.start()
+        demo.start()
         logger.success("Spot started")
         logger.info("Sleep 1s")
         time.sleep(0.5)
@@ -1052,7 +1091,7 @@ def main(dock: Optional[int] = None, args=None):
 
     finally:
         stop_demo_ui_server()
-
+        demo.finish()
         if parameters["write_data"]:
             demo.voxel_map.write_to_pickle(f"{path}/spot_observations.pkl")
             if start is None:
