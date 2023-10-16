@@ -31,7 +31,7 @@ git submodule update -f src/home_robot/home_robot/perception/detection/detic/Det
 ```
 
 ```
-mamba env create -n home-robot -f src/home_robot_spot/env.yml
+mamba env create -n home-robot -f projects/vlm_planning/environment.yaml
 ```
 
  If `mamba` not found, `conda install -c conda-forge mamba --yes`
@@ -65,7 +65,7 @@ python generate_executables.py
 pip install -e .
 ```
 ```
-pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk scikit-image open3d natsort scikit-fmm
+pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk scikit-image open3d natsort scikit-fmm pandas==2.1.1 atomicwrites loguru
 ```
 
 #### Install MiDaS
