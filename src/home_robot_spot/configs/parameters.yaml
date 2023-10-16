@@ -7,7 +7,7 @@ category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
 step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
 rotation_step_size: 0.25
 visualize: False
-exploration_steps: 5
+exploration_steps: 1 #5
 shortcut_iter: 250
 extend_mode: "joint"  # joint = rotate and move at the same time
 # extend_mode: "separate"
@@ -66,7 +66,7 @@ use_get_close: False
 best_view_metric: "area"
 # command: "move a stuffed toy to a chair"
 confirm_plan: False
-
+limited_obs_publish_sleep: 0.5
 
 # User interface
 chat: True
