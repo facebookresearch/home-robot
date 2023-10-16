@@ -86,6 +86,7 @@ class RobotModel(abc.ABC):
         # Load and create planner
         if backend == "bullet":
             import home_robot.utils.bullet as hrb
+
             self.backend = hrb.PbClient(visualize=visualize)
             if urdf_path is not None:
                 # Create object reference
@@ -95,7 +96,7 @@ class RobotModel(abc.ABC):
         else:
             self.backend = None
 
-    def get_backend(self) -> hrb.PbClient:
+    def get_backend(self):
         """Return model of the robot in bullet - environment for 3d collision checks"""
         return self.backend
 

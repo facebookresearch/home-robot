@@ -57,8 +57,10 @@ from home_robot_spot.grasp_env import GraspController
 
 
 # NOTE: this requires 'pip install atomicwrites'
-def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
-    timestep = len(model.voxel_map.observations) - 1
+def publish_obs(
+    model: SparseVoxelMapNavigationSpace, path: str, current_state: str, timestep: int
+):
+    # timestep = len(model.voxel_map.observations) - 1
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
         instances = model.voxel_map.get_instances()
         model_obs = model.voxel_map.observations[-1]
@@ -87,7 +89,8 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
 
         # Map
         obstacles, explored = model.voxel_map.get_2d_map()
-        map_im = obstacles.int() + explored.int()
+        obstacles = obstacles.int()
+        explored = explored.int()
 
         logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
         pickle.dump(
@@ -104,7 +107,11 @@ def publish_obs(model: SparseVoxelMapNavigationSpace, path: str):
                 box_names=names,
                 box_scores=scores,
                 box_embeddings=embeds,
-                map_im=map_im.cpu().detach(),
+                # map_im=map_im.cpu().detach(),
+                limited_obs=False,
+                obstacles=obstacles.cpu().detach(),
+                explored=explored.cpu().detach(),
+                current_state=current_state,
             ),
             f,
         )
@@ -130,6 +137,7 @@ class SpotDemoAgent:
         self.spot_config = spot_config
         self.path = path
         self.current_state = "WAITING"
+        self.current_obs = 0
         self.parameters = parameters
         if self.parameters["encoder"] == "clip":
             self.encoder = ClipEncoder(self.parameters["clip"])
@@ -181,6 +189,7 @@ class SpotDemoAgent:
 
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
         os.makedirs(f"{self.path}/viz_data/instances/", exist_ok=True)
+        input("Press enter when server is running.")
         with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
             pickle.dump(self.semantic_sensor.seg_id_to_name, f)
 
@@ -356,8 +365,28 @@ class SpotDemoAgent:
         self.voxel_map.add_obs(obs, xyz_frame="world")
         filename = f"{self.path}/viz_data/"
         os.makedirs(filename, exist_ok=True)
-        publish_obs(self.navigation_space, filename)
+        self.current_obs += 1
+        publish_obs(
+            self.navigation_space, filename, self.current_state, self.current_obs
+        )
         self.step += 1
+
+    def limited_update(self):
+        obs = self.spot.get_rgbd_obs()
+        self.obs_count += 1
+        with atomic_write(f"{self.path}/viz_data/{self.obs_count}.pkl", mode="wb") as f:
+            logger.trace(
+                f"Saving limited observation to pickle file: {f'{self.path}/viz_data/{self.obs_count}.pkl'}"
+            )
+            pickle.dump(
+                dict(
+                    obs=obs,
+                    limited_obs=True,
+                    current_state=self.current_state,
+                ),
+                f,
+            )
+        return True
 
     def visualize(self, start, goal, step):
         """Update visualization for demo"""
@@ -597,7 +626,7 @@ class SpotDemoAgent:
         if "command" in self.parameters:
             return self.parameters["command"]
         else:
-            return self.chat.input("please type any task you want the robot to do: ")
+            return self.ask("please type any task you want the robot to do: ")
 
     def confirm_plan(self, plan: str):
         print(f"Received plan: {plan}")
@@ -644,7 +673,9 @@ class SpotDemoAgent:
                     # task is the prompt, save it
                     data["prompt"] = self.get_language_task()
                     output = get_output_from_world_representation(
-                        world_representation, goal=data["prompt"]
+                        stub=stub,
+                        world_representation=world_representation,
+                        goal=data["prompt"],
                     )
                     plan = output.action
                     if self.confirm_plan(plan):
