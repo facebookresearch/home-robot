@@ -338,8 +338,8 @@ class HelloStretchKinematics(RobotModel):
         self.full_body_urdf_path = os.path.join(root, full_body_urdf)
         self.manip_mode_urdf_path = os.path.join(root, manip_urdf)
         super(HelloStretchKinematics, self).__init__(
-            name, self.full_body_urdf_path, visualize
-        )
+            name, self.full_body_urdf_path, visualize, backend="bullet"
+            )
 
         # DOF: 3 for ee roll/pitch/yaw
         #      1 for gripper
