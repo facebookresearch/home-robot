@@ -9,11 +9,16 @@ import tf
 import trimesh.transformations as tra
 from geometry_msgs.msg import PoseStamped
 
-from home_robot.motion.stretch import (
-    STRETCH_BASE_FRAME,
-    STRETCH_CAMERA_FRAME,
-    STRETCH_HEAD_CAMERA_ROTATIONS,
-)
+STRETCH_BASE_FRAME = "base_link"
+STRETCH_CAMERA_FRAME = "camera_color_optical_frame"
+STRETCH_HEAD_CAMERA_ROTATIONS = 3
+
+#from home_robot.motion.stretch import (
+#    STRETCH_BASE_FRAME,
+#    STRETCH_CAMERA_FRAME,
+#    STRETCH_HEAD_CAMERA_ROTATIONS,
+#)
+
 from home_robot.utils.pose import to_matrix
 from home_robot_hw.ros.utils import matrix_to_pose_msg
 
