@@ -64,7 +64,11 @@ class StateEnum(Enum):
 
 # NOTE: this requires 'pip install atomicwrites'
 def publish_obs(
-    model: SparseVoxelMapNavigationSpace, path: str, current_state: str, timestep: int
+    model: SparseVoxelMapNavigationSpace,
+    path: str,
+    current_state: str,
+    timestep: int,
+    target_id: dict,
 ):
     # timestep = len(model.voxel_map.observations) - 1
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
@@ -118,6 +122,7 @@ def publish_obs(
                 obstacles=obstacles.cpu().detach(),
                 explored=explored.cpu().detach(),
                 current_state=current_state,
+                target_id=target_id,
             ),
             f,
         )
@@ -196,7 +201,6 @@ class SpotDemoAgent:
 
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
         os.makedirs(f"{self.path}/viz_data/instances/", exist_ok=True)
-        input("Press enter when server is running.")
         with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
             pickle.dump(self.semantic_sensor.seg_id_to_name, f)
 
@@ -223,7 +227,7 @@ class SpotDemoAgent:
         )
 
         if parameters["chat"]:
-            self.chat = DemoChat(f"{self.path}/demo_chat.json")
+            self.chat = DemoChat(f"{self.path}/viz_data/demo_chat.json")
             if self.parameters["limited_obs_publish_sleep"] > 0:
                 self._publisher = Interval(
                     self.publish_limited_obs,
@@ -394,20 +398,33 @@ class SpotDemoAgent:
         logger.info("Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs, xyz_frame="world")
+        self.publish_full_obs()
+        # os.makedirs(self.vis_folder, exist_ok=True)
+        # self.obs_count += 1
+        # publish_obs(
+        #     self.navigation_space, self.vis_folder, self.current_state, self.obs_count, instance_id=None
+        # )
+        self.step += 1
+
+    def publish_full_obs(self, instance_id=None):
         os.makedirs(self.vis_folder, exist_ok=True)
         self.obs_count += 1
         publish_obs(
-            self.navigation_space, self.vis_folder, self.current_state, self.obs_count
+            self.navigation_space,
+            self.vis_folder,
+            self.current_state,
+            self.obs_count,
+            instance_id,
         )
-        self.step += 1
 
     def publish_limited_obs(self):
+        logger.info(self.current_state)
         if self.current_state == "WAITING":
             return True
         obs = self.spot.get_rgbd_obs()
         self.obs_count += 1
         with atomic_write(f"{self.vis_folder}/{self.obs_count}.pkl", mode="wb") as f:
-            logger.trace(
+            logger.info(
                 f"Saving limited observation to pickle file: {f'{self.path}/viz_data/{self.obs_count}.pkl'}"
             )
             pickle.dump(
@@ -456,7 +473,7 @@ class SpotDemoAgent:
         # TODO: Check if vf is correct
         # if self.parameters["use_get_close"]:
         old_state = self.current_state
-        self.current_state = "PLACING OBJECT"
+        self.current_state = "PLACE"
         self.spot.navigate_to(instance_pose, blocking=True)
         # Compute distance
         dxy = location[:2] - instance_pose[:2]
@@ -471,7 +488,7 @@ class SpotDemoAgent:
         self.spot.navigate_to(
             np.array([dist_to_move, 0, 0]), relative=True, blocking=True
         )
-
+        time.sleep(0.1)
         # Transform placing position to body frame coordinates
         local_xyt = xyt_global_to_base(location, self.spot.current_position)
 
@@ -557,7 +574,7 @@ class SpotDemoAgent:
                 )
                 goal_position = goal
             else:
-                logger.error("Res success: {}, !!!PLANNING FAILED!!!", res.success)
+                logger.error("Res success: {}, !!!PLANNING FAILED!!!", res)
                 should_plan = False
 
         # Finally, navigate to the final position
@@ -708,6 +725,7 @@ class SpotDemoAgent:
                     )
                     # task is the prompt, save it
                     data["prompt"] = self.get_language_task()
+                    logger.info(f'User Command: {data["prompt"]}.')
                     output = get_output_from_world_representation(
                         stub=stub,
                         world_representation=world_representation,
@@ -728,6 +746,7 @@ class SpotDemoAgent:
                                 )
                             ].crop_id
                         )
+                        # self.instance_ids['PICK'] = pick_instance_id
                         if len(plan.split(": ")) > 2:
                             # get place instance id
                             current_high_level_action = plan.split("; ")[2]
@@ -742,6 +761,7 @@ class SpotDemoAgent:
                                 ].crop_id
                             )
                             print("place_instance_id", place_instance_id)
+                            # self.instance_ids['PLACE'] = place_instance_id
                         break
             if not pick_instance_id:
                 # Navigating to a cup or bottle
@@ -800,6 +820,7 @@ class SpotDemoAgent:
             else:
                 self.say("Navigating to instance ")
                 self.say(f"Instance id: {pick_instance_id}")
+                self.publish_full_obs(pick_instance_id)
                 success = self.navigate_to_an_instance(
                     pick_instance_id,
                     visualize=self.should_visualize(),
@@ -851,6 +872,7 @@ class SpotDemoAgent:
                     # navigate to the place instance
                     print("Navigating to instance ")
                     print(f"Instance id: {place_instance_id}")
+                    self.publish_full_obs(place_instance_id)
                     success = self.navigate_to_an_instance(
                         place_instance_id,
                         visualize=self.should_visualize(),
@@ -1059,7 +1081,8 @@ def main(dock: Optional[int] = None, args=None):
     navigation_space = demo.navigation_space
     start = None
     goal = None
-
+    os.system("echo 'penguin lion ball' | sudo -S  kill -9 $(lsof -t -i:8901)")
+    logger.info("killed old UI port")
     try:
         start_demo_ui_server()
 
@@ -1079,6 +1102,7 @@ def main(dock: Optional[int] = None, args=None):
         else:
             demo.update()
 
+        # logger.critical("Not running explore")
         demo.rotate_in_place()
         demo.run_explore()
 

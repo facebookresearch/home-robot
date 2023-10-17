@@ -178,6 +178,8 @@ class SparseVoxelMapDirectoryWatcher:
         if obs["limited_obs"]:
             return True
 
+        if obs["target_id"] is not None:
+            self.target_instance_id = obs["target_id"]
         # Update map
         rgb_ten = (torch.flip(obs["obstacles"], dims=(0, 1)) > 0) * 255
         rgb_ten = rgb_ten[256:-256, 256:-256]

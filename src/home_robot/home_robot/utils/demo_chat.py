@@ -12,6 +12,7 @@ import time
 from typing import Any, Dict, List
 
 import psutil
+from loguru import logger
 
 
 def start_demo_ui_server():
@@ -65,7 +66,8 @@ class DemoChat:
         --------
         data : list of dict
             The new entries in the chat log file.
-        """
+        """  # logger.critical(f"{role} {message}")
+
         if message:
             self.output(message, role=role)
 
@@ -106,7 +108,9 @@ class DemoChat:
             log_data.append(new_entry)
             f.seek(0)
             json.dump(log_data, f, indent=4)
+            # logger.critical(log_data)
             f.truncate()
+            # f.flush()
             fcntl.flock(f, fcntl.LOCK_UN)
             self.last_seen_entry_id = len(log_data) - 1
 
