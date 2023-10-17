@@ -388,7 +388,7 @@ class SpotDemoAgent:
 
     def update(self):
         """Update sensor measurements"""
-        time.sleep(0.1)
+        time.sleep(1)
         obs = self.spot.get_rgbd_obs()
         logger.info("Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
