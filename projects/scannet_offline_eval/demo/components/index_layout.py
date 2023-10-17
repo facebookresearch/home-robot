@@ -9,23 +9,26 @@ from dash import Patch, dcc, html
 from dash.dependencies import Input, Output, State
 from loguru import logger
 
-from .app import app, svm_watcher
+from .app import app, app_config, svm_watcher
 
 
 def make_header_layout():
     # return dbc.Col([
+    stream_counter_children = []
+    if app_config.start_paused:
+        stream_counter_children.append(
+            html.Button(
+                f"Begin streaming",
+                id="get-new-data-3d",
+                n_clicks=0,
+                className="button-primary",
+            ),
+        )
+    stream_counter_children.append(html.P(id="stream-counter"))
     return dbc.Row(
         [
             dbc.Col(
-                children=[
-                    html.Button(
-                        f"Begin streaming",
-                        id="get-new-data-3d",
-                        n_clicks=0,
-                        className="button-primary",
-                    ),
-                    html.P(id="stream-counter"),
-                ],
+                children=stream_counter_children,
                 md=2,
             ),
             dbc.Col(
@@ -56,20 +59,30 @@ def display_count(n):
     return f"Interval has fired {n} times"
 
 
-@app.callback(
-    [Output("realtime-3d-interval", "disabled"), Output("get-new-data-3d", "children")],
-    [Input("get-new-data-3d", "n_clicks")],
-    [State("realtime-3d-interval", "disabled"), State("get-new-data-3d", "children")],
-)
-def toggle_interval(n, disabled, children):
-    if n:
-        is_now_disabled = not disabled
-        children = ["Stop streaming data", "Begin streaming data"][int(is_now_disabled)]
-        if is_now_disabled:
-            svm_watcher.pause()
-        else:
-            logger.debug("Unpausing directory watcher...")
-            svm_watcher.unpause()
+if app_config.start_paused:
 
-        return [is_now_disabled, children]
-    return [disabled, children]
+    @app.callback(
+        [
+            Output("realtime-3d-interval", "disabled"),
+            Output("get-new-data-3d", "children"),
+        ],
+        [Input("get-new-data-3d", "n_clicks")],
+        [
+            State("realtime-3d-interval", "disabled"),
+            State("get-new-data-3d", "children"),
+        ],
+    )
+    def toggle_interval(n, disabled, children):
+        if n:
+            is_now_disabled = not disabled
+            children = ["Stop streaming data", "Begin streaming data"][
+                int(is_now_disabled)
+            ]
+            if is_now_disabled:
+                svm_watcher.pause()
+            else:
+                logger.debug("Unpausing directory watcher...")
+                svm_watcher.unpause()
+
+            return [is_now_disabled, children]
+        return [disabled, children]
