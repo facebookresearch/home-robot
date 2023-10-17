@@ -870,10 +870,14 @@ class SpotDemoAgent:
                     instance_pose, location, vf = self.get_close(pick_instance_id)
                     logger.info("Navigating closer to the object")
                     self.spot.navigate_to(
-                        np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
+                        np.array(
+                            [vf[0], vf[1], instance_pose[2] + self.parameters['place_offset']]
+                            ), blocking=True
                     )
                 time.sleep(0.5)
-                success = self.gaze.gaze_and_grasp(finish_sweep_before_deciding=self.parameters['finish_grasping'])
+                success = self.gaze.gaze_and_grasp(
+                    finish_sweep_before_deciding=self.parameters['finish_grasping']
+                )
                 time.sleep(0.5)
                 if success:
                     # TODO: @JAY make placing cleaner
