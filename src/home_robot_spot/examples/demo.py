@@ -388,7 +388,7 @@ class SpotDemoAgent:
 
     def update(self):
         """Update sensor measurements"""
-        time.sleep(0.1)
+        time.sleep(1)
         obs = self.spot.get_rgbd_obs()
         logger.info("Observed from coordinates:", obs.gps, obs.compass)
         obs = self.semantic_sensor.predict(obs)
@@ -830,6 +830,11 @@ class SpotDemoAgent:
                     should_plan=self.parameters["plan_to_instance"],
                 )
                 self.say(f"Success: {success}")
+                if self.parameters["find_only"]:
+                    logger.success("Tried navigating to close to the object!")
+                    # self.goto(self.parameters[''])
+                    # exit out of loop without killing script
+                    continue
 
                 # # try to pick up this instance
                 # if success:
@@ -868,7 +873,7 @@ class SpotDemoAgent:
                         np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
                     )
                 time.sleep(0.5)
-                success = self.gaze.gaze_and_grasp(finish_sweep_before_deciding=False)
+                success = self.gaze.gaze_and_grasp(finish_sweep_before_deciding=self.parameters['finish_grasping'])
                 time.sleep(0.5)
                 if success:
                     # TODO: @JAY make placing cleaner
