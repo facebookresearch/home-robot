@@ -17,13 +17,14 @@ import torch
 
 # from dash_extensions.websockets import SocketPool, run_server
 from dash_extensions.enrich import BlockingCallbackTransform, DashProxy
-from home_robot.core.interfaces import Observations
-from home_robot.mapping.voxel.voxel import SparseVoxelMap
-from home_robot.utils.point_cloud_torch import get_bounds
 from loguru import logger
 from matplotlib import pyplot as plt
 from pytorch3d.vis.plotly_vis import get_camera_wireframe
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
+
+from home_robot.core.interfaces import Observations
+from home_robot.mapping.voxel.voxel import SparseVoxelMap
+from home_robot.utils.point_cloud_torch import get_bounds
 
 from .directory_watcher import DirectoryWatcher, get_most_recent_viz_directory
 
@@ -139,7 +140,7 @@ class SparseVoxelMapDirectoryWatcher:
                 if isinstance(obs["obs"].camera_pose, np.ndarray)
                 else obs["obs"].camera_pose.float()
             )
-        else:
+        elif "limited_obs" not in obs:
             logger.warning("No limited obs in obs")
 
         # TODO: REMOVE
@@ -184,7 +185,7 @@ class SparseVoxelMapDirectoryWatcher:
         if obs["target_id"] is not None:
             self.target_instance_id = obs["target_id"]
         # Update map
-        if "obstacles" in obs and obs["obstacles"]:
+        if "obstacles" in obs:
             rgb_ten = (torch.flip(obs["obstacles"], dims=(0, 1)) > 0) * 255
             rgb_ten = rgb_ten[256:-256, 256:-256]
             self.map_im = cv2.imencode(
