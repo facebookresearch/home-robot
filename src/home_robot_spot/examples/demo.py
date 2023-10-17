@@ -238,10 +238,6 @@ class SpotDemoAgent:
         else:
             self.chat = None
             self._publisher = None
-        # if self.parameters["chat"]:
-        #     self.chat = DemoChat(f"{self.path}/demo_chat.json")
-        # else:
-        #     self.chat = None
 
     def start(self):
         if self._publisher is not None:
@@ -418,7 +414,8 @@ class SpotDemoAgent:
         )
 
     def publish_limited_obs(self):
-        logger.info(self.current_state)
+        """Used to send a small update to the remote UI"""
+        logger.trace(f"{self.current_state=}")
         if self.current_state == "WAITING":
             return True
         obs = self.spot.get_rgbd_obs()
