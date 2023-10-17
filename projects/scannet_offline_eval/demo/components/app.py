@@ -17,14 +17,13 @@ import torch
 
 # from dash_extensions.websockets import SocketPool, run_server
 from dash_extensions.enrich import BlockingCallbackTransform, DashProxy
+from home_robot.core.interfaces import Observations
+from home_robot.mapping.voxel.voxel import SparseVoxelMap
+from home_robot.utils.point_cloud_torch import get_bounds
 from loguru import logger
 from matplotlib import pyplot as plt
 from pytorch3d.vis.plotly_vis import get_camera_wireframe
 from torch_geometric.nn.pool.voxel_grid import voxel_grid
-
-from home_robot.core.interfaces import Observations
-from home_robot.mapping.voxel.voxel import SparseVoxelMap
-from home_robot.utils.point_cloud_torch import get_bounds
 
 from .directory_watcher import DirectoryWatcher, get_most_recent_viz_directory
 
@@ -124,7 +123,7 @@ class SparseVoxelMapDirectoryWatcher:
         if not self._vocab:
             self.load_vocab()
 
-        if obs["limited_obs"]:
+        if "limited_obs" in obs and obs["limited_obs"]:
             obs["rgb"] = (
                 torch.from_numpy(obs["obs"].rgb)
                 if isinstance(obs["obs"].rgb, np.ndarray)
@@ -140,13 +139,17 @@ class SparseVoxelMapDirectoryWatcher:
                 if isinstance(obs["obs"].camera_pose, np.ndarray)
                 else obs["obs"].camera_pose.float()
             )
+        else:
+            logger.warning("No limited obs in obs")
 
         # TODO: REMOVE
         if HARD_CODE_RESPONSES:
             if self.robot_state == "EXPLORE" and obs["current_state"] != "EXPLORE":
                 self.pause()
         ################
-        self.robot_state = obs["current_state"]
+
+        if "current_state" in obs and obs["current_state"]:
+            self.robot_state = obs["current_state"]
 
         # Update RGB
         rgb_image = obs["rgb"]
@@ -175,17 +178,22 @@ class SparseVoxelMapDirectoryWatcher:
         cam_points_world = cam_points @ R.T + t.unsqueeze(0)  # (cam_points @ R) # + t)
         x, y, z = [v.cpu().numpy().tolist() for v in cam_points_world.unbind(1)]
         self.cam_coords = {"x": x, "y": y, "z": z}
-        if obs["limited_obs"]:
+        if "limited_obs" in obs and obs["limited_obs"]:
             return True
 
         if obs["target_id"] is not None:
             self.target_instance_id = obs["target_id"]
         # Update map
-        rgb_ten = (torch.flip(obs["obstacles"], dims=(0, 1)) > 0) * 255
-        rgb_ten = rgb_ten[256:-256, 256:-256]
-        self.map_im = cv2.imencode(".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8))[
-            1
-        ].tobytes()  # * 255
+        if "obstacles" in obs and obs["obstacles"]:
+            rgb_ten = (torch.flip(obs["obstacles"], dims=(0, 1)) > 0) * 255
+            rgb_ten = rgb_ten[256:-256, 256:-256]
+            self.map_im = cv2.imencode(
+                ".jpg", (rgb_ten.cpu().numpy()).astype(np.uint8)
+            )[
+                1
+            ].tobytes()  # * 255
+        else:
+            logger.warning("No obstacles in obs")
 
         # Add only new points
         old_points = self.svm.voxel_pcd._points
