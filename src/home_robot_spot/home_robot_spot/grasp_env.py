@@ -198,6 +198,7 @@ class GraspController:
                 if not finish_sweep_before_deciding:
                     return responses[0], pixel, self.look
         self.reset_to_look()
+        time.sleep(1)
 
         # No matches
         if len(matches) == 0:
@@ -206,6 +207,7 @@ class GraspController:
         # Return best match
         best_match = max(matches, key=lambda match: match[2])
         self.spot.set_arm_joint_positions(best_match[3], travel_time=1)
+        time.sleep(1)
         return best_match[1], best_match[0], best_match[3]
 
     def grasp(self, hand_image_response, pixels, timeout=10, count=3):
@@ -309,6 +311,8 @@ class GraspController:
         hand_image_response, pixels, arm_pos = self.sweep(finish_sweep_before_deciding)
         if arm_pos is not None:
             self.spot.set_arm_joint_positions(arm_pos, travel_time=1.5)
+            time.sleep(1)
+            logger.info(f"Arm_pos found at {arm_pos}")
         if pixels is not None:
             logger.info(
                 f" > Object found at {pixels} with spot coords: {self.spot.get_arm_joint_positions(as_array=True)}"

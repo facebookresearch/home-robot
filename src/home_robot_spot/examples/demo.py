@@ -13,15 +13,12 @@ import time
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
-from loguru import logger
-from PIL import Image
-
-import home_robot_spot.nav_client as nc
 from examples.demo_utils.mock_agent import MockSpotDemoAgent
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -56,6 +53,8 @@ from home_robot.utils.threading import Interval
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
+from loguru import logger
+from PIL import Image
 
 
 class StateEnum(Enum):
@@ -677,7 +676,11 @@ class SpotDemoAgent:
         if "command" in self.parameters:
             return self.parameters["command"]
         else:
-            return self.ask("please type any task you want the robot to do: ")
+            return self.ask(
+                "Let's try something else! What other task would you like the robot to perform?"
+            )
+
+        #   "Not sure I can do that. Please type any other task you want the robot to do:"
 
     def confirm_plan(self, plan: str):
         print(f"Received plan: {plan}")
@@ -870,7 +873,7 @@ class SpotDemoAgent:
                         np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
                     )
                 time.sleep(0.5)
-                success = self.gaze.gaze_and_grasp(finish_sweep_before_deciding=False)
+                success = self.gaze.gaze_and_grasp(finish_sweep_before_deciding=parameters['finish_grasping'])
                 time.sleep(0.5)
                 if success:
                     # TODO: @JAY make placing cleaner

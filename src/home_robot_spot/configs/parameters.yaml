@@ -48,6 +48,7 @@ force_place_at_center: False
 # gripper_offset_x: 0.20
 gripper_offset_x: 0
 place_height: 0.2
+finish_grasping: True
 
 # Trajectory execution
 trajectory_pos_err_threshold: 0.5
