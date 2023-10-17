@@ -1193,7 +1193,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--vlm_server_addr",
-        default="localhost",
+        default="localhost", # aws ip address cortex-robot-elb-57c549656770fe85.elb.us-east-1.amazonaws.com
         help="ip address or domain name of vlm server.",
     )
     parser.add_argument(
