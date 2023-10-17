@@ -216,9 +216,10 @@ def add_new_points(submit_n_clicks, camera_coords, existing, next_obs):
         patched_figure, existing, len(trace_names), new_next_obs - 1
     )
     trace_names += box_names
-    # patched_figure["layout"]["annotations"][0][
-    #     "text"
-    # ] = f"Target: {box_names[target_box_idx]}"
+    patched_figure["layout"]["annotations"][0][
+        "text"
+    ] = f"STATUS: {svm_watcher.robot_state}"
+    # ] = f"STATUS: {box_names[target_box_idx]}"
 
     # Update bounds
     mins, maxs = global_bounds.unbind(-1)
