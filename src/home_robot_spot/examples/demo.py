@@ -238,10 +238,6 @@ class SpotDemoAgent:
         else:
             self.chat = None
             self._publisher = None
-        # if self.parameters["chat"]:
-        #     self.chat = DemoChat(f"{self.path}/demo_chat.json")
-        # else:
-        #     self.chat = None
 
     def start(self):
         if self._publisher is not None:
@@ -418,13 +414,14 @@ class SpotDemoAgent:
         )
 
     def publish_limited_obs(self):
-        logger.info(self.current_state)
+        """Used to send a small update to the remote UI"""
+        logger.trace(f"{self.current_state=}")
         if self.current_state == "WAITING":
             return True
         obs = self.spot.get_rgbd_obs()
         self.obs_count += 1
         with atomic_write(f"{self.vis_folder}/{self.obs_count}.pkl", mode="wb") as f:
-            logger.info(
+            logger.trace(
                 f"Saving limited observation to pickle file: {f'{self.path}/viz_data/{self.obs_count}.pkl'}"
             )
             pickle.dump(
@@ -437,7 +434,7 @@ class SpotDemoAgent:
             )
         return True
 
-    def visualize(self, start, goal, step):
+    def visualize(self, start, goal, step=0):
         """Update visualization for demo"""
         if self.parameters["use_async_subscriber"]:
             print(
@@ -571,6 +568,7 @@ class SpotDemoAgent:
                     pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
                     rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
                     per_step_timeout=self.parameters["trajectory_per_step_timeout"],
+                    verbose=False,
                 )
                 goal_position = goal
             else:
@@ -623,7 +621,7 @@ class SpotDemoAgent:
                 res,
                 pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
                 rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
-                verbose=True,
+                verbose=False,
             )
         else:
             logger.warning("[demo.goto] Just go ahead and try it anyway")
@@ -732,8 +730,10 @@ class SpotDemoAgent:
                         goal=data["prompt"],
                     )
                     plan = output.action
+                    logger.info(f"Received plan: {plan}")
                     if self.confirm_plan(plan):
-                        # now it is hacky to get two instance ids TODO: make it more general for all actions
+                        # now it is hacky to get two instance ids
+                        # TODO: make it more general for all actions
                         # get pick instance id
                         current_high_level_action = plan.split("; ")[0]
                         pick_instance_id = int(
@@ -927,6 +927,9 @@ class SpotDemoAgent:
                     # Go back to look position
                     self.gaze.reset_to_look()
 
+        # At the end, go back to where we started
+        self.goto(center)
+
     def run_explore(self):
         """Run exploration in different environments. Will explore until there's nothing else to find."""
         # Track the number of times exploration failed
@@ -960,10 +963,16 @@ class SpotDemoAgent:
 
             if self.parameters["explore_methodical"]:
                 logger.info("Generating the next closest frontier point...")
-                res = self.plan_to_frontier()
-                if res.success:
-                    explore_failures = 0
 
+                # Sampling along the frontier
+                if explore_failures <= self.parameters["max_explore_failures"]:
+                    res = self.plan_to_frontier()
+                else:
+                    res = None
+
+                # Handle the case where we could not get to nearby frontier
+                if res is not None and res.success:
+                    explore_failures = 0
                 else:
                     explore_failures += 1
                     logger.warning("Exploration failed: " + str(res.reason))
@@ -991,9 +1000,11 @@ class SpotDemoAgent:
                         res = self.planner.plan(start, goal)
                         logger.info(goal)
                         if res.success:
-                            logger.success("Res success: {}", res.success)
+                            logger.success("Plan success: {}", res.success)
+                            explore_failures = 0
                         else:
-                            logger.error("Res success: {}", res.success)
+                            logger.error("Plan success: {}", res.success)
+                            logger.error("Failed to plan to the frontier.")
             else:
                 logger.info(
                     "picking a random frontier point and trying to move there..."
@@ -1066,6 +1077,10 @@ def main(dock: Optional[int] = None, args=None):
         logger.critical(
             f"Location {args.location} is invalid, please enter a valid location"
         )
+
+    print("-" * 8, "PARAMETERS", "-" * 8)
+    print(parameters)
+
     timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
     path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
     logger.add(f"{path}/{timestamp}.log", backtrace=True, diagnose=True)
@@ -1176,9 +1191,10 @@ if __name__ == "__main__":
         default="find a green bottle",
         help="Specify any task in natural language for VLM",
     )
+    # AWS IP Address cortex-robot-elb-57c549656770fe85.elb.us-east-1.amazonaws.com
     parser.add_argument(
         "--vlm_server_addr",
-        default="localhost",
+        default="cortex-robot-elb-57c549656770fe85.elb.us-east-1.amazonaws.com",
         help="ip address or domain name of vlm server.",
     )
     parser.add_argument(

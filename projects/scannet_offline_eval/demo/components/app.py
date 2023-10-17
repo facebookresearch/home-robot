@@ -36,7 +36,7 @@ class AppConfig:
     pointcloud_update_freq_ms: int = 2000
     video_feed_update_freq_ms: int = 500  # 500
 
-    directory_watcher_update_freq_ms: int = 500  # 500
+    directory_watcher_update_freq_ms: int = 200  # 500
     directory_watch_path: Optional[str] = get_most_recent_viz_directory()
     pointcloud_voxel_size: float = 0.035
     convert_rgb_to_bgr: bool = True
