@@ -827,12 +827,12 @@ class SpotDemoAgent:
                     should_plan=self.parameters["plan_to_instance"],
                 )
                 self.say(f"Success: {success}")
-                if self.parameters['find_only']:
+                if self.parameters["find_only"]:
                     logger.success("Tried navigating to close to the object!")
                     # self.goto(self.parameters[''])
                     # exit out of loop without killing script
                     continue
-                    
+
                 # # try to pick up this instance
                 # if success:
 
