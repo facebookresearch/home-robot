@@ -89,7 +89,7 @@ class DirectoryWatcher:
                     self.current_obs_number += i + 1
                     return self._consume_data()
 
-            logger.debug(
+            logger.trace(
                 f"[WAITING] No obs found for timestep {self.current_obs_number}.pkl"
             )
             if self.on_new_obs_callback is not None:

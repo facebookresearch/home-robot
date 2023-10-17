@@ -36,7 +36,7 @@ figure = svm_watcher.svm.show(
     backend="pytorch3d",
     instances=False,
     mock_plot=True,
-    pointcloud_marker_size=3,  # int(app_config.pointcloud_voxel_size * 100)
+    pointcloud_marker_size=2,  # int(app_config.pointcloud_voxel_size * 100)
 )
 camera = dict(eye=dict(x=0.0, y=0.0, z=app_config.camera_initial_distance))
 figure.update_layout(
