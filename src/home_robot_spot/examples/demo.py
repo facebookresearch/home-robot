@@ -868,7 +868,7 @@ class SpotDemoAgent:
                         np.array([vf[0], vf[1], instance_pose[2]]), blocking=True
                     )
                 time.sleep(0.5)
-                success = self.gaze.gaze_and_grasp(finish_sweep_before_deciding=False)
+                success = self.gaze.gaze_and_grasp(finish_sweep_before_deciding=parameters['finish_grasping'])
                 time.sleep(0.5)
                 if success:
                     # TODO: @JAY make placing cleaner
