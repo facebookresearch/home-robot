@@ -1191,9 +1191,10 @@ if __name__ == "__main__":
         default="find a green bottle",
         help="Specify any task in natural language for VLM",
     )
+    # AWS IP Address cortex-robot-elb-57c549656770fe85.elb.us-east-1.amazonaws.com
     parser.add_argument(
         "--vlm_server_addr",
-        default="localhost", # aws ip address cortex-robot-elb-57c549656770fe85.elb.us-east-1.amazonaws.com
+        default="cortex-robot-elb-57c549656770fe85.elb.us-east-1.amazonaws.com",
         help="ip address or domain name of vlm server.",
     )
     parser.add_argument(

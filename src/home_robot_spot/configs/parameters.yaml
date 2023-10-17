@@ -1,3 +1,4 @@
+# Perception parameters
 encoder: "clip"
 clip: "ViT-B/32"
 category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
@@ -5,8 +6,8 @@ category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
 # Planner parameters
 step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
 rotation_step_size: 0.25
-visualize: True
-exploration_steps: 5
+visualize: False
+exploration_steps: 10
 shortcut_iter: 250
 extend_mode: "joint"  # joint = rotate and move at the same time
 # extend_mode: "separate"
@@ -18,8 +19,8 @@ frontier_min_dist: 0.5
 # Voxel map
 min_depth: 0.6
 max_depth: 3.5
-obs_min_height: 0.2  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
-obs_max_height: 1.8  # Originally 1.8, spot is shorter than stretch tho
+obs_min_height: 0.3  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+obs_max_height: 1.5  # Originally 1.8, spot is shorter than stretch tho
 obs_min_density: 12  # Originally 10, making it bigger because theres a bunch on noise
 voxel_size: 0.02
 local_radius: 1.5  # Can probably be bigger than original (.15)
