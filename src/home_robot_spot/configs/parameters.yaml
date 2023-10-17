@@ -1,4 +1,3 @@
-# Perception parameters
 encoder: "clip"
 clip: "ViT-B/32"
 category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
@@ -7,7 +6,7 @@ category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
 step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
 rotation_step_size: 0.25
 visualize: True
-exploration_steps: 10
+exploration_steps: 5
 shortcut_iter: 250
 extend_mode: "joint"  # joint = rotate and move at the same time
 # extend_mode: "separate"
@@ -40,12 +39,13 @@ max_size: 40  # Can probably be bigger than original (10)
 # Grasping and placing parameters
 plan_to_instance: True
 verify_before_grasp: False
-nbr_dist: 0.2  # Was originally 0.15 in Sasha's code
+nbr_dist: 0.15  # Was originally 0.15 in Sasha's code
 residual_thresh: 0.03
 pick_place_radius: 2.0
 place_offset: 0.5  # after orienting to the place location, move until within this offset
-force_place_at_center: True
-gripper_offset_x: 0.20
+force_place_at_center: False
+# gripper_offset_x: 0.20
+gripper_offset_x: 0
 place_height: 0.2
 
 # Trajectory execution
@@ -64,8 +64,11 @@ pick_categories: ["bottle", "cup"]
 place_categories: ["chair", "sofa"]
 use_get_close: False
 best_view_metric: "area"
+# GOOD COMMANDS
 #command: "move a stuffed toy to a chair"
-command: "pick up a stuffed animal and put it on a chair"
+#command: "pick up a stuffed animal and put it on a chair"
+command: "pick up a cup and put it on the chair"
+# OK/BAD COMMANDS
 confirm_plan: False
 
 # User interface

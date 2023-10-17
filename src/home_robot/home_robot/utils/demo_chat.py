@@ -74,7 +74,7 @@ class DemoChat:
         # Wait for new entries
         while True:
             time.sleep(poll_delay)  # Polling delay
-            logging.info(f"Polling chat log file {self.log_file_path}...")
+            # logging.info(f"Polling chat log file {self.log_file_path}...")
             with open(self.log_file_path, "r") as f:
                 fcntl.flock(f, fcntl.LOCK_SH)
                 log_data = json.load(f)
