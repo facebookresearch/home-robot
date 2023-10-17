@@ -71,6 +71,7 @@ best_view_metric: "area"
 command: "pick up a cup and put it on the chair"
 # OK/BAD COMMANDS
 confirm_plan: False
+find_only: True
 
 # User interface
 chat: True
