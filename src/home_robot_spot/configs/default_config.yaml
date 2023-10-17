@@ -12,7 +12,7 @@ SHOW_RL_OBS: False         # whether to show the observations passed to RL polic
 
 
 SPOT:
-# joint 5, 75 is looking down and 90 is looking up
+# joint 5, 75 is looking up and 90 is looking down
   GAZE_ARM_JOINT_ANGLES: [0, -140, 100, 0, 90, 0]
   PLACE_ARM_JOINT_ANGLES: [0, -170, 120, 0,90, 0]
   MAX_CMD_DURATION: 5.0
