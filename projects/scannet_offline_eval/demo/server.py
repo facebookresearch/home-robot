@@ -111,6 +111,7 @@ app.layout = dbc.Container(
                         make_realtime_3d_layout(
                             figure,
                             app_config.pointcloud_update_freq_ms,
+                            disabled=app_config.start_paused,
                         )
                     ],
                     width=7,
@@ -162,6 +163,7 @@ if __name__ == "__main__":
         default=None,
         help="The path to the directory to watch (default: None)",
     )
+
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
@@ -169,7 +171,8 @@ if __name__ == "__main__":
         app_config.directory_watch_path = args.path
 
     logger.warning("Starting server. Data consumer is currently paused:")
-    svm_watcher.pause()
+    if app_config.start_paused:
+        svm_watcher.pause()
     svm_watcher.begin()
     # app.run(port=5000)
 

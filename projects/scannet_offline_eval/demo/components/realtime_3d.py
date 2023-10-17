@@ -28,7 +28,7 @@ from home_robot.utils.bboxes_3d_plotly import get_bbox_wireframe
 from home_robot.utils.point_cloud_torch import get_bounds
 
 
-def make_layout(figure, update_frequency_ms):
+def make_layout(figure, update_frequency_ms, disabled=True):
     return dbc.Container(
         [
             dcc.Graph(
@@ -39,7 +39,7 @@ def make_layout(figure, update_frequency_ms):
             dcc.Interval(
                 id="realtime-3d-interval",
                 interval=int(update_frequency_ms),  # in milliseconds,
-                disabled=True,
+                disabled=disabled,
             ),
             dcc.Store(id="realtime-3d-obs-count"),
             dcc.Store(id="realtime-3d-fig-names"),
