@@ -12,6 +12,7 @@ import numpy as np
 import torch
 from atomicwrites import atomic_write
 from loguru import logger
+from PIL import Image
 
 from home_robot.core.robot import RobotClient
 from home_robot.mapping.instance import Instance
@@ -31,7 +32,11 @@ from home_robot.utils.threading import Interval
 
 
 def publish_obs(
-    model: SparseVoxelMapNavigationSpace, path: str, state: str, timestep: int
+    model: SparseVoxelMapNavigationSpace,
+    path: str,
+    state: str,
+    timestep: int,
+    target_id: Dict[str, int] = None,
 ):
     """publish observation for use by the UI"""
     # NOTE: this requires 'pip install atomicwrites'
@@ -63,6 +68,8 @@ def publish_obs(
 
         # Map
         obstacles, explored = model.voxel_map.get_2d_map()
+        obstacles = obstacles.int()
+        explored = explored.int()
 
         logger.info(f"Saving observation to pickle file: {f'{path}/{timestep}.pkl'}")
         pickle.dump(
@@ -83,10 +90,18 @@ def publish_obs(
                 obstacles=obstacles.cpu().detach(),
                 explored=explored.cpu().detach(),
                 current_state=state,
+                target_id=target_id,
             ),
             f,
         )
-    # logger.success("Done saving observation to pickle file.")
+
+    # Print out all the instances we have seen
+    for i, instance in enumerate(model.voxel_map.get_instances()):
+        for j, view in enumerate(instance.instance_views):
+            filename = f"{path}/instances/instance{i}_view{j}.png"
+            if not os.path.exists(filename):
+                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
+                image.save(filename)
 
 
 class RobotAgent:

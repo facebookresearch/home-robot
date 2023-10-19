@@ -19,10 +19,12 @@ import open3d
 import torch
 from atomicwrites import atomic_write
 from loguru import logger
-from PIL import Image
 
 import home_robot_spot.nav_client as nc
 from examples.demo_utils.mock_agent import MockSpotDemoAgent
+
+# Simple IO tool for robot agents
+from home_robot.agent.multitask.robot_agent import publish_obs
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -57,81 +59,6 @@ from home_robot.utils.threading import Interval
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-
-
-# NOTE: this requires 'pip install atomicwrites'
-def publish_obs(
-    model: SparseVoxelMapNavigationSpace,
-    path: str,
-    current_state: str,
-    timestep: int,
-    target_id: dict,
-):
-    # timestep = len(model.voxel_map.observations) - 1
-    with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
-        instances = model.voxel_map.get_instances()
-        model_obs = model.voxel_map.observations[-1]
-        if len(instances) > 0:
-            bounds, names = zip(*[(v.bounds, v.category_id) for v in instances])
-            bounds = torch.stack(bounds, dim=0)
-            names = torch.stack(names, dim=0).unsqueeze(-1)
-            scores = torch.tensor([ins.score for ins in instances])
-            embeds = (
-                torch.stack(
-                    [
-                        ins.get_image_embedding(aggregation_method="mean")
-                        for ins in instances
-                    ]
-                )
-                .cpu()
-                .detach()
-            )
-        else:
-            bounds = torch.zeros(0, 3, 2)
-            names = torch.zeros(0, 1)
-            scores = torch.zeros(
-                0,
-            )
-            embeds = torch.zeros(0, 512)
-
-        # Map
-        obstacles, explored = model.voxel_map.get_2d_map()
-        obstacles = obstacles.int()
-        explored = explored.int()
-
-        logger.info(f"Saving observation to pickle file...{f'{path}/{timestep}.pkl'}")
-        pickle.dump(
-            dict(
-                rgb=model_obs.rgb.cpu().detach(),
-                depth=model_obs.depth.cpu().detach(),
-                instance_image=model_obs.instance.cpu().detach(),
-                instance_classes=model_obs.instance_classes.cpu().detach(),
-                instance_scores=model_obs.instance_scores.cpu().detach(),
-                camera_pose=model_obs.camera_pose.cpu().detach(),
-                camera_K=model_obs.camera_K.cpu().detach(),
-                xyz_frame=model_obs.xyz_frame,
-                box_bounds=bounds,
-                box_names=names,
-                box_scores=scores,
-                box_embeddings=embeds,
-                # map_im=map_im.cpu().detach(),
-                limited_obs=False,
-                obstacles=obstacles.cpu().detach(),
-                explored=explored.cpu().detach(),
-                current_state=current_state,
-                target_id=target_id,
-            ),
-            f,
-        )
-
-    for i, instance in enumerate(model.voxel_map.get_instances()):
-        for j, view in enumerate(instance.instance_views):
-            filename = f"{path}/instances/instance{i}_view{j}.png"
-            if not os.path.exists(filename):
-                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
-                image.save(filename)
-
-    # logger.success("Done saving observation to pickle file.")
 
 
 class SpotDemoAgent:
