@@ -14,12 +14,11 @@ from textwrap import dedent
 
 import dash
 import dash_bootstrap_components as dbc
-import openai
 from dash import Patch, dcc, html
 from dash.exceptions import PreventUpdate
-
-# from dash.dependencies import Input, Output, State
 from dash_extensions.enrich import ALL, DashProxy, Input, Output, State, ctx, dcc, html
+
+# import openai
 from loguru import logger
 
 from home_robot.utils.demo_chat import DemoChat
@@ -270,9 +269,11 @@ def toggle_modal(n_clicks, src, is_open, last_ctx):
     logger.debug(f"Showing modal of {trigger_id} {n_clicks}")
     # return [not is_open, src[0]]
     header = f"Crop of {trigger_id}"
+    # TODO @maksymets: Need to be fixed proprely: src[convert_instance_id_into_instance_showed_in_chat_by_order(trigger_id)]
+    # src has the form: [src0, src1, src2, ...], while trigger_id has format `instance-2`.
     if n_clicks:
-        return [not is_open, src[0], header, new_ctx]
-    return [is_open, src[0], header, new_ctx]
+        return [not is_open, src[-1], header, new_ctx]
+    return [is_open, src[-1], header, new_ctx]
 
 
 def encode_image_to_base64(image_path):
