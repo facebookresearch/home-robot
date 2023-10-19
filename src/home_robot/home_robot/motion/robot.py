@@ -81,25 +81,13 @@ class RobotModel(abc.ABC):
         urdf_path: Optional[str] = None,
         visualize=False,
         assets_path=None,
-        backend: Optional[str] = None,
     ):
-        # Load and create planner
-        if backend == "bullet":
-            import home_robot.utils.bullet as hrb
+        self.name = name
+        self.urdf_path = urdf_path
+        self.visualize = visualize
+        self.assets_apth = assets_path
 
-            self.backend = hrb.PbClient(visualize=visualize)
-            if urdf_path is not None:
-                # Create object reference
-                self.ref = self.backend.add_articulated_object(
-                    name, urdf_path, assets_path=assets_path
-                )
-        else:
-            self.backend = None
-
-    def get_backend(self):
-        """Return model of the robot in bullet - environment for 3d collision checks"""
-        return self.backend
-
+    @abs.abstractmethod
     def get_dof(self) -> int:
         """return degrees of freedom of the robot"""
         return self.dof

@@ -11,9 +11,9 @@ import pybullet as pb
 
 import home_robot.utils.bullet as hrb
 from home_robot.core.interfaces import ContinuousFullBodyAction
+from home_robot.motion.bullet import BulletRobotModel, PybulletIKSolver
 from home_robot.motion.pinocchio_ik_solver import PinocchioIKSolver, PositionIKOptimizer
-from home_robot.motion.robot import Footprint, RobotModel
-from home_robot.utils.bullet import PybulletIKSolver
+from home_robot.motion.robot import Footprint
 from home_robot.utils.pose import to_matrix
 
 # Stretch stuff
@@ -177,6 +177,7 @@ STRETCH_ARM_EXTENSION = 0.8
 STRETCH_ARM_LIFT = 0.8
 
 
+# Stores joint indices for the Stretch configuration space
 class HelloStretchIdx:
     BASE_X = 0
     BASE_Y = 1
@@ -191,8 +192,8 @@ class HelloStretchIdx:
     HEAD_TILT = 10
 
 
-class HelloStretchKinematics(RobotModel):
-    """define motion planning structure for the robot"""
+class HelloStretchKinematics(BulletRobotModel):
+    """Define motion planning structure for the robot. Exposes kinematics."""
 
     # DEFAULT_BASE_HEIGHT = 0.09
     DEFAULT_BASE_HEIGHT = 0
@@ -312,7 +313,7 @@ class HelloStretchKinematics(RobotModel):
 
     def __init__(
         self,
-        name: str = "robot",
+        name: str = "hello_robot_stretch",
         urdf_path: str = "",
         visualize: bool = False,
         root: str = ".",
@@ -338,8 +339,8 @@ class HelloStretchKinematics(RobotModel):
         self.full_body_urdf_path = os.path.join(root, full_body_urdf)
         self.manip_mode_urdf_path = os.path.join(root, manip_urdf)
         super(HelloStretchKinematics, self).__init__(
-            name, self.full_body_urdf_path, visualize, backend="bullet"
-            )
+            name=name, urdf_path=self.full_body_urdf_path, visualize=visualize
+        )
 
         # DOF: 3 for ee roll/pitch/yaw
         #      1 for gripper
