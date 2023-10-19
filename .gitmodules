@@ -35,18 +35,6 @@
 [submodule "src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything"]
 	path = src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything
 	url = https://github.com/IDEA-Research/Grounded-Segment-Anything
-[submodule "src/home_robot/home_robot/perception/minigpt4/MiniGPT-4"]
-	path = src/home_robot/home_robot/perception/minigpt4/MiniGPT-4
-	url = https://github.com/arjunmajum/MiniGPT-4.git
-[submodule "src/home_robot/home_robot/perception/detection/minigpt4/cortex-minigpt4"]
-	path = src/home_robot/home_robot/perception/detection/minigpt4/cortex-minigpt4
-	url = https://huggingface.co/keke-220/cortex-minigpt4
-[submodule "src/home_robot/home_robot/perception/detection/minigpt4/Llama-2-7b-chat-hf"]
-	path = src/home_robot/home_robot/perception/detection/minigpt4/Llama-2-7b-chat-hf
-	url = https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
 [submodule "src/third_party/spot-sim2real"]
 	path = src/third_party/spot-sim2real
 	url = git@github.com:Jdvakil/spot-sim2real.git
-[submodule "src/home_robot/home_robot/perception/detection/minigpt4/src/home_robot/home_robot/perception/detection/minigpt4/Llama-2-7b-chat-hf"]
-	path = src/home_robot/home_robot/perception/detection/minigpt4/src/home_robot/home_robot/perception/detection/minigpt4/Llama-2-7b-chat-hf
-	url = https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
