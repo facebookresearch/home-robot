@@ -87,7 +87,7 @@ LICENSE file in the root directory of this source tree.
 .chat-conversation {
     overflow-y: auto;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     height: calc(60vh - 140px); /* input box + margins */
     border-top: 1px solid #aaa;
     padding: 20px;
