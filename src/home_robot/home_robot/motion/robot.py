@@ -87,7 +87,7 @@ class RobotModel(abc.ABC):
         self.visualize = visualize
         self.assets_apth = assets_path
 
-    @abs.abstractmethod
+    @abc.abstractmethod
     def get_dof(self) -> int:
         """return degrees of freedom of the robot"""
         return self.dof

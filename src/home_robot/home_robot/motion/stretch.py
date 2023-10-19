@@ -375,6 +375,10 @@ class HelloStretchKinematics(BulletRobotModel):
 
         self._create_ik_solvers(ik_type=ik_type, visualize=visualize)
 
+    def get_dof(self) -> int:
+        """return degrees of freedom of the robot"""
+        return self.dof
+
     def set_head_config(self, q):
         # WARNING: this sets all configs
         bidxs = [HelloStretchIdx.HEAD_PAN, HelloStretchIdx.HEAD_TILT]
