@@ -13,12 +13,15 @@ import time
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
+from loguru import logger
+from PIL import Image
+
+import home_robot_spot.nav_client as nc
 from examples.demo_utils.mock_agent import MockSpotDemoAgent
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
@@ -48,17 +51,12 @@ from home_robot.utils.rpc import (
     get_obj_centric_world_representation,
     get_output_from_world_representation,
     get_vlm_rpc_stub,
+    parse_pick_and_place_plan,
 )
 from home_robot.utils.threading import Interval
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-from loguru import logger
-from PIL import Image
-
-
-class StateEnum(Enum):
-    WAITING = "WAITING"
 
 
 # NOTE: this requires 'pip install atomicwrites'
@@ -714,7 +712,6 @@ class SpotDemoAgent:
             self.goto(center)
             success = False
             pick_instance_id = None
-            place_instance_id = None
             if args.enable_vlm == 1:
                 # get world_representation for planning
                 while True:
@@ -735,36 +732,9 @@ class SpotDemoAgent:
                     plan = output.action
                     logger.info(f"Received plan: {plan}")
                     if self.confirm_plan(plan):
-                        # now it is hacky to get two instance ids
-                        # TODO: make it more general for all actions
-                        # get pick instance id
-                        current_high_level_action = plan.split("; ")[0]
-                        pick_instance_id = int(
-                            world_representation.object_images[
-                                int(
-                                    current_high_level_action.split("(")[1]
-                                    .split(")")[0]
-                                    .split(", ")[0]
-                                    .split("_")[1]
-                                )
-                            ].crop_id
+                        pick_instance_id, place_instance_id = parse_pick_and_place_plan(
+                            world_representation, plan
                         )
-                        # self.instance_ids['PICK'] = pick_instance_id
-                        if len(plan.split(": ")) > 2:
-                            # get place instance id
-                            current_high_level_action = plan.split("; ")[2]
-                            place_instance_id = int(
-                                world_representation.object_images[
-                                    int(
-                                        current_high_level_action.split("(")[1]
-                                        .split(")")[0]
-                                        .split(", ")[0]
-                                        .split("_")[1]
-                                    )
-                                ].crop_id
-                            )
-                            print("place_instance_id", place_instance_id)
-                            # self.instance_ids['PLACE'] = place_instance_id
                         break
             if not pick_instance_id:
                 # Navigating to a cup or bottle
@@ -871,12 +841,17 @@ class SpotDemoAgent:
                     logger.info("Navigating closer to the object")
                     self.spot.navigate_to(
                         np.array(
-                            [vf[0], vf[1], instance_pose[2] + self.parameters['place_offset']]
-                            ), blocking=True
+                            [
+                                vf[0],
+                                vf[1],
+                                instance_pose[2] + self.parameters["place_offset"],
+                            ]
+                        ),
+                        blocking=True,
                     )
                 time.sleep(0.5)
                 success = self.gaze.gaze_and_grasp(
-                    finish_sweep_before_deciding=self.parameters['finish_grasping']
+                    finish_sweep_before_deciding=self.parameters["finish_grasping"]
                 )
                 time.sleep(0.5)
                 if success:
