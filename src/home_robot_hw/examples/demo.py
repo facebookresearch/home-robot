@@ -216,7 +216,9 @@ def main(
     object_to_find, location_to_place = get_task_goals(parameters)
 
     print("- Create semantic sensor based on detic")
-    config, semantic_sensor = create_semantic_sensor(device_id, verbose)
+    config, semantic_sensor = create_semantic_sensor(
+        device_id=device_id, verbose=verbose
+    )
 
     # Run grasping test - just grab whatever is in front of the robot
     if test_grasping:

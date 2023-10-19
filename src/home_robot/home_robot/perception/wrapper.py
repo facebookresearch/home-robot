@@ -194,7 +194,6 @@ def build_vocab_from_category_map(
 
 
 def create_semantic_sensor(
-    cls,
     config=None,
     category_map_file: Optional[str] = None,
     device_id: int = 0,

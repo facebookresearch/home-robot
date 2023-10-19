@@ -15,11 +15,6 @@ import rospy
 import torch
 
 import home_robot.utils.depth as du
-from home_robot.agent.ovmm_agent import (
-    OvmmPerception,
-    build_vocab_from_category_map,
-    read_category_map_file,
-)
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.mapping.voxel import plan_to_frontier
 

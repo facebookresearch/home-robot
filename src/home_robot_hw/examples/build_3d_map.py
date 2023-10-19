@@ -191,7 +191,7 @@ def collect_data(
     print("- Connect to Stretch")
     robot = StretchClient()
 
-    config, semantic_sensor = create_semantic_sensor(device_id, verbose)
+    config, semantic_sensor = create_semantic_sensor(device=device_id, verbose=verbose)
 
     print("- Start ROS data collector")
     collector = RosMapDataCollector(

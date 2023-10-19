@@ -14,12 +14,12 @@ import torch
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPickPolicy, HeuristicPlacePolicy
-from home_robot.perception import (
+from home_robot.perception.constants import RearrangeBasicCategories
+from home_robot.perception.wrapper import (
     OvmmPerception,
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from home_robot.perception.constants import RearrangeBasicCategories
 
 
 class Skill(IntEnum):
