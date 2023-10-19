@@ -9,7 +9,6 @@ from typing import Any, Dict, Tuple
 
 from home_robot.core.interfaces import Observations
 from home_robot.perception.constants import RearrangeDETICCategories
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
 from home_robot.utils.config import load_config
 
 
@@ -75,6 +74,11 @@ class OvmmPerception:
         self._current_vocabulary_id: int = None
         self.verbose = verbose
         if self._detection_module == "detic":
+            # Lazy import
+            from home_robot.perception.detection.detic.detic_perception import (
+                DeticPerception,
+            )
+
             # TODO Specify confidence threshold as a parameter
             self._segmentation = DeticPerception(
                 vocabulary="custom",

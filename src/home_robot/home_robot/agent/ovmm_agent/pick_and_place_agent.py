@@ -11,14 +11,14 @@ import torch
 
 from home_robot.agent.objectnav_agent import ObjectNavAgent
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent, SemanticVocab
-from home_robot.agent.ovmm_agent.ovmm_perception import (
+from home_robot.core.abstract_agent import Agent
+from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
+from home_robot.manipulation import HeuristicPlacePolicy
+from home_robot.perception.wrapper import (
     OvmmPerception,
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from home_robot.core.abstract_agent import Agent
-from home_robot.core.interfaces import Action, DiscreteNavigationAction, Observations
-from home_robot.manipulation import HeuristicPlacePolicy
 
 
 class SimpleTaskState(Enum):
