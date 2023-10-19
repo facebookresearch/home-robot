@@ -19,8 +19,8 @@ import torch
 # Mapping and perception
 import home_robot.utils.depth as du
 from home_robot.agent.multitask.robot_agent import RobotAgent
-from home_robot.agent.ovmm_agent import create_semantic_sensor
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
+from home_robot.perception import create_semantic_sensor
 
 # Import planning tools for exploration
 from home_robot.perception.encoders import ClipEncoder

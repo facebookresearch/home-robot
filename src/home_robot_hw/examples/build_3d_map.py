@@ -14,13 +14,13 @@ import open3d
 import rospy
 import torch
 
-from home_robot.agent.ovmm_agent import create_semantic_sensor
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.mapping.voxel import plan_to_frontier
 
 # Import planning tools for exploration
 from home_robot.motion import RRTConnect, Shortcut
 from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot.perception import create_semantic_sensor
 from home_robot.utils.config import load_config
 from home_robot.utils.geometry import xyt2sophus
 from home_robot.utils.point_cloud import numpy_to_pcd

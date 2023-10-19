@@ -25,11 +25,7 @@ from examples.demo_utils.mock_agent import MockSpotDemoAgent
 
 # Simple IO tool for robot agents
 from home_robot.agent.multitask.robot_agent import publish_obs
-from home_robot.agent.ovmm_agent import (
-    OvmmPerception,
-    build_vocab_from_category_map,
-    read_category_map_file,
-)
+from home_robot.agent.ovmm_agent import create_semantic_sensor
 from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
 from home_robot.mapping.voxel import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
@@ -113,15 +109,15 @@ class SpotDemoAgent:
         config = load_config(visualize=False)
 
         print("- Create and load vocabulary and perception model")
-        self.semantic_sensor = OvmmPerception(
-            config, 0, True, module="detic", module_kwargs={"confidence_threshold": 0.6}
+        self.semantic_sensor = create_semantic_sensor(
+            device=0,
+            verbose=True,
+            module="detic",
+            module_kwargs={"confidence_threshold": 0.6},
+            category_map_file=self.parameters["category_map_file"],
+            config=config,
         )
-        obj_name_to_id, rec_name_to_id = read_category_map_file(
-            self.parameters["category_map_file"]
-        )
-        self.vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
-        self.semantic_sensor.update_vocabulary_list(self.vocab, 0)
-        self.semantic_sensor.set_vocabulary(0)
+        self.vocab = self.semantic_sensor.current_vocabulary
 
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
         os.makedirs(f"{self.path}/viz_data/instances/", exist_ok=True)
