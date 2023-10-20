@@ -33,7 +33,7 @@ This is the recommended workflow for hardware robots:
   - Turn on your robot; for the Stretch, run `stretch_robot_home.py` to get it ready to use.
   - From your workstation, SSH into the robot and start a [ROS launch file](http://wiki.ros.org/roslaunch) which brings up necessary low-level control and hardware drivers.
   - If desired, run [rviz](http://wiki.ros.org/rviz) on the workstation to see what the robot is seeing.
-  - Start running your AI code on the workstation - For example, you can run `python projects/stretch_grasping/eval_episode.py` to run the OVMM task.
+  - Start running your AI code on the workstation - For example, you can run `python projects/real_world_ovmm/eval_episode.py` to run the OVMM task.
 
 We provide a couple connections for useful perception libraries like [Detic](https://github.com/facebookresearch/Detic), [Grounded-SAM](https://github.com/IDEA-Research/Grounded-Segment-Anything) and [Contact Graspnet](https://github.com/NVlabs/contact_graspnet), which you can then use as a part of your methods.
 
@@ -57,6 +57,18 @@ roslaunch home_robot_hw startup_stretch_hector_slam.launch
 ### Workstation Instructions
 
 To set up your workstation, follow these instructions. HomeRobot requires Python 3.9. These instructions assume that your system supports CUDA 11.7 or better for pytorch; earlier versions should be fine, but may require some changes to the conda environment.
+
+If on Ubuntu, ensure some basic packages are installed:
+```
+sudo apt update
+sudo apt install build-essential zip unzip
+```
+
+Then clone home-robot locally:
+```
+git clone https://github.com/facebookresearch/home-robot.git
+cd ./home-robot
+```
 
 #### 1. Create Your Environment
 
@@ -86,10 +98,10 @@ Make sure you have the correct environment variables set: `CUDA_HOME` should poi
 
 To build some third-party dependencies, you also need the full cuda toolkit with its compiler, `nvcc`. You can download it from [nvidia's downloads page](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu). Download the runfile, and make sure to check the box NOT to install your drivers or update your system cuda version. It will be installed at a separate location.
 
-Then make sure the environment variables are set to something reasonable:
+Then make sure the environment variables are set to something reasonable, for example:
 ```
-HOME_ROBOT_ROOT=$USER/home-robot
-CUDA_HOME=/usr/local/cuda-11.7
+export HOME_ROBOT_ROOT=$USER/home-robot
+export CUDA_HOME=/usr/local/cuda-11.7
 ```
 
 Finally, you can run the [install script](install_deps.sh) to download submodules, model checkpoints, and build Detic for open-vocabulary object detection:
