@@ -14,16 +14,17 @@ from textwrap import dedent
 
 import dash
 import dash_bootstrap_components as dbc
-import openai
 from dash import Patch, dcc, html
 from dash.exceptions import PreventUpdate
+from dash_extensions.enrich import ALL, DashProxy, Input, Output, State, ctx, dcc, html
 
-# from dash.dependencies import Input, Output, State
-from dash_extensions.enrich import ALL, Input, Output, State, ctx, dcc, html
-from home_robot.utils.demo_chat import DemoChat
+# import openai
 from loguru import logger
 
+from home_robot.utils.demo_chat import DemoChat
+
 from .app import HARD_CODE_RESPONSES, app, app_config, svm_watcher
+from .core import DashComponent
 
 
 @dataclass
@@ -228,7 +229,7 @@ class Chatbox:
         if patched_msg_hist is not None:
             patched_msg_hist.append(new_msg)
         if patched_convo_elems is not None:
-            patched_convo_elems.append(new_convo_elem)
+            patched_convo_elems.prepend(new_convo_elem)
 
 
 # Conent of the demo_chat:

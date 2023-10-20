@@ -47,7 +47,7 @@ class AppConfig:
     pcl_min_height: float = 0.1
 
     camera_initial_distance: float = 3.5
-    start_paused: bool = False
+    start_paused: bool = True
 
 
 RGB_TO_BGR = [2, 1, 0]
