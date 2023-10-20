@@ -12,7 +12,8 @@ import rospy
 from geometry_msgs.msg import TransformStamped
 
 import home_robot.utils.visualization as viz
-from home_robot.core.interfaces import Observations
+from home_robot.core import Env, Observations
+from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.manipulation.grasping import SimpleGraspMotionPlanner
 from home_robot.motion.stretch import (
     STRETCH_PREGRASP_Q,
@@ -26,14 +27,14 @@ from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
 STRETCH_GRIPPER_LENGTH = 0.2
 
 
-class GraspPlanner(object):
+class GraspPlanner(GraspClient):
     """Simple grasp planner which integrates with a ROS service runnning e.g. contactgraspnet.
     Will choose and execute a grasp based on distance from base."""
 
     def __init__(
         self,
-        robot_client,
-        env,
+        robot_client: RobotClient,
+        env: Optional[Env] = None,
         visualize_planner=False,
         debug_point_cloud=False,
         verbose=True,
@@ -113,17 +114,23 @@ class GraspPlanner(object):
             return best_mask
 
     def get_object_class_masks(
-        self, obs: Observations
+        self,
+        obs: Observations,
+        object_goal: Optional[str] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Get object and class information from the perception system"""
+        """Get object and class information from the perception system.
+
+        Args:
+            obs(Observations): observation
+            object_goal(str): optional name of object to grasp"""
 
         # Choose instance mask with highest score for goal mask
         instance_scores = obs.task_observations["instance_scores"].copy()
         # "object_goal" is the object id in the semantic mask
-        class_mask = (
-            obs.task_observations["instance_classes"]
-            == obs.task_observations["object_goal"]
-        )
+        if object_goal is None:
+            object_goal = obs.task_observations["object_goal"]
+        breakpoint()
+        class_mask = obs.task_observations["instance_classes"] == object_goal
         valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
         class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
 
@@ -150,6 +157,7 @@ class GraspPlanner(object):
 
     def try_grasping(
         self,
+        object_goal: Optional[str] = None,
         visualize: bool = False,
         dry_run: bool = False,
         max_tries: int = 1,
@@ -179,8 +187,13 @@ class GraspPlanner(object):
             # Get the observations - we need depth and xyz point clouds
             t0 = timeit.default_timer()
 
-            # Get the observation from the environment if it exists
-            obs = self.env.prev_obs
+            if self.env is not None:
+                # Get the observation from the environment if it exists
+                obs = self.env.prev_obs
+            else:
+                # Get the observation directly from the robot itself
+                # This will not have any other information
+                obs = self.robot.get_observation()
 
             if obs is None:
                 print("[Grasping] No observation available in environment!")
@@ -214,7 +227,9 @@ class GraspPlanner(object):
                     "seconds",
                 )
 
-            _, all_object_masks = self.get_object_class_masks(obs)
+            _, all_object_masks = self.get_object_class_masks(
+                obs, object_goal=object_goal
+            )
             # TODO: return to this if we want to take goal mask as an argument in the future
             # For now though we will choose the closest one
             # object_mask = obs.task_observations["goal_mask"]

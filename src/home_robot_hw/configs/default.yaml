@@ -41,5 +41,5 @@ limited_obs_publish_sleep: 0.5
 command: "pick up a bottle and put it on the chair"
 # name: "spot"
 exploration_steps: 10
-# object_to_find: "bottle"
-# location_to_place: "chair"
+object_to_find: "bottle"
+location_to_place: "chair"
