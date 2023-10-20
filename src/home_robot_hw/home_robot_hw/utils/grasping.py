@@ -193,7 +193,7 @@ class GraspPlanner(GraspClient):
             else:
                 # Get the observation directly from the robot itself
                 # This will not have any other information
-                obs = self.robot.get_observation()
+                obs = self.robot_client.get_observation()
 
             if obs is None:
                 print("[Grasping] No observation available in environment!")
