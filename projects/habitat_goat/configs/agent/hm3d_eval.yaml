@@ -3,10 +3,10 @@ BASE_TASK_CONFIG_PATH: configs/task/hm3d_challenge2022_val.yaml
 NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
-EXP_NAME: debug       # experiment name
+EXP_NAME: openvocab_v0.1.1_debug    # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
-GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
+GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
 seed: 1
 SHOW_RL_OBS: False         # whether to show the observations passed to RL policices, for debugging
 
@@ -29,8 +29,8 @@ AGENT:
 
   SEMANTIC_MAP:
     semantic_categories: langnav_cat # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor")
-    num_sem_categories: 16           # number of map semantic channel categories (16, 257, 35)
-    map_size_cm: 6000        # global map size (in centimeters)
+    num_sem_categories: 380           # number of map semantic channel categories (16, 257, 35)
+    map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
@@ -59,7 +59,7 @@ AGENT:
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
-    min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
+    min_obs_dilation_selem_radius: 2    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
@@ -78,10 +78,10 @@ AGENT:
     match_threshold: 0.2
     score_function: confidence_sum    # or match_count
     score_thresh_image: 24.5  # real-world experiments used 6.0
-    score_thresh_lang: 0.28
+    score_thresh_lang: 0.24
     match_projection_threshold: 0.2   # confidence must be at least this high to project as goal point.
     goto_past_pose: False
-    batching: True
+    batching: False
 
   DETIC:
     config_file: Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml
@@ -95,7 +95,7 @@ EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
   specific_episodes: 0      # 1: eval on specific episodes (for debugging), 0: eval on split normally
   goal_on_same_floor: 0     # 1: restrict to episodes with a goal on the same floor as the starting position
-  split: train                # eval split
+  split: val_seen                # eval split
   num_episodes_per_env: 100 # number of eval episodes per environment
   record_videos: 0          # 1: record videos from printed images, 0: don't
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
