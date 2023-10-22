@@ -168,13 +168,14 @@ class InstanceMemory:
                 else self.category_id_to_category_name[instance_view.category_id]
             )
             instance_write_path = os.path.join(
-                self.save_dir, f"{global_instance_id}_{category_name}.png"
+                self.save_dir, f"{global_instance_id}_{category_name}"
             )
             os.makedirs(instance_write_path, exist_ok=True)
 
             step = instance_view.timestep
             full_image = self.images[env_id][step]
             full_image = full_image.numpy().astype(np.uint8).transpose(1, 2, 0)
+            full_image = full_image[..., ::-1]
             # overlay mask on image
             mask = np.zeros(full_image.shape, full_image.dtype)
             mask[:, :] = (0, 0, 255)
@@ -187,12 +188,12 @@ class InstanceMemory:
                 ),
                 masked_image,
             )
-            print(
-                "mapping local instance id",
-                local_instance_id,
-                "to global instance id",
-                global_instance_id,
-            )
+            # print(
+            #     "mapping local instance id",
+            #     local_instance_id,
+            #     "to global instance id",
+            #     global_instance_id,
+            # )
 
     def process_instances_for_env(
         self,
@@ -223,6 +224,7 @@ class InstanceMemory:
                 [self.point_cloud[env_id], point_cloud.unsqueeze(0).detach().cpu()],
                 dim=0,
             )
+
         # unique instances
         instance_ids = torch.unique(instance_map)
         for instance_id in instance_ids:
@@ -235,6 +237,7 @@ class InstanceMemory:
             # get semantic category
             category_id = semantic_map[instance_mask].unique()
             category_id = category_id[0].item()
+            # print(instance_id, category_id)
 
             instance_id_to_category_id[instance_id] = category_id
 
@@ -312,7 +315,7 @@ class InstanceMemory:
                 os.makedirs(f"{self.save_dir}/all", exist_ok=True)
                 cv2.imwrite(
                     f"{self.save_dir}/all/{self.timesteps[env_id] + 1}_{instance_id.item()}.png",
-                    cropped_image,
+                    cropped_image[:,:,::-1],
                 )
 
         self.timesteps[env_id] += 1

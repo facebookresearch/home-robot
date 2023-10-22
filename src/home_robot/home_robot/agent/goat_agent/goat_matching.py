@@ -81,9 +81,9 @@ class GoatMatching(Matching):
             detections.append(img)
             instance_ids.append(local_instance_id)
 
-        matches, confidences = [], []
+        keypoints, matches, confidences = [], [], []
         if len(detections) > 0:
-            matches, confidences = self.match_images_to_goal(
+            keypoints, matches, confidences = self.match_images_to_goal(
                 detections,
                 matching_fn,
                 step,
@@ -92,7 +92,11 @@ class GoatMatching(Matching):
                 language_goal=language_goal,
                 **kwargs,
             )
-        return np.array([matches]), np.array([confidences]), np.array([instance_ids])
+        try:
+            return np.array([keypoints]), np.array([matches]), np.array([confidences]), np.array([instance_ids])
+        except Exception as e:
+            print(e)
+            import pdb;pdb.set_trace()
 
     def match_images_to_goal(
         self,
@@ -104,9 +108,9 @@ class GoatMatching(Matching):
         language_goal=None,
         **kwargs,
     ):
-        all_matches, all_confidences = [], []
+        all_matches, all_confidences, all_rgb_keypoints = [], [], []
         if image_goal is not None:
-            _, _, all_matches, all_confidences = matching_fn(
+            _, all_rgb_keypoints, all_matches, all_confidences = matching_fn(
                 all_views,
                 goal_image=image_goal,
                 goal_image_keypoints=kwargs["goal_image_keypoints"],
@@ -118,7 +122,7 @@ class GoatMatching(Matching):
                 all_views,
                 language_goal,
             )
-        return all_matches, all_confidences
+        return all_rgb_keypoints, all_matches, all_confidences
 
     def get_matches_against_memory(
         self,
@@ -167,7 +171,7 @@ class GoatMatching(Matching):
                 instance_ids.append(inst_key)
 
         if len(all_views) > 0:
-            all_matches, all_confidences = self.match_images_to_goal(
+            all_rgb_keypoints, all_matches, all_confidences = self.match_images_to_goal(
                 all_views,
                 matching_fn,
                 step,
@@ -179,12 +183,16 @@ class GoatMatching(Matching):
             # unflatten based on number of views per instance
             all_matches = np.concatenate(all_matches, 0)
             all_confidences = np.concatenate(all_confidences, 0)
+            # all_rgb_keypoints = np.concatenate(all_rgb_keypoints, 0)
             all_matches = np.split(all_matches, np.cumsum(instance_view_counts)[:-1])
             all_confidences = np.split(
                 all_confidences, np.cumsum(instance_view_counts)[:-1]
             )
-            return all_matches, all_confidences, instance_ids
-        return [], [], []
+            # all_rgb_keypoints = np.split(
+            #     all_rgb_keypoints, np.cumsum(instance_view_counts)[:-1]
+            # )
+            return all_rgb_keypoints, all_matches, all_confidences, instance_ids
+        return [], [], [], []
 
     @torch.no_grad()
     def match_image_to_image(
@@ -255,9 +263,9 @@ class GoatMatching(Matching):
                 goal_keypoints = pred["keypoints0"]
 
             if "keypoints1" in matcher_inputs:
-                rgb_keypoints = matcher_inputs["keypoints1"]
+                rgb_keypoints = matcher_inputs["keypoints1"].cpu().numpy()
             else:
-                rgb_keypoints = pred["keypoints1"]
+                rgb_keypoints = [pred["keypoints1"][0].cpu().numpy()]
             if isinstance(rgb_image, np.ndarray) and len(rgb_image.shape) == 3:
                 return goal_keypoints, rgb_keypoints, matches, confidence
 
@@ -340,15 +348,15 @@ class GoatMatching(Matching):
         pred = self.matcher(matcher_inputs)
         matches = pred["matches0"].cpu().numpy()
         confidence = pred["matching_scores0"].cpu().numpy()
-        for i in range(len(rgb_image_batched)):
-            single_matcher_input = {
-                "image0": goal_image_processed,
-                "image1": rgb_image_batched[i],
-                **goal_image_keypoints,
-                **rgb_image_keypoints,
-            }
+        # for i in range(len(rgb_image_batched)):
+        #     single_matcher_input = {
+        #         "image0": goal_image_processed,
+        #         "image1": rgb_image_batched[i],
+        #         **goal_image_keypoints,
+        #         **rgb_image_keypoints,
+        #     }
 
-            self._batched_visualize(single_matcher_input, pred, step + i, idx=i)
+        #     self._batched_visualize(single_matcher_input, pred, step + i, idx=i)
 
         if "keypoints0" in matcher_inputs:
             goal_keypoints = matcher_inputs["keypoints0"]
@@ -378,10 +386,16 @@ class GoatMatching(Matching):
         # get clip embedding for views with a batch size of batch_size
 
         views = views_orig
-        views = torch.stack(
-            [self.clip_preprocess(ToPILImage()(v.astype(np.uint8))) for v in views],
-            dim=0,
-        )
+        if views[0].shape[0] == 3:
+            views = torch.stack(
+                [self.clip_preprocess(ToPILImage()(v.transpose(2,1,0).astype(np.uint8))) for v in views],
+                dim=0,
+            )
+        else:
+            views = torch.stack(
+                [self.clip_preprocess(ToPILImage()(v.astype(np.uint8))) for v in views],
+                dim=0,
+            )
         view_embeddings = torch.cat(
             [
                 self.clip_model.encode_image(v.to(self.device))
@@ -505,7 +519,7 @@ class GoatMatching(Matching):
         agg_fn: str = "max",
     ) -> Tuple[torch.Tensor, torch.Tensor, bool, Optional[int]]:
         """Select and localize an instance given computed matching scores."""
-        print(f"Selecting and localizing an instance with threshold {score_thresh}")
+        # print(f"Selecting and localizing an instance with threshold {score_thresh}")
         goal_pose = None
         instance_map = local_map[0][
             MC.NON_SEM_CHANNELS

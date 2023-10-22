@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import habitat
+import json
 import numpy as np
 from habitat.sims.habitat_simulator.actions import HabitatSimActions
 
@@ -17,7 +18,18 @@ from home_robot.utils.constants import (
 )
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 from home_robot_sim.env.habitat_goat_env.visualizer import Visualizer
+from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
+    MaskRCNNPerception,
+)
 
+all_ovon_categories_path = "/srv/flash1/rramrakhya3/fall_2023/goat/data/hm3d_meta/ovon_categories_final_split.json"
+with open(all_ovon_categories_path, "r") as f:
+    all_ovon_categories = json.load(f)
+
+# all_ovon_categories = [y for x in all_ovon_categories.values() for y in x if type(y) == str]
+all_ovon_categories = sorted(list(set(all_ovon_categories["val_seen"])))
+
+all_ovon_categories = ["_".join(x.split(" ")) for x in all_ovon_categories]
 
 class HabitatGoatEnv(HabitatEnv):
     semantic_category_mapping: Union[HM3DtoCOCOIndoor]
@@ -40,6 +52,12 @@ class HabitatGoatEnv(HabitatEnv):
         self.config = config
         self.current_episode = None
 
+        # self.segmentation = MaskRCNNPerception(
+        #     sem_pred_prob_thr=0.9,
+        #     sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
+        # )
+        self.init_perception_module()
+
     def fetch_vocabulary(self, goals):
         # TODO: get open set vocabulary
         vocabulary = []
@@ -56,10 +74,10 @@ class HabitatGoatEnv(HabitatEnv):
         # goal_type, goal = self.update_and_fetch_goal()
         goals = habitat_obs["multigoal"]
         # open set vocabulary – all HM3D categories?
-        vocabulary = self.fetch_vocabulary(goals)
-        print("Vocabulary:", vocabulary)
+        # vocabulary = self.fetch_vocabulary(goals)
+        # print("Vocabulary:", vocabulary)
         if not self.ground_truth_semantics:
-            self.init_perception_module(vocabulary)
+            self.init_perception_module()
 
         self.semantic_category_mapping.reset_instance_id_to_category_id(
             self.habitat_env
@@ -73,31 +91,48 @@ class HabitatGoatEnv(HabitatEnv):
             scene_id, self.habitat_env.current_episode.episode_id
         )
 
-    def init_perception_module(self, vocabulary: Tuple[str, str]):
+    def init_perception_module(self, vocabulary=None):
         from home_robot.perception.detection.detic.detic_perception import (
             DeticPerception,
         )
-        from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
-            MaskRCNNPerception,
+        
+        all_ovon_categories_path = "/srv/flash1/rramrakhya3/fall_2023/goat/data/hm3d_meta/ovon_categories_final_split.json"
+        with open(all_ovon_categories_path, "r") as f:
+            all_ovon_categories = json.load(f)
+
+        # all_ovon_categories = [y for x in all_ovon_categories.values() for y in x if type(y) == str]
+        all_ovon_categories = sorted(list(set(all_ovon_categories["val_seen"])))
+
+        all_ovon_categories = ["_".join(x.split(" ")) for x in all_ovon_categories]
+
+        # print(all_ovon_categories)
+
+        self.segmentation = DeticPerception(
+            vocabulary="custom",
+            custom_vocabulary=",".join(all_ovon_categories),
+            sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
         )
 
-        # self.segmentation = DeticPerception(
-        #     vocabulary="custom",
-        #     custom_vocabulary=",".join(vocabulary),
+        # self.segmentation = MaskRCNNPerception(
+        #     sem_pred_prob_thr=0.9,
         #     sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
         # )
 
-        self.segmentation = MaskRCNNPerception(
-            sem_pred_prob_thr=0.8,
-            sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
-        )
+        # from home_robot.perception.detection.grounded_sam.ram_perception import RAMPerception
+
+        # self.segmentation = RAMPerception(
+        #     custom_vocabulary=".",
+        #     sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
+        #     verbose=False,
+        #     # **module_kwargs
+        # )
 
 
     def _preprocess_obs(
         self, habitat_obs: habitat.core.simulator.Observations
     ) -> home_robot.core.interfaces.Observations:
         depth = self._preprocess_depth(habitat_obs["depth"])
-        goals, vocabulary = self._preprocess_goals(
+        goals = self._preprocess_goals(
             self.current_episode.tasks, habitat_obs
         )
         obs = home_robot.core.interfaces.Observations(
@@ -112,14 +147,14 @@ class HabitatGoatEnv(HabitatEnv):
             camera_pose=None,
             third_person_image=None,
         )
-        obs = self._preprocess_semantic(obs, habitat_obs["semantic"], vocabulary)
+        obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
         return obs
 
     def _preprocess_semantic(
         self,
         obs: home_robot.core.interfaces.Observations,
         habitat_semantic: np.ndarray,
-        vocabulary,
+        vocabulary=None,
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
             raise NotImplementedError
@@ -158,7 +193,7 @@ class HabitatGoatEnv(HabitatEnv):
             # TODO Ground-truth semantic visualization
             obs.task_observations["semantic_frame"] = obs.rgb
         else:
-            obs = self.segmentation.predict(obs, depth_threshold=0.5)
+            obs = self.segmentation.predict(obs)
 
         obs.task_observations["semantic_frame"] = np.concatenate(
             [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
@@ -174,62 +209,19 @@ class HabitatGoatEnv(HabitatEnv):
     def _preprocess_goals(self, tasks, habitat_obs):
         goals = []
         vocabulary = []
-        for idx, task in enumerate(tasks):
-            goal = {
-                "type": task["task_type"],
-            }
 
-            if task["task_type"] == "objectnav":
-                goal["target"] = task["object_category"]
-            elif task["task_type"] == "languagenav":
-                if "llm_response" in task.keys():
-                    target = task["llm_response"]["target"]
-                    landmarks = task["llm_response"]["landmark"]
-                    if target in landmarks:
-                        landmarks.remove(target)
+        goals = habitat_obs['multigoal']
 
-                    if "wall" in landmarks:
-                        landmarks.remove("wall")  # unhelpful landmark
-
-                    target = "_".join(target.split())
-                    landmarks = ["_".join(landmark.split()) for landmark in landmarks]
-
-                    goal["target"] = target
-                    goal["landmarks"] = landmarks
-                    if "instructions" in task:
-                        goal["instruction"] = task["instructions"][0]
-                else:
-                    goal["target"] = task["object_category"]
-                    goal["instruction"] = task["instructions"][0].split('Instruction: Find ')[-1]
-            elif task["task_type"] == "imagenav":
-                goal["target"] = task["object_category"]
-                goal["image"] = habitat_obs["multigoal"][idx]["image"]
-
-            if goal["target"] not in vocabulary:
-                vocabulary.append(goal["target"])
-            if "landmarks" in goal.keys():
-                if goal["landmarks"] not in vocabulary:
-                    vocabulary += goal["landmarks"]
-
-            from home_robot.perception.detection.maskrcnn.coco_categories import coco_categories
-            
-            if goal["target"] in coco_categories.keys():
-                goal["semantic_id"] = coco_categories[goal["target"]] + 1
+        for goal_v in goals:
+            goal_v["semantic_id"] = all_ovon_categories.index("_".join(goal_v["category"].split(" ")))
+            if goal_v["image"] is not None:
+                goal_v["type"] = "imagenav"
+            elif goal_v["description"] :
+                goal_v["type"] = "languagenav"
             else:
-                for cat in coco_categories.keys():
-                    if cat in goal["target"] or goal["target"] in cat:
-                        goal["semantic_id"] = coco_categories[cat] + 1
-                        break
+                goal_v["type"] = "objectnav"
 
-            if "semantic_id" not in goal.keys():
-                if goal["target"] == "sofa":
-                    goal["target"] = "couch"
-                else:
-                    print("Object category not found:", goal["target"])
-
-            # goal["semantic_id"] = vocabulary.index(goal["target"]) + 1
-            goals.append(goal)
-        return goals, vocabulary
+        return goals
 
     def _preprocess_action(self, action: home_robot.core.interfaces.Action) -> int:
 
@@ -246,7 +238,7 @@ class HabitatGoatEnv(HabitatEnv):
             if (
                 self.habitat_env.current_episode.tasks[
                     self.habitat_env.task.current_task_idx
-                ]["task_type"]
-                != "imagenav"
+                ][1]
+                != "image"
             ):
                 self.visualizer.visualize(**info)

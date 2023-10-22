@@ -57,7 +57,7 @@ class DiscretePlanner:
         print_images: bool,
         dump_location: str,
         exp_name: str,
-        min_goal_distance_cm: float = 50.0,
+        min_goal_distance_cm: float = 40.0,
         min_obs_dilation_selem_radius: int = 1,
         agent_cell_radius: int = 1,
         map_downsample_factor: float = 1.0,
@@ -232,11 +232,15 @@ class DiscretePlanner:
             )
         except Exception as e:
             print("Warning! Planner crashed with error:", e)
+            replan = None
+            stop = None
             return (
                 DiscreteNavigationAction.STOP,
                 np.zeros(goal_map.shape),
                 (0, 0),
                 np.zeros(goal_map.shape),
+                replan,
+                stop
             )
         # Short term goal is in cm, start_x and start_y are in m
         if debug:
@@ -305,6 +309,8 @@ class DiscretePlanner:
                         closest_goal_map,
                         short_term_goal,
                         dilated_obstacles,
+                        replan,
+                        stop
                     )
 
         # Normalize agent angle
@@ -369,7 +375,7 @@ class DiscretePlanner:
         )
 
         self.last_action = action
-        return action, closest_goal_map, short_term_goal, dilated_obstacles, replan
+        return action, closest_goal_map, short_term_goal, dilated_obstacles, replan, stop
 
     def get_action(
         self,
@@ -554,7 +560,7 @@ class DiscretePlanner:
         state = [start[0] - x1 + 1, start[1] - y1 + 1]
         # This is where we create the planner to get the trajectory to this state
         stg_x, stg_y, replan, stop = planner.get_short_term_goal(
-            state, continuous=(not self.discrete_actions)
+            state, continuous=(not self.discrete_actions), timestep=self.timestep
         )
         stg_x, stg_y = stg_x + x1 - 1, stg_y + y1 - 1
         short_term_goal = int(stg_x), int(stg_y)

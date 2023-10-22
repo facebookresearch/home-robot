@@ -163,6 +163,7 @@ class GoatAgentModule(nn.Module):
             # TODO:
             init_local_map[:, 21][seq_found_goal[:, 0] == 0] *= 0.0
 
+        stale_local_id_to_global_id_map = self.instance_memory.local_id_to_global_id_map.copy()
         # Update map with observations and generate map features
         batch_size, sequence_length = seq_obs.shape[:2]
         (
@@ -217,7 +218,7 @@ class GoatAgentModule(nn.Module):
                 matches,
                 confidence,
                 local_instance_ids,
-                self.instance_memory.local_id_to_global_id_map,
+                stale_local_id_to_global_id_map,
                 self.instance_goal_found,
                 self.goal_inst,
                 all_matches=all_matches,

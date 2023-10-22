@@ -26,9 +26,9 @@ class FMMPlanner:
         step_size: int = 5,
         goal_tolerance: float = 2.0,
         vis_dir: str = "data/images/planner",
-        visualize=True,
+        visualize=False,
         print_images=True,
-        debug=True,
+        debug=False,
     ):
         """
         Arguments:
@@ -158,7 +158,7 @@ class FMMPlanner:
                 )
         return dd
 
-    def get_short_term_goal(self, state: List[float], continuous=True):
+    def get_short_term_goal(self, state: List[float], continuous=True, timestep=0):
         """Compute the short-term goal closest to the current state.
 
         Arguments:
