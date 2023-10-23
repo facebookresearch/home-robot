@@ -15,6 +15,7 @@ import numpy as np
 import open3d
 import rospy
 import torch
+from PIL import Image
 
 # Mapping and perception
 import home_robot.utils.depth as du
@@ -35,93 +36,7 @@ from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.visualizer import Visualizer
-
-
-def run_grasping(
-    robot: StretchClient, semantic_sensor, to_grasp="cup", to_place="chair"
-):
-    """Start running grasping code here"""
-    robot.switch_to_manipulation_mode()
-    robot.move_to_demo_pregrasp_posture()
-    rospy.sleep(2)
-
-    def within(x, y):
-        return (
-            x >= 0
-            and x < obs.semantic.shape[0]
-            and y >= 0
-            and y < obs.semantic.shape[1]
-        )
-
-    if to_grasp is not None:
-        ### GRASPING ROUTINE
-        # Get observations from the robot
-        obs = robot.get_observation()
-        # Predict masks
-        obs = semantic_sensor.predict(obs)
-
-        print(f"Try to grasp {to_grasp}:")
-        to_grasp_oid = None
-        for oid in np.unique(obs.semantic):
-            if oid == 0:
-                continue
-            cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
-            print(f"- {oid} {cid} = {classname}")
-            if classname == to_grasp:
-                to_grasp_oid = oid
-
-        x, y = np.mean(np.where(obs.semantic == to_grasp_oid), axis=1)
-        if not within(x, y):
-            print("WARN: to_grasp object not within valid semantic map bounds")
-            return
-        x = int(x)
-        y = int(y)
-
-        c_x, c_y, c_z = obs.xyz[x, y]
-        c_pt = np.array([c_x, c_y, c_z, 1.0])
-        m_pt = obs.camera_pose @ c_pt
-        m_x, m_y, m_z, _ = m_pt
-
-        print(f"- Execute grasp at {m_x=}, {m_y=}, {m_z=}.")
-        robot._ros_client.trigger_grasp(m_x, m_y, m_z)
-        robot.switch_to_manipulation_mode()
-        robot.move_to_demo_pregrasp_posture()
-        print(" - Done grasping!")
-
-    if to_place is not None:
-        ### PLACEMENT ROUTINE
-        # Get observations from the robot
-        obs = robot.get_observation()
-        # Predict masks
-        obs = semantic_sensor.predict(obs)
-
-        to_place_oid = None
-        for oid in np.unique(obs.semantic):
-            if oid == 0:
-                continue
-            cid, classname = semantic_sensor.current_vocabulary.map_goal_id(oid)
-            print(f"- {oid} {cid} = {classname}")
-            if classname == to_place:
-                to_place_oid = oid
-
-        x, y = np.mean(np.where(obs.semantic == to_place_oid), axis=1)
-        if not within(x, y):
-            print("WARN: to_place object not within valid semantic map bounds")
-            return
-        x = int(x)
-        y = int(y)
-
-        c_x, c_y, c_z = obs.xyz[x, y]
-        c_pt = np.array([c_x, c_y, c_z, 1.0])
-        m_pt = obs.camera_pose @ c_pt
-        m_x, m_y, m_z, _ = m_pt
-
-        print(f"- Execute place at {m_x=}, {m_y=}, {m_z=}.")
-        robot._ros_client.trigger_placement(m_x, m_y, m_z)
-        robot.switch_to_manipulation_mode()
-        robot.move_to_demo_pregrasp_posture()
-        rospy.sleep(2)
-        print(" - Done placing!")
+from home_robot_hw.utils.grasping import GraspPlanner
 
 
 def get_task_goals(parameters: Dict[str, Any]) -> Tuple[str, str]:
@@ -220,19 +135,11 @@ def main(
         device_id=device_id, verbose=verbose
     )
 
-    # Run grasping test - just grab whatever is in front of the robot
-    if test_grasping:
-        run_grasping(
-            robot,
-            semantic_sensor,
-            to_grasp=object_to_find,
-            to_place=location_to_place,
-        )
-        rospy.signal_shutdown("done")
-        return
-
     print("- Start robot agent with data collection")
-    demo = RobotAgent(robot, semantic_sensor, parameters, rpc_stub=stub)
+    grasp_client = GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
+    demo = RobotAgent(
+        robot, semantic_sensor, parameters, rpc_stub=stub, grasp_client=grasp_client
+    )
     demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
     if object_to_find is not None:
         print(f"\nSearch for {object_to_find} and {location_to_place}")
@@ -241,6 +148,19 @@ def main(
     else:
         matches = []
 
+    # Run grasping test - just grab whatever is in front of the robot
+    if test_grasping:
+        print("- Switch to manipulation mode")
+        demo.robot.switch_to_manipulation_mode()
+        time.sleep(1.0)
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            print(f"- Try to grasp {object_to_find}")
+            result = demo.grasp(object_goal=object_to_find)
+            print(f"{result=}")
+            rate.sleep()
+        return
+    # Run the actual procedure
     try:
         if len(matches) == 0 or force_explore:
             print(f"Exploring for {object_to_find}, {location_to_place}...")
@@ -254,7 +174,6 @@ def main(
         print("Done collecting data.")
         matches = demo.get_found_instances_by_class(object_to_find)
         print("-> Found", len(matches), f"instances of class {object_to_find}.")
-        # demo.voxel_map.show(orig=np.zeros(3))
 
         if stub is not None:
             print("!!!!!!!!!!!!!!!!!!!!!")
@@ -271,10 +190,8 @@ def main(
                 print("Moving to instance failed!")
             else:
                 print(f"- Grasp {object_to_find} using FUNMAP")
-                if not no_manip:
-                    run_grasping(
-                        robot, semantic_sensor, to_grasp=object_to_find, to_place=None
-                    )
+                res = demo.grasp(object_goal=object_to_find)
+                print(f"- Grasp result: {res}")
 
                 matches = demo.get_found_instances_by_class(location_to_place)
                 if len(matches) == 0:
@@ -294,12 +211,13 @@ def main(
                 else:
                     print(f"- Placing on {location_to_place} using FUNMAP")
                     if not no_manip:
-                        run_grasping(
-                            robot,
-                            semantic_sensor,
-                            to_grasp=None,
-                            to_place=location_to_place,
-                        )
+                        # run_grasping(
+                        #    robot,
+                        #    semantic_sensor,
+                        #    to_grasp=None,
+                        #    to_place=location_to_place,
+                        # )
+                        pass
     except Exception as e:
         raise (e)
     finally:
@@ -323,8 +241,7 @@ def main(
             print(f"Write pkl to {output_pkl_filename}...")
             demo.voxel_map.write_to_pickle(output_pkl_filename)
 
-        from PIL import Image
-
+        # Write out instance images
         for i, instance in enumerate(demo.voxel_map.get_instances()):
             for j, view in enumerate(instance.instance_views):
                 image = Image.fromarray(view.cropped_image.byte().cpu().numpy())

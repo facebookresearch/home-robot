@@ -14,7 +14,7 @@ from atomicwrites import atomic_write
 from loguru import logger
 from PIL import Image
 
-from home_robot.core.robot import RobotClient
+from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
 from home_robot.mapping.voxel import (
     SparseVoxelMap,
@@ -112,11 +112,13 @@ class RobotAgent:
         robot: RobotClient,
         semantic_sensor,
         parameters: Dict[str, Any],
+        grasp_client: Optional[GraspClient] = None,
         rpc_stub=None,
     ):
         self.parameters = parameters
         self.robot = robot
         self.rpc_stub = rpc_stub
+        self.grasp_client = grasp_client
 
         self.semantic_sensor = semantic_sensor
         self.normalize_embeddings = True
@@ -180,6 +182,16 @@ class RobotAgent:
         else:
             self.chat = None
             self._publisher = None
+
+    def grasp(self, object_goal: Optional[str] = None, **kwargs) -> bool:
+        """Try to grasp a potentially specified object."""
+        # Put the robot in manipulation mode
+        if not self.robot.in_manipulation_mode():
+            self.robot.switch_to_manipulation_mode()
+        if self.grasp_client is None:
+            logger.warn("Tried to grasp without providing a grasp client.")
+            return False
+        return self.grasp_client.try_grasping(object_goal=object_goal, **kwargs)
 
     def get_plan_from_vlm(self):
         """This is a connection to a remote thing for getting language commands"""
@@ -273,7 +285,7 @@ class RobotAgent:
     def move_to_any_instance(self, matches: List[Tuple[int, Instance]]):
         """Check instances and find one we can move to"""
         self.current_state = "NAV_TO_INSTANCE"
-        self.robot.move_to_nav_posture()
+        self.robot.switch_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start)
         start_is_valid_retries = 5
@@ -395,6 +407,18 @@ class RobotAgent:
                 matching_instances.append((i, instance))
         return self.filter_matches(matching_instances, threshold=threshold)
 
+    def get_reachable_instances_by_class(
+        self, goal: Optional[str], threshold: int = 0, debug: bool = False
+    ):
+        """See if we can reach dilated object masks for different objects."""
+        matches = self.get_found_instances_by_class
+        reachable_matches = []
+        for instance in matches:
+            # compute its mask
+            # see if this mask's area is explored and reachable from the current robot
+            breakpoint()
+        return reachable_matches
+
     def filter_matches(self, matches: List[Tuple[int, Instance]], threshold: int = 1):
         """return only things we have not tried {threshold} times"""
         filtered_matches = []
@@ -408,7 +432,7 @@ class RobotAgent:
         print("Go back to (0, 0, 0) to finish...")
         print("- change posture and switch to navigation mode")
         self.current_state = "NAV_TO_HOME"
-        self.robot.move_to_nav_posture()
+        # self.robot.move_to_nav_posture()
         self.robot.head.look_close(blocking=False)
         self.robot.switch_to_navigation_mode()
 
@@ -507,9 +531,6 @@ class RobotAgent:
             # if it fails, skip; else, execute a trajectory to this position
             if res.success:
                 print("Plan successful!")
-                # print("Full plan:")
-                # for i, pt in enumerate(res.trajectory):
-                #     print("-", i, pt.state)
                 if not dry_run:
                     self.robot.nav.execute_trajectory(
                         [pt.state for pt in res.trajectory],
@@ -523,7 +544,7 @@ class RobotAgent:
                 input("... press enter ...")
 
             if task_goal is not None:
-                matches = self.get_found_instances_by_class(task_goal)
+                matches = self.get_reachable_instances_by_class(task_goal)
                 if len(matches) > 0:
                     print("!!! GOAL FOUND! Done exploration. !!!")
                     break
