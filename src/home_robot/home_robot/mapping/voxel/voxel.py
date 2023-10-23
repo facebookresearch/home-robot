@@ -68,7 +68,32 @@ def ensure_tensor(arr):
 
 
 class SparseVoxelMap(object):
-    """Create a voxel map object which captures 3d information."""
+    """Create a voxel map object which captures 3d information.
+
+    This class represents a 3D voxel map used for capturing environmental information. It provides various parameters
+    for configuring the map's properties, such as resolution, feature dimensions, and instance memory settings.
+
+    Attributes:
+        resolution (float): The size of a voxel in meters.
+        feature_dim (int): The size of feature embeddings to capture per-voxel point, separate from instance memory.
+        grid_size (Tuple[int, int]): The dimensions of the voxel grid (optional).
+        grid_resolution (float): The resolution of the grid (optional).
+        obs_min_height (float): The minimum height for observations.
+        obs_max_height (float): The maximum height for observations.
+        obs_min_density (float): The minimum density for observations.
+        smooth_kernel_size (int): The size of the smoothing kernel.
+        add_local_radius_points (bool): Whether to add local radius points.
+        local_radius (float): The radius for local points.
+        min_depth (float): The minimum depth for observations.
+        max_depth (float): The maximum depth for observations.
+        pad_obstacles (int): Padding for obstacles.
+        background_instance_label (int): The label for the background instance.
+        instance_memory_kwargs (Dict[str, Any]): Additional instance memory configuration.
+        voxel_kwargs (Dict[str, Any]): Additional voxel configuration.
+        encoder (Optional[ClipEncoder]): An encoder for feature embeddings (optional).
+        map_2d_device (str): The device for 2D mapping.
+        use_instance_memory (bool): Whether to create object-centric instance memory.
+    """
 
     DEFAULT_INSTANCE_MAP_KWARGS = dict(
         du_scale=1,
@@ -79,8 +104,8 @@ class SparseVoxelMap(object):
 
     def __init__(
         self,
-        resolution=0.01,
-        feature_dim=3,
+        resolution: float = 0.01,
+        feature_dim: int = 3,
         grid_size: Tuple[int, int] = None,
         grid_resolution: float = 0.05,
         obs_min_height: float = 0.1,
@@ -97,8 +122,14 @@ class SparseVoxelMap(object):
         voxel_kwargs: Dict[str, Any] = {},
         encoder: Optional[ClipEncoder] = None,
         map_2d_device: str = "cpu",
-        use_instance_memory=True,
+        use_instance_memory: bool = True,
     ):
+        """
+        Args:
+            resolution(float): in meters, size of a voxel
+            feature_dim(int): size of feature embeddings to capture per-voxel point (separate from instance memory)
+            use_instance_memory(bool): if we should create object-centric instance memory
+        """
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
         self.feature_dim = feature_dim
@@ -292,17 +323,34 @@ class SparseVoxelMap(object):
         # TODO: we should remove the xyz/feats maybe? just use observations as input?
         # TODO: switch to using just Obs struct?
         # Shape checking
-        assert rgb.ndim == 3, f"{rgb.ndim=}"
-        assert (
-            rgb.shape[:-1] == depth.shape
-        ), f"depth and rgb image sizes must match; got {rgb.shape=} {depth.shape=}"
-        H, W, _ = rgb.shape
+        assert rgb.ndim == 3 or rgb.ndim == 2, f"{rgb.ndim=}: must be 2 or 3"
+        if isinstance(rgb, np.ndarray):
+            rgb = torch.from_numpy(rgb)
+        if isinstance(camera_pose, np.ndarray):
+            camera_pose = torch.from_numpy(camera_pose)
+        if self.use_instance_memory:
+            assert rgb.ndim == 3, f"{rgb.ndim=}: must be 3 if using instance memory"
+            H, W, _ = rgb.shape
+            if instance_image is None:
+                assert (
+                    obs is not None
+                ), "must provide instance image or raw observations with instances"
+                assert (
+                    obs.instance is not None
+                ), "must provide instance image in observation if not available otherwise"
+                if isinstance(obs.instance, np.ndarray):
+                    instance_image = torch.from_numpy(obs.instance)
+        if depth is not None:
+            assert (
+                rgb.shape[:-1] == depth.shape
+            ), f"depth and rgb image sizes must match; got {rgb.shape=} {depth.shape=}"
         assert xyz is not None or (camera_K is not None and depth is not None)
         if xyz is not None:
             assert (
                 xyz.shape[-1] == 3
             ), "xyz must have last dimension = 3 for x, y, z position of points"
             assert rgb.shape == xyz.shape, "rgb shape must match xyz"
+            # Make sure shape is correct here for xyz and any passed-in features
             if feats is not None:
                 assert (
                     feats.shape[-1] == self.feature_dim
@@ -312,23 +360,17 @@ class SparseVoxelMap(object):
                 ), "features must be available for each point"
             else:
                 pass
+            if isinstance(xyz, np.ndarray):
+                xyz = torch.from_numpy(xyz)
         if depth is not None:
             assert depth.ndim == 2 or xyz_frame == "world"
         if camera_K is not None:
-            assert camera_K.ndim == 2
-        if instance_image is None:
-            assert (
-                obs is not None
-            ), "must provide instance image or raw observations with instances"
-            assert (
-                obs.instance is not None
-            ), "must provide instance image in observation if not available otherwise"
-            instance_image = torch.from_numpy(obs.instance)
+            assert camera_K.ndim == 2, "camera intrinsics K must be a 3x3 matrix"
         assert (
             camera_pose.ndim == 2
             and camera_pose.shape[0] == 4
             and camera_pose.shape[1] == 4
-        )
+        ), "Camera pose must be a 4x4 matrix representing a pose in SE(3)"
         assert (
             xyz_frame in VALID_FRAMES
         ), f"frame {xyz_frame} was not valid; should one one of {VALID_FRAMES}"
@@ -339,7 +381,7 @@ class SparseVoxelMap(object):
                 full_world_xyz = (
                     torch.cat([xyz, torch.ones_like(xyz[..., [0]])], dim=-1)
                     @ camera_pose.T
-                )[:, :, :3]
+                )[..., :3]
             elif xyz_frame == "world":
                 full_world_xyz = xyz
             else:
@@ -440,10 +482,6 @@ class SparseVoxelMap(object):
         assert x0 >= 0
         assert y0 >= 0
         self._visited[x0:x1, y0:y1] += self._visited_disk
-
-    def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
-        """Return the current point cloud and features; optionally copying."""
-        raise NotImplementedError("Should this return pointcloud? Instances?")
 
     def write_to_pickle(self, filename: str):
         """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""

@@ -145,7 +145,6 @@ class GraspPlanner(GraspClient):
         # Choose instance mask with highest score for goal mask
         instance_scores = obs.task_observations["instance_scores"].copy()
         class_mask = obs.task_observations["instance_classes"] == object_goal
-        breakpoint()
         valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
         class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
 
