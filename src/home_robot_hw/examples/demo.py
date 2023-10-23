@@ -153,11 +153,14 @@ def main(
         print("- Switch to manipulation mode")
         demo.robot.switch_to_manipulation_mode()
         time.sleep(1.0)
-        print(f"- Try to grasp {object_to_find}")
-        demo.grasp(object_goal=object_to_find)
-        rospy.signal_shutdown("done")
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            print(f"- Try to grasp {object_to_find}")
+            result = demo.grasp(object_goal=object_to_find)
+            print(f"{result=}")
+            rate.sleep()
         return
-
+    # Run the actual procedure
     try:
         if len(matches) == 0 or force_explore:
             print(f"Exploring for {object_to_find}, {location_to_place}...")

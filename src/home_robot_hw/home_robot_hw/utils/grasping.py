@@ -139,10 +139,13 @@ class GraspPlanner(GraspClient):
         # Pull object goal from task spec if it was provided by the environment
         if object_goal is None:
             object_goal = obs.task_observations["object_goal"]
+        elif isinstance(object_goal, str):
+            object_goal = self.semantic_sensor.get_class_id_for_name(object_goal)
 
         # Choose instance mask with highest score for goal mask
         instance_scores = obs.task_observations["instance_scores"].copy()
         class_mask = obs.task_observations["instance_classes"] == object_goal
+        breakpoint()
         valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
         class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
 
