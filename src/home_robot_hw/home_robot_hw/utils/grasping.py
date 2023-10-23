@@ -9,8 +9,12 @@ from typing import Optional, Tuple
 
 import numpy as np
 import rospy
+import skimage
+import torch
+import trimesh
 from geometry_msgs.msg import TransformStamped
 
+import home_robot.utils.planar as planar
 import home_robot.utils.visualization as viz
 from home_robot.core import Env, Observations
 from home_robot.core.robot import GraspClient, RobotClient
@@ -21,6 +25,7 @@ from home_robot.motion.stretch import (
     HelloStretchKinematics,
 )
 from home_robot.perception import OvmmPerception
+from home_robot.utils.morphology import binary_denoising
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
@@ -43,6 +48,7 @@ class GraspPlanner(GraspClient):
         min_detection_threshold: float = 0.5,
         max_distance_m: float = 1.5,
         pregrasp_height: float = 1.2,
+        smooth_kernel_size: int = 5,
         semantic_sensor: Optional[OvmmPerception] = None,
     ):
         self.robot_client = robot_client
@@ -60,6 +66,22 @@ class GraspPlanner(GraspClient):
         self.min_obj_pts = min_obj_pts
         self.min_detection_threshold = min_detection_threshold
         self.max_distance_m = max_distance_m
+
+        # Placement parameters
+        self.place_up_axis = torch.Tensor([0, 0, 1]).double()
+        self.place_nbr_dist = 0.4
+        self.place_residual_thresh = 0.03
+        self.place_step_size = 500
+
+        # Create kernel to get rid of issues with the masks used for grasping
+        self.smooth_kernel_size = smooth_kernel_size
+        self.smooth_kernel = torch.nn.Parameter(
+            torch.from_numpy(skimage.morphology.disk(self.smooth_kernel_size))
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .float(),
+            requires_grad=False,
+        )
 
         # Add this flag to make sure that the point clouds are coming in correctly - will visualize what the points look like relative to a base coordinate frame with z = up, x = forward
         self.debug_point_cloud = debug_point_cloud
@@ -169,6 +191,149 @@ class GraspPlanner(GraspClient):
 
         return best_goal_mask, class_map
 
+    def _ensure_manipulation_mode(self):
+        """Make sure we are in the manipulation mode"""
+        if not self.robot_client.in_manipulation_mode():
+            self.robot_client.switch_to_manipulation_mode()
+        self.robot_client.head.look_at_ee(blocking=False)
+
+    def get_observation(self, object_goal, visualize: bool = False):
+        """Get a single updated observation and make sure we get the pose and object mask for it"""
+
+        t0 = timeit.default_timer()
+        if self.env is not None:
+            # Get the observation from the environment if it exists
+            obs = self.env.prev_obs
+        else:
+            # Get the observation directly from the robot itself
+            # This will not have any other information
+            obs = self.robot_client.get_observation()
+
+        if obs is None:
+            print("[Grasping] No observation available in environment!")
+            return None
+        rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
+
+        # In world coordinates
+        # camera_pose_world = self.robot_client.head.get_pose()
+        # camera_pose = camera_pose_world
+        # In base coordinates
+        camera_pose_base = self.robot_client.head.get_pose_in_base_coords()
+        camera_pose = camera_pose_base
+
+        # TODO: remove debug code
+        if self.debug_point_cloud:
+            import trimesh
+
+            from home_robot.utils.point_cloud import show_point_cloud
+
+            show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
+            xyz2 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
+            show_point_cloud(xyz2, rgb / 255.0, orig=np.zeros(3))
+            camera_pose_world = self.robot_client.head.get_pose()
+            xyz3 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose_world)
+            show_point_cloud(xyz3, rgb / 255.0, orig=np.zeros(3))
+
+        if self.verbose:
+            print(
+                "Getting images + cam pose took",
+                timeit.default_timer() - t0,
+                "seconds",
+            )
+
+        _, all_object_masks = self.get_object_class_masks(obs, object_goal=object_goal)
+        # TODO: return to this if we want to take goal mask as an argument in the future
+        # For now though we will choose the closest one
+        # object_mask = obs.task_observations["goal_mask"]
+        # TODO: in the future, we will make this a flag.
+        object_mask = self.get_closest_goal(
+            xyz,
+            all_object_masks,
+            obs.task_observations["instance_map"],
+            debug=False,
+        )
+
+        # Break the loop if we are not seeing anything
+        if object_mask is None:
+            print("[Grasping] --> could not find object mask with enough points")
+            return None
+
+        if visualize:
+            viz.show_image_with_mask(rgb, object_mask)
+
+        num_object_pts = np.sum(object_mask)
+        print("[Grasping] found this many object points:", num_object_pts)
+        if num_object_pts < self.min_obj_pts:
+            return None
+
+        mask_valid = (
+            depth > self.robot_client._ros_client.dpt_cam.near_val
+        )  # remove bad points
+        mask_scene = mask_valid  # initial mask has to be good
+        mask_scene = mask_scene.reshape(-1)
+
+        # Return information
+        return xyz, rgb, camera_pose, object_mask
+
+    def try_placing(
+        self,
+        object_goal: Optional[str] = None,
+        max_tries: int = 1,
+        visualize: bool = False,
+        sleep_t: float = 0.5,
+    ):
+        """Detect and place at different locations."""
+        self._ensure_manipulation_mode()
+
+        for attempt in range(max_tries):
+            # Make an attempt to place
+            self.robot_client.head.look_at_ee(blocking=False)
+            self.robot_client.manip.goto_joint_positions(
+                self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
+            )
+            rospy.sleep(sleep_t)
+            manip_obs = self.get_observation(object_goal, visualize)
+            if manip_obs is not None:
+                xyz, rgb, camera_pose, object_mask = manip_obs
+            else:
+                print(f"[place] failed to detect object {object_goal}")
+                continue
+            object_mask = binary_denoising(
+                torch.from_numpy(object_mask)[None].float(), self.smooth_kernel
+            ).cpu()[0]
+            xyz = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
+            if visualize:
+                from home_robot.utils.point_cloud import show_point_cloud
+
+                print("Showing points after transforming into world frame...")
+                show_point_cloud(xyz, rgb / 255, orig=np.zeros(3))
+            xyz = torch.from_numpy(xyz)
+            object_mask = object_mask.view(-1).bool()
+            obj_xyz = xyz[object_mask]
+            try:
+                print(f"Object has this many points: {obj_xyz.shape[0]}")
+                location, _ = planar.find_placeable_location(
+                    obj_xyz,
+                    self.place_up_axis,
+                    nbr_dist=self.place_nbr_dist,
+                    residual_thresh=self.place_residual_thresh,
+                    step=self.place_step_size,
+                )
+            except ValueError as e:
+                print(e)
+                continue
+
+            if visualize:
+                # TODO: remove debug code
+                # rgb = torch.from_numpy(rgb).view(-1, 3)
+                # obj_rgb = rgb[object_mask]
+                show_point_cloud(
+                    xyz.cpu().numpy(), rgb / 255, orig=location.cpu().numpy()
+                )
+
+            # Compute position on the mask
+            breakpoint()
+
     def try_grasping(
         self,
         object_goal: Optional[str] = None,
@@ -178,15 +343,13 @@ class GraspPlanner(GraspClient):
         wait_for_input: bool = False,
         switch_mode: bool = True,
         z_standoff: float = 0.4,
+        sleep_t: float = 0.5,
     ):
         """Detect grasps and try to pick up an object in front of the robot.
         Visualize - will show debug point clouds
         Dry run - does not actually move, just computes everything"""
 
-        # Make sure we are in the manipulation mode
-        if not self.robot_client.in_manipulation_mode():
-            self.robot_client.switch_to_manipulation_mode()
-        self.robot_client.head.look_at_ee(blocking=False)
+        self._ensure_manipulation_mode()
         self.robot_client.manip.open_gripper()
 
         grasp_completed = False
@@ -196,83 +359,14 @@ class GraspPlanner(GraspClient):
             self.robot_client.manip.goto_joint_positions(
                 self.robot_client.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
             )
-            rospy.sleep(1.0)
+            rospy.sleep(sleep_t)
 
             # Get the observations - we need depth and xyz point clouds
-            t0 = timeit.default_timer()
-
-            if self.env is not None:
-                # Get the observation from the environment if it exists
-                obs = self.env.prev_obs
+            manip_obs = self.get_observation(object_goal, visualize=visualize)
+            if manip_obs is not None:
+                xyz, rgb, camera_pose, object_mask = manip_obs
             else:
-                # Get the observation directly from the robot itself
-                # This will not have any other information
-                obs = self.robot_client.get_observation()
-
-            if obs is None:
-                print("[Grasping] No observation available in environment!")
                 return False
-            rgb, depth, xyz = obs.rgb, obs.depth, obs.xyz
-
-            # In world coordinates
-            # camera_pose_world = self.robot_client.head.get_pose()
-            # camera_pose = camera_pose_world
-            # In base coordinates
-            camera_pose_base = self.robot_client.head.get_pose_in_base_coords()
-            camera_pose = camera_pose_base
-
-            # TODO: remove debug code
-            if self.debug_point_cloud:
-                import trimesh
-
-                from home_robot.utils.point_cloud import show_point_cloud
-
-                show_point_cloud(xyz, rgb / 255.0, orig=np.zeros(3))
-                xyz2 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose)
-                show_point_cloud(xyz2, rgb / 255.0, orig=np.zeros(3))
-                camera_pose_world = self.robot_client.head.get_pose()
-                xyz3 = trimesh.transform_points(xyz.reshape(-1, 3), camera_pose_world)
-                show_point_cloud(xyz3, rgb / 255.0, orig=np.zeros(3))
-
-            if self.verbose:
-                print(
-                    "Getting images + cam pose took",
-                    timeit.default_timer() - t0,
-                    "seconds",
-                )
-
-            _, all_object_masks = self.get_object_class_masks(
-                obs, object_goal=object_goal
-            )
-            # TODO: return to this if we want to take goal mask as an argument in the future
-            # For now though we will choose the closest one
-            # object_mask = obs.task_observations["goal_mask"]
-            # TODO: in the future, we will make this a flag.
-            object_mask = self.get_closest_goal(
-                xyz,
-                all_object_masks,
-                obs.task_observations["instance_map"],
-                debug=False,
-            )
-
-            # Break the loop if we are not seeing anything
-            if object_mask is None:
-                print("[Grasping] --> could not find object mask with enough points")
-                return False
-
-            if visualize:
-                viz.show_image_with_mask(rgb, object_mask)
-
-            num_object_pts = np.sum(object_mask)
-            print("[Grasping] found this many object points:", num_object_pts)
-            if num_object_pts < self.min_obj_pts:
-                return False
-
-            mask_valid = (
-                depth > self.robot_client._ros_client.dpt_cam.near_val
-            )  # remove bad points
-            mask_scene = mask_valid  # initial mask has to be good
-            mask_scene = mask_scene.reshape(-1)
 
             predicted_grasps, in_base_frame = self.grasp_client.request(
                 xyz,

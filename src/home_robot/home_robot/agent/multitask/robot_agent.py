@@ -183,6 +183,15 @@ class RobotAgent:
             self.chat = None
             self._publisher = None
 
+    def place(self, object_goal: Optional[str] = None, **kwargs) -> bool:
+        """Try to place an object."""
+        if not self.robot.in_manipulation_mode():
+            self.robot.switch_to_manipulation_mode()
+        if self.grasp_client is None:
+            logger.warn("Tried to place without providing a grasp client.")
+            return False
+        return self.grasp_client.try_placing(object_goal=object_goal, **kwargs)
+
     def grasp(self, object_goal: Optional[str] = None, **kwargs) -> bool:
         """Try to grasp a potentially specified object."""
         # Put the robot in manipulation mode

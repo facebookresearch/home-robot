@@ -20,7 +20,7 @@ import torch
 from atomicwrites import atomic_write
 from loguru import logger
 
-import home_robot_spot.nav_client as nc
+import home_robot.utils.planar as nc
 from examples.demo_utils.mock_agent import MockSpotDemoAgent
 
 # Simple IO tool for robot agents

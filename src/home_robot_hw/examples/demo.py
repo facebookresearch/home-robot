@@ -56,6 +56,24 @@ def get_task_goals(parameters: Dict[str, Any]) -> Tuple[str, str]:
     return object_to_find, location_to_place
 
 
+def do_manipulation_test(demo, object_to_find, location_to_place):
+    """Run a quick manipulation test, picking and placing right in front of the robot."""
+    print("- Switch to manipulation mode")
+    demo.robot.switch_to_manipulation_mode()
+    time.sleep(1.0)
+    rate = rospy.Rate(10)
+    while not rospy.is_shutdown():
+        print(f"- Try to grasp {object_to_find}")
+        # result = demo.grasp(object_goal=object_to_find)
+        # print(f"{result=}")
+        # if not result:
+        #    continue
+        print(f"- Try to place {object_to_find} on {location_to_place}")
+        result = demo.place(object_goal=location_to_place)
+        print(f"{result=}")
+        rate.sleep()
+
+
 @click.command()
 @click.option("--rate", default=5, type=int)
 @click.option("--visualize", default=False, is_flag=True)
@@ -150,15 +168,7 @@ def main(
 
     # Run grasping test - just grab whatever is in front of the robot
     if test_grasping:
-        print("- Switch to manipulation mode")
-        demo.robot.switch_to_manipulation_mode()
-        time.sleep(1.0)
-        rate = rospy.Rate(10)
-        while not rospy.is_shutdown():
-            print(f"- Try to grasp {object_to_find}")
-            result = demo.grasp(object_goal=object_to_find)
-            print(f"{result=}")
-            rate.sleep()
+        do_manipulation_test(demo, object_to_find, location_to_place)
         return
     # Run the actual procedure
     try:

@@ -7,7 +7,7 @@
 #### 0. Requirements
 
 - **home-robot branch:** `goat`
-- Access to [Mathews fork](https://github.com/MatthewChang/spot-sim2real/tree/b66f4dd399efeca16a115ef5d106759fb871adc7) of spotsim2real is required.
+- Access to [Matthew's fork](https://github.com/MatthewChang/spot-sim2real/tree/b66f4dd399efeca16a115ef5d106759fb871adc7) of spotsim2real is required.
 
 #### 1. Install Home-robot as usual.
 
