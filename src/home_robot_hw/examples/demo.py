@@ -15,6 +15,7 @@ import numpy as np
 import open3d
 import rospy
 import torch
+from PIL import Image
 
 # Mapping and perception
 import home_robot.utils.depth as du
@@ -134,18 +135,8 @@ def main(
         device_id=device_id, verbose=verbose
     )
 
-    # Run grasping test - just grab whatever is in front of the robot
-    if test_grasping:
-        raise NotImplementedError()
-        # run_grasping(
-        #     to_grasp=object_to_find,
-        #    to_place=location_to_place,
-        # )
-        rospy.signal_shutdown("done")
-        return
-
     print("- Start robot agent with data collection")
-    grasp_client = GraspPlanner(robot)
+    grasp_client = GraspPlanner(robot, env=None, semantic_sensor=semantic_sensor)
     demo = RobotAgent(
         robot, semantic_sensor, parameters, rpc_stub=stub, grasp_client=grasp_client
     )
@@ -156,6 +147,16 @@ def main(
         print(f"Currently {len(matches)} matches for {object_to_find}.")
     else:
         matches = []
+
+    # Run grasping test - just grab whatever is in front of the robot
+    if test_grasping:
+        print("- Switch to manipulation mode")
+        demo.robot.switch_to_manipulation_mode()
+        time.sleep(1.0)
+        print(f"- Try to grasp {object_to_find}")
+        demo.grasp(object_goal=object_to_find)
+        rospy.signal_shutdown("done")
+        return
 
     try:
         if len(matches) == 0 or force_explore:
@@ -237,8 +238,7 @@ def main(
             print(f"Write pkl to {output_pkl_filename}...")
             demo.voxel_map.write_to_pickle(output_pkl_filename)
 
-        from PIL import Image
-
+        # Write out instance images
         for i, instance in enumerate(demo.voxel_map.get_instances()):
             for j, view in enumerate(instance.instance_views):
                 image = Image.fromarray(view.cropped_image.byte().cpu().numpy())

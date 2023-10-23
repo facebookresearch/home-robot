@@ -185,6 +185,9 @@ class RobotAgent:
 
     def grasp(self, object_goal: Optional[str] = None, **kwargs) -> bool:
         """Try to grasp a potentially specified object."""
+        # Put the robot in manipulation mode
+        if not self.robot.in_manipulation_mode():
+            self.robot.switch_to_manipulation_mode()
         if self.grasp_client is None:
             logger.warn("Tried to grasp without providing a grasp client.")
             return False
@@ -282,7 +285,7 @@ class RobotAgent:
     def move_to_any_instance(self, matches: List[Tuple[int, Instance]]):
         """Check instances and find one we can move to"""
         self.current_state = "NAV_TO_INSTANCE"
-        self.robot.move_to_nav_posture()
+        self.robot.switch_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start)
         start_is_valid_retries = 5
@@ -429,7 +432,7 @@ class RobotAgent:
         print("Go back to (0, 0, 0) to finish...")
         print("- change posture and switch to navigation mode")
         self.current_state = "NAV_TO_HOME"
-        self.robot.move_to_nav_posture()
+        # self.robot.move_to_nav_posture()
         self.robot.head.look_close(blocking=False)
         self.robot.switch_to_navigation_mode()
 

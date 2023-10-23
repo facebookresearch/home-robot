@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -80,8 +80,10 @@ class SemanticCategoryMapping(ABC):
     the color palettes and legends to visualize these categories.
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, goal_id_to_goal_name: Dict[int, str]):
+        self.goal_id_to_goal_name = goal_id_to_goal_name
+        for gid, gname in self.goal_id_to_goal_name.items():
+            self.goal_name_to_goal_id[gname] = gid
 
     @abstractmethod
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
@@ -299,7 +301,6 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
     """
 
     def __init__(self):
-        super().__init__()
         self.goal_id_to_goal_name = {idx: name for name, idx in coco_categories.items()}
         self.hm3d_goal_id_to_coco_goal_name = {
             0: "chair",
@@ -318,6 +319,7 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
             5: 1,  # couch
         }
         self._instance_id_to_category_id = None
+        super().__init__(self.goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (
@@ -427,9 +429,9 @@ class LanguageNavCategories(SemanticCategoryMapping):
     """
 
     def __init__(self):
-        super().__init__()
         self.goal_id_to_goal_name = languagenav_2categories_indexes
         self._instance_id_to_category_id = None
+        super().__init__(self.goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.goal_id_to_goal_name[goal_id])
@@ -639,9 +641,9 @@ class FloorplannertoMukulIndoor(SemanticCategoryMapping):
     """
 
     def __init__(self):
-        super().__init__()
         self.floorplanner_goal_id_to_goal_name = mukul_33categories_indexes
         self._instance_id_to_category_id = None
+        super().__init__(self.floorplanner_goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.floorplanner_goal_id_to_goal_name[goal_id])
@@ -767,9 +769,9 @@ class HM3DtoHSSD28Indoor(SemanticCategoryMapping):
     """ """
 
     def __init__(self):
-        super().__init__()
         self.floorplanner_goal_id_to_goal_name = hssd_28categories_indexes
         self._instance_id_to_category_id = None
+        super().__init__(self.floorplanner_goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.floorplanner_goal_id_to_goal_name[goal_id])
@@ -802,9 +804,9 @@ class HM3DtoHSSD28Indoor(SemanticCategoryMapping):
 
 class RearrangeBasicCategories(SemanticCategoryMapping):
     def __init__(self):
-        super().__init__()
         self.goal_id_to_goal_name = rearrange_3categories_indexes
         self._instance_id_to_category_id = None
+        super().__init__(self.goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.goal_id_to_goal_name[goal_id])
@@ -847,10 +849,11 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
     Uses a default list of categories if no category list is passed."""
 
     def __init__(self, categories_indexes, num_sem_objects=None):
-        super().__init__()
         self.goal_id_to_goal_name = categories_indexes
         self._num_sem_obj_categories = num_sem_objects
         self._instance_id_to_category_id = None
+        self.goal_name_to_goal_id: Dict[str, int] = {}
+        super().__init__(self.goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.goal_id_to_goal_name[goal_id])
@@ -1803,7 +1806,6 @@ hm3d_to_longtail_indoor = {
 
 class HM3DtoLongTailIndoor(SemanticCategoryMapping):
     def __init__(self):
-        super().__init__()
         self.hm3d_goal_id_to_longtail_goal_name = {
             0: "chair",
             1: "bed",
@@ -1821,6 +1823,7 @@ class HM3DtoLongTailIndoor(SemanticCategoryMapping):
             5: long_tail_indoor_categories.index("couch"),
         }
         self._instance_id_to_category_id = None
+        super().__init__(self.hm3d_goal_id_to_longtail_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (

@@ -20,6 +20,7 @@ from home_robot.motion.stretch import (
     HelloStretchIdx,
     HelloStretchKinematics,
 )
+from home_robot.perception import OvmmPerception
 from home_robot.utils.pose import to_pos_quat
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.utils import matrix_to_pose_msg, ros_pose_to_transform
@@ -42,9 +43,15 @@ class GraspPlanner(GraspClient):
         min_detection_threshold: float = 0.5,
         max_distance_m: float = 1.5,
         pregrasp_height: float = 1.2,
+        semantic_sensor: Optional[OvmmPerception] = None,
     ):
         self.robot_client = robot_client
         self.env = env
+        self.semantic_sensor = semantic_sensor
+        if self.env is None and self.semantic_sensor is None:
+            raise RuntimeError(
+                "Must provide one of semantic sensor or env; otherwise how can we get object detections?"
+            )
         self.grasp_client = RosGraspClient()
         self.verbose = verbose
         self.planner = SimpleGraspMotionPlanner(
@@ -124,12 +131,17 @@ class GraspPlanner(GraspClient):
             obs(Observations): observation
             object_goal(str): optional name of object to grasp"""
 
-        # Choose instance mask with highest score for goal mask
-        instance_scores = obs.task_observations["instance_scores"].copy()
-        # "object_goal" is the object id in the semantic mask
+        # Get semantic sensor and use to make predictions
+        if obs.semantic is None:
+            # Try to use the semantic sensor
+            obs = self.semantic_sensor.predict(obs)
+
+        # Pull object goal from task spec if it was provided by the environment
         if object_goal is None:
             object_goal = obs.task_observations["object_goal"]
-        breakpoint()
+
+        # Choose instance mask with highest score for goal mask
+        instance_scores = obs.task_observations["instance_scores"].copy()
         class_mask = obs.task_observations["instance_classes"] == object_goal
         valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
         class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
