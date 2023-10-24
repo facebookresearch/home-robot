@@ -145,7 +145,12 @@ def find_placeable_location(
     max_tries = min(max_tries, num_points)
 
     idxs = torch.randperm(num_points)[:max_tries]
-    for i, idx in enumerate(idxs):
+    center_point = pointcloud.mean(dim=0)
+    dists_to_center = torch.norm(pointcloud - center_point.unsqueeze(0), dim=1)
+    for i, (dist_to_center, idx) in enumerate(
+        sorted(zip(dists_to_center, idxs), key=lambda p: p[0])
+    ):
+
         if step is not None and i % step != 0:
             continue
 

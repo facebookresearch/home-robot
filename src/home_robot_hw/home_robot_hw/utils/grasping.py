@@ -69,8 +69,8 @@ class GraspPlanner(GraspClient):
 
         # Placement parameters
         self.place_up_axis = torch.Tensor([0, 0, 1]).double()
-        self.place_nbr_dist = 0.4
-        self.place_residual_thresh = 0.03
+        self.place_nbr_dist = 0.3
+        self.place_residual_thresh = 0.05
         self.place_step_size = 500
 
         # Create kernel to get rid of issues with the masks used for grasping
@@ -101,7 +101,7 @@ class GraspPlanner(GraspClient):
         min_dist = float("Inf")
         min_id = -1
         best_mask = None
-        print("Choosing a mask to grasp:")
+        print("Choosing a mask to grasp or place:")
         for obj_id in unique_ids:
             # Skip background points
             if obj_id < 0:
@@ -320,19 +320,24 @@ class GraspPlanner(GraspClient):
                     step=self.place_step_size,
                 )
             except ValueError as e:
-                print(e)
+                print(f"[Placing] failed with error: {e}")
                 continue
 
+            visualize = True
             if visualize:
                 # TODO: remove debug code
                 # rgb = torch.from_numpy(rgb).view(-1, 3)
                 # obj_rgb = rgb[object_mask]
+                from home_robot.utils.point_cloud import show_point_cloud
+
                 show_point_cloud(
                     xyz.cpu().numpy(), rgb / 255, orig=location.cpu().numpy()
                 )
 
             # Compute position on the mask
-            breakpoint()
+            # Run through placement planner to this location
+            return True
+        return False
 
     def try_grasping(
         self,
