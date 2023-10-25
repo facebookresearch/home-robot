@@ -42,7 +42,7 @@ class GoatAgent(Agent):
 
     def __init__(self, config, device_id: int = 0):
         # self.max_steps = config.AGENT.max_steps
-        self.max_steps = [300, 300, 200, 200, 200]
+        self.max_steps = [500, 500, 500, 500, 500]
         # self.max_steps = [500, 400, 300, 200, 200, 200, 200, 200, 200, 200, 200]
         # self.max_steps = [400, 300, 200, 200, 200, 200, 200, 200, 200, 200, 200]
         self.num_environments = config.NUM_ENVIRONMENTS
@@ -558,7 +558,8 @@ class GoatAgent(Agent):
                 info = {
                     **planner_inputs[0],
                     **vis_inputs[0],
-                    "semantic_frame": obs.rgb,
+                    "rgb_frame": obs.rgb,
+                    "semantic_frame": obs.semantic,
                     "closest_goal_map": closest_goal_map,
                     "last_goal_image": obs.task_observations["tasks"][
                         self.current_task_idx

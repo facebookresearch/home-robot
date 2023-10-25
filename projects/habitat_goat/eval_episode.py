@@ -30,13 +30,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--habitat_config_path",
         type=str,
-        default="goat/modular_goat_hm3d.yaml",
+        default="goat/modular_goat_hm3d_stretch.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
         "--baseline_config_path",
         type=str,
-        default="projects/habitat_goat/configs/agent/hm3d_eval.yaml",
+        default="projects/habitat_goat/configs/agent/hm3d_eval_stretch.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
@@ -94,17 +94,14 @@ if __name__ == "__main__":
         # if episode_id in ["7", "15", "19", "0"]:
         #     continue
 
-        if episode_id != "1":
-            continue
-
         # if i < 48:
         #     continue
 
         # if scene_id != "HkseAnWCgqk":
         #     continue
         # else:
-        #     if episode_id != "1":
-        #         continue
+        # if episode_id != "0":
+        #     continue
 
         # if scene_id != 'XYyR54sxe6b':
         #     continue

@@ -324,9 +324,15 @@ languagenav_2categories_legend_path = str(
 # languagenav_2categories_color_palette = [255, 255, 255] + list(
 #     d3_40_colors_rgb[1:3].flatten()
 # )
+
+# languagenav_2categories_color_palette = [255, 255, 255] + list(
+#     d3_40_colors_rgb[1:].flatten()
+# )
+
 languagenav_2categories_color_palette = [255, 255, 255] + list(
-    d3_40_colors_rgb[1:].flatten()
-)
+    np.array([d3_40_colors_rgb[1:].flatten()] * 10).flatten()
+)[:737]
+
 languagenav_2categories_frame_color_palette = languagenav_2categories_color_palette + [
     255,
     255,
@@ -369,7 +375,6 @@ languagenav_2categories_map_color_palette = [
         *[x / 255.0 for x in languagenav_2categories_color_palette],
     ]
 ]
-
 
 class LanguageNavCategories(SemanticCategoryMapping):
     """

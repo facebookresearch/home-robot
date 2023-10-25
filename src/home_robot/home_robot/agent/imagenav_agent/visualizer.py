@@ -20,7 +20,7 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 from home_robot.perception.constants import PaletteIndices as PI
-from home_robot.perception.constants import languagenav_2categories_map_color_palette
+from home_robot.perception.constants import languagenav_2categories_map_color_palette, languagenav_2categories_color_palette
 from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_categories_color_palette,
 )
@@ -188,6 +188,7 @@ class NavVisualizer:
         sensor_pose: np.ndarray,
         found_goal: bool,
         explored_map: np.ndarray,
+        rgb_frame: np.ndarray,
         semantic_frame: np.ndarray,
         timestep: int,
         last_goal_image,
@@ -216,6 +217,7 @@ class NavVisualizer:
             found_goal: whether we found the object goal category
             explored_map: (M, M) binary local explored map prediction
             semantic_map: (M, M) local semantic map predictions
+            rgb_frame: rgb frame visualization
             semantic_frame: semantic frame visualization
             timestep: time step within the episode
             last_td_map: habitat oracle top down map
@@ -233,7 +235,15 @@ class NavVisualizer:
             obstacle_map = dilated_obstacle_map
 
         goal_frame = self.make_goal(last_goal_image)
+
         obs_frame = self.make_observations(
+            rgb_frame,
+            last_collisions["is_collision"],
+            found_goal,
+            metrics,
+        )
+        print(np.unique(semantic_frame))
+        sem_frame = self.make_sem_observations(
             semantic_frame,
             last_collisions["is_collision"],
             found_goal,
@@ -255,13 +265,18 @@ class NavVisualizer:
 
         if td_map_frame is None:
             frame = np.concatenate(
-                [goal_frame, obs_frame, map_pred_frame, kp_frame], axis=1
+                [goal_frame, obs_frame, map_pred_frame, sem_frame], axis=1
             )
         else:
-            upper_frame = np.concatenate([goal_frame, obs_frame, kp_frame], axis=1)
-            lower_frame = self.pad_frame(
-                np.concatenate([map_pred_frame, td_map_frame], axis=1),
-                upper_frame.shape[1],
+            # upper_frame = np.concatenate([goal_frame, obs_frame, sem_frame], axis=1)
+            # lower_frame = self.pad_frame(
+            #     np.concatenate([map_pred_frame, td_map_frame], axis=1),
+            #     upper_frame.shape[1],
+            # )
+            lower_frame = np.concatenate([map_pred_frame, td_map_frame], axis=1)
+            upper_frame = self.pad_frame(
+                np.concatenate([goal_frame, obs_frame, sem_frame], axis=1),
+                lower_frame.shape[1]
             )
             frame = np.concatenate([upper_frame, lower_frame], axis=0)
 
@@ -409,6 +424,74 @@ class NavVisualizer:
         )
         return frame
 
+
+    def make_sem_observations(
+        self,
+        sem_img: np.ndarray,
+        collision: bool,
+        found_goal: bool,
+        metrics: Dict[str, float],
+    ) -> np.ndarray:
+        """
+        make the egocentric RGB observation sub-frame. Overlay a goal detected banner
+        and a collision border.
+        """
+
+        semantic_map_vis = Image.new(
+            "P", (sem_img.shape[1], sem_img.shape[0])
+        )
+
+        sem_img = sem_img % 255
+
+        semantic_map_vis.putpalette(languagenav_2categories_color_palette)
+        semantic_map_vis.putdata(sem_img.flatten().astype(np.uint8))
+        semantic_map_vis = semantic_map_vis.convert("RGB")
+
+        sem_img = np.asarray(semantic_map_vis)[:, :, [2, 1, 0]]
+
+        border_size = 10
+        text_bar_height = 50 - border_size
+        new_h = self.ind_frame_height - text_bar_height - 2 * border_size
+        new_w = int(new_h / sem_img.shape[0] * sem_img.shape[1])
+
+        sem_img = cv2.resize(sem_img, (new_w, new_h))
+
+        if found_goal:
+            sem_img = self._found_goal_detection(sem_img)
+
+        sem_img = self._write_metrics(sem_img, metrics)
+
+        if collision:
+            sem_img = draw_collision(sem_img)
+
+        sem_img = cv2.cvtColor(sem_img, cv2.COLOR_RGB2BGR)
+        sem_img = self._add_border(sem_img, border_size)
+        w = sem_img.shape[1]
+
+        top_bar = np.ones((text_bar_height, w, 3), dtype=np.uint8) * 255
+        frame = np.concatenate([top_bar, sem_img.astype(np.uint8)], axis=0)
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        fontScale = 0.8
+        color = (20, 20, 20)
+        thickness = 2
+
+        text = "Observation"
+        textsize = cv2.getTextSize(text, font, fontScale, thickness)[0]
+        textX = (w - textsize[0]) // 2
+        textY = (text_bar_height + border_size + textsize[1]) // 2
+        frame = cv2.putText(
+            frame,
+            text,
+            (textX, textY),
+            font,
+            fontScale,
+            color,
+            thickness,
+            cv2.LINE_AA,
+        )
+        return frame
+
     def make_map_preds(
         self,
         sensor_pose: np.ndarray,
@@ -474,6 +557,7 @@ class NavVisualizer:
         semantic_map_vis = Image.new(
             "P", (semantic_map.shape[1], semantic_map.shape[0])
         )
+
         semantic_map_vis.putpalette(MAP_COLOR_PALETTE)
         semantic_map_vis.putdata(semantic_map.flatten().astype(np.uint8))
         semantic_map_vis = semantic_map_vis.convert("RGB")

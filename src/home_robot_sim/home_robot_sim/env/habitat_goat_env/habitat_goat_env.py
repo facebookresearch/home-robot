@@ -22,6 +22,8 @@ from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
     MaskRCNNPerception,
 )
 
+from home_robot.perception.constants import df as hm3d_mapping_df
+
 all_ovon_categories_path = "/srv/flash1/rramrakhya3/fall_2023/goat/data/hm3d_meta/ovon_categories_final_split.json"
 with open(all_ovon_categories_path, "r") as f:
     all_ovon_categories = json.load(f)
@@ -52,11 +54,42 @@ class HabitatGoatEnv(HabitatEnv):
         self.config = config
         self.current_episode = None
 
+        ovon_semantic_ids = []
+
+        self.hm3d_mapping = {}
+
+        for obj in self.habitat_env.sim.semantic_scene.objects:
+            main_category = hm3d_mapping_df[hm3d_mapping_df['raw_category'] == obj.category.name()]
+            
+            # raw -> main category
+            if len(main_category) == 0:
+                continue
+            else:
+                main_category = main_category['category'].item()
+
+            main_category = "_".join(main_category.split(" "))
+
+            if main_category in all_ovon_categories:
+                self.hm3d_mapping[int(obj.id.split('_')[-1])] = all_ovon_categories.index(main_category) + 1
+
+
+        # for cat in hm3d_mapping_df['category'].tolist():
+        #     if cat in all_ovon_categories:
+        #         ovon_semantic_ids.append(all_ovon_categories.index(cat) + 1)
+        #     else:
+        #         ovon_semantic_ids.append(0)
+
+        # hm3d_mapping_df['ovon_semantic_ids'] = ovon_semantic_ids
+
+        # self.hm3d_mapping = hm3d_mapping_df.set_index('index')['ovon_semantic_ids'].to_dict()
+
         # self.segmentation = MaskRCNNPerception(
         #     sem_pred_prob_thr=0.9,
         #     sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
         # )
-        self.init_perception_module()
+
+        if not self.ground_truth_semantics:
+            self.init_perception_module()
 
     def fetch_vocabulary(self, goals):
         # TODO: get open set vocabulary
@@ -105,11 +138,9 @@ class HabitatGoatEnv(HabitatEnv):
 
         all_ovon_categories = ["_".join(x.split(" ")) for x in all_ovon_categories]
 
-        # print(all_ovon_categories)
-
         self.segmentation = DeticPerception(
             vocabulary="custom",
-            custom_vocabulary=",".join(all_ovon_categories),
+            custom_vocabulary="," + ",".join(all_ovon_categories),
             sem_gpu_id=(-1 if self.config.NO_GPU else self.habitat_env.sim.gpu_device),
         )
 
@@ -157,39 +188,43 @@ class HabitatGoatEnv(HabitatEnv):
         vocabulary=None,
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
-            raise NotImplementedError
-            instance_id_to_category_id = (
-                self.semantic_category_mapping.instance_id_to_category_id
-            )
-            obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
+
+            obs.semantic = np.vectorize(lambda x: self.hm3d_mapping.get(x, 0))(habitat_semantic)[..., 0]
             obs.task_observations["instance_map"] = habitat_semantic[:, :, -1] + 1
 
-            for idx_cat, obj_cat in enumerate(vocabulary):
-                obj_cat = " ".join(obj_cat.split("_"))
-                try:
-                    if obj_cat in self.semantic_category_mapping.all_hm3d_categories:
-                        idx = self.semantic_category_mapping.all_hm3d_categories.index(
-                            obj_cat
-                        )
-                        obs.semantic[obs.semantic == idx] = -1 * (idx_cat + 1)
-                    else:
+            # import pdb;pdb.set_trace()
+            # instance_id_to_category_id = (
+            #     self.semantic_category_mapping.instance_id_to_category_id
+            # )
+            # obs.semantic = instance_id_to_category_id[habitat_semantic[:, :, -1]]
+            # obs.task_observations["instance_map"] = habitat_semantic[:, :, -1] + 1
 
-                        all_categories = [x for x in self.semantic_category_mapping.all_hm3d_categories if type(x) == str]
-                        useful_categories = [x for x in all_categories if x in obj_cat or obj_cat in x]
-                        # print(obj_cat, useful_categories)
-                        for cat in useful_categories:
-                            idx = self.semantic_category_mapping.all_hm3d_categories.index(cat)
-                            obs.semantic[obs.semantic == idx] = -1 * (idx_cat + 1)
-                        # print("Object category not found:", obj_cat)
-                        # import pdb;pdb.set_trace()
-                except Exception as e:
-                    print(e)
-                    import pdb
+            # for idx_cat, obj_cat in enumerate(vocabulary):
+            #     obj_cat = " ".join(obj_cat.split("_"))
+            #     try:
+            #         if obj_cat in self.semantic_category_mapping.all_hm3d_categories:
+            #             idx = self.semantic_category_mapping.all_hm3d_categories.index(
+            #                 obj_cat
+            #             )
+            #             obs.semantic[obs.semantic == idx] = -1 * (idx_cat + 1)
+            #         else:
 
-                    pdb.set_trace()
+            #             all_categories = [x for x in self.semantic_category_mapping.all_hm3d_categories if type(x) == str]
+            #             useful_categories = [x for x in all_categories if x in obj_cat or obj_cat in x]
+            #             # print(obj_cat, useful_categories)
+            #             for cat in useful_categories:
+            #                 idx = self.semantic_category_mapping.all_hm3d_categories.index(cat)
+            #                 obs.semantic[obs.semantic == idx] = -1 * (idx_cat + 1)
+            #             # print("Object category not found:", obj_cat)
+            #             # import pdb;pdb.set_trace()
+            #     except Exception as e:
+            #         print(e)
+            #         import pdb
 
-            obs.semantic[obs.semantic >= 0] = 0
-            obs.semantic = obs.semantic * -1
+            #         pdb.set_trace()
+
+            # obs.semantic[obs.semantic >= 0] = 0
+            # obs.semantic = obs.semantic * -1
             # TODO Ground-truth semantic visualization
             obs.task_observations["semantic_frame"] = obs.rgb
         else:
@@ -213,7 +248,7 @@ class HabitatGoatEnv(HabitatEnv):
         goals = habitat_obs['multigoal']
 
         for goal_v in goals:
-            goal_v["semantic_id"] = all_ovon_categories.index("_".join(goal_v["category"].split(" ")))
+            goal_v["semantic_id"] = all_ovon_categories.index("_".join(goal_v["category"].split(" "))) + 1
             if goal_v["image"] is not None:
                 goal_v["type"] = "imagenav"
             elif goal_v["description"] :

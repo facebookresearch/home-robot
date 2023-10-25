@@ -3,7 +3,7 @@ BASE_TASK_CONFIG_PATH: configs/task/hm3d_challenge2022_val.yaml
 NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 35      # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
-EXP_NAME: openvocab_v0.1.1_gt_semantics_600    # experiment name
+EXP_NAME: stretch_openvocab_   # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
 GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
@@ -12,10 +12,10 @@ SHOW_RL_OBS: False         # whether to show the observations passed to RL polic
 
 ENVIRONMENT:
   turn_angle: 30.0        # agent turn angle (in degrees)
-  frame_height: 480       # first-person frame height (in pixels)
-  frame_width: 640        # first-person frame width (in pixels)
-  camera_height: 0.88     # camera sensor height (in metres)
-  hfov: 79.0              # horizontal field of view (in degrees)
+  frame_height: 640       # first-person frame height (in pixels)
+  frame_width: 360        # first-person frame width (in pixels)
+  camera_height: 1.31     # camera sensor height (in metres)
+  hfov: 42              # horizontal field of view (in degrees)
   min_depth: 0.5          # minimum depth for depth sensor (in metres)
   max_depth: 5.0          # maximum depth for depth sensor (in metres)
   max_num_sub_task_episodes: 5
@@ -35,16 +35,16 @@ AGENT:
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
     global_downscaling: 2    # ratio of global over local map
     du_scale: 4              # frame downscaling before projecting to point cloud
-    cat_pred_threshold: 5.0  # number of depth points to be in bin to classify it as a certain semantic category
+    cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
     map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
     explored_radius: 150     # radius (in centimeters) of visually explored region
-    been_close_to_radius: 200  # radius (in centimeters) of been close to region
+    been_close_to_radius: 100  # radius (in centimeters) of been close to region
     target_blacklisting_radius: 100 # radius (in centimeters) of region around goal to blacklist if object isn't a valid target
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle to be considered as obstacle
     # erosion and filtering to reduce the number of spurious artifacts
-    dilate_obstacles: False
+    dilate_obstacles: True
     dilate_size: 3
     dilate_iter: 1
     exploration_type: 'default'
@@ -59,7 +59,7 @@ AGENT:
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
-    min_obs_dilation_selem_radius: 2    # radius (in cells) of obstacle dilation structuring element
+    min_obs_dilation_selem_radius: 1    # radius (in cells) of obstacle dilation structuring element
     obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     use_dilation_for_stg: False      # use dilated goals for estimating short-term goals - or just reaching
