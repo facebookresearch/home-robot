@@ -19,16 +19,13 @@ from PIL import Image
 
 # Mapping and perception
 import home_robot.utils.depth as du
-from home_robot.agent.multitask.parameters import get_task_goals
+from home_robot.agent.multitask import get_parameters
 from home_robot.agent.multitask.robot_agent import RobotAgent
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.perception import create_semantic_sensor
 
 # Import planning tools for exploration
 from home_robot.perception.encoders import ClipEncoder
-
-# Other tools
-from home_robot.utils.config import get_config, load_config
 
 # Chat and UI tools
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
@@ -128,9 +125,9 @@ def main(
     robot.nav.navigate_to([0, 0, 0])
 
     print("- Load parameters")
-    parameters = get_config("src/home_robot_hw/configs/default.yaml")[0]
+    parameters = get_parameters("src/home_robot_hw/configs/default.yaml")
     print(parameters)
-    object_to_find, location_to_place = get_task_goals(parameters)
+    object_to_find, location_to_place = parameters.get_task_goals()
 
     print("- Create semantic sensor based on detic")
     config, semantic_sensor = create_semantic_sensor(
