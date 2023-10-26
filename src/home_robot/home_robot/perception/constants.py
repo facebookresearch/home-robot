@@ -806,6 +806,7 @@ class RearrangeBasicCategories(SemanticCategoryMapping):
     def __init__(self):
         self.goal_id_to_goal_name = rearrange_3categories_indexes
         self._instance_id_to_category_id = None
+        self.goal_name_to_goal_id: Dict[str, int] = {}
         super().__init__(self.goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:

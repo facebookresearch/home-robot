@@ -177,26 +177,29 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self, obs: home_robot.core.interfaces.Observations, habitat_obs
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
-            semantic = torch.from_numpy(
-                habitat_obs["all_object_segmentation"].squeeze(-1).astype(np.int64)
-            )
+            if "all_object_segmentation" in habitat_obs:
+                semantic = torch.from_numpy(
+                    habitat_obs["all_object_segmentation"].squeeze(-1).astype(np.int64)
+                )
+                obj_categories_in_seg = len(self._obj_id_to_name_mapping)
+            else:
+                semantic = torch.from_numpy(
+                    habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
+                )
+                obj_categories_in_seg = 1
             recep_seg = (
                 habitat_obs["receptacle_segmentation"].squeeze(-1).astype(np.int64)
             )
-            recep_seg[recep_seg != 0] += len(self._obj_id_to_name_mapping)
+            recep_seg[recep_seg != 0] += obj_categories_in_seg
             recep_seg = torch.from_numpy(recep_seg)
             semantic = semantic + recep_seg
             semantic[semantic == 0] = (
-                len(self._rec_id_to_name_mapping)
-                + 1
-                + len(self._obj_id_to_name_mapping)
+                len(self._rec_id_to_name_mapping) + obj_categories_in_seg + 1
             )
             obs.semantic = semantic.numpy()
-            obs.task_observations["recep_idx"] = 1 + len(self._obj_id_to_name_mapping)
+            obs.task_observations["recep_idx"] = 1 + obj_categories_in_seg
             obs.task_observations["semantic_max_val"] = (
-                len(self._rec_id_to_name_mapping)
-                + 1
-                + len(self._obj_id_to_name_mapping)
+                len(self._rec_id_to_name_mapping) + obj_categories_in_seg + 1
             )
         return obs
 
