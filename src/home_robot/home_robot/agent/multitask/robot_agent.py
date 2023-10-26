@@ -116,7 +116,12 @@ class RobotAgent:
         grasp_client: Optional[GraspClient] = None,
         rpc_stub=None,
     ):
-        self.parameters = Parameters(**parameters)
+        if isinstance(parameters, Dict):
+            self.parameters = Parameters(**parameters)
+        elif isinstance(parameters, Parameters):
+            self.parameters = parameters
+        else:
+            raise RuntimeError(f"parameters of unsupported type: {type(parameters)}")
         self.robot = robot
         self.rpc_stub = rpc_stub
         self.grasp_client = grasp_client
