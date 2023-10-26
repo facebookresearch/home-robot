@@ -14,6 +14,7 @@ from atomicwrites import atomic_write
 from loguru import logger
 from PIL import Image
 
+from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
 from home_robot.mapping.voxel import (
@@ -115,7 +116,7 @@ class RobotAgent:
         grasp_client: Optional[GraspClient] = None,
         rpc_stub=None,
     ):
-        self.parameters = parameters
+        self.parameters = Parameters(**parameters)
         self.robot = robot
         self.rpc_stub = rpc_stub
         self.grasp_client = grasp_client

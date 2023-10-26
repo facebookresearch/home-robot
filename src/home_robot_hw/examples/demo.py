@@ -19,6 +19,7 @@ from PIL import Image
 
 # Mapping and perception
 import home_robot.utils.depth as du
+from home_robot.agent.multitask.parameters import get_task_goals
 from home_robot.agent.multitask.robot_agent import RobotAgent
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.perception import create_semantic_sensor
@@ -37,23 +38,6 @@ from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
 from home_robot_hw.ros.visualizer import Visualizer
 from home_robot_hw.utils.grasping import GraspPlanner
-
-
-def get_task_goals(parameters: Dict[str, Any]) -> Tuple[str, str]:
-    """Helper for extracting task information"""
-    if "object_to_find" in parameters:
-        object_to_find = parameters["object_to_find"]
-        if len(object_to_find) == 0:
-            object_to_find = None
-    else:
-        object_to_find = None
-    if "location_to_place" in parameters:
-        location_to_place = parameters["location_to_place"]
-        if len(location_to_place) == 0:
-            location_to_place = None
-    else:
-        location_to_place = None
-    return object_to_find, location_to_place
 
 
 def do_manipulation_test(demo, object_to_find, location_to_place):
