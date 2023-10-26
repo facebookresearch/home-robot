@@ -17,7 +17,7 @@ from hydra_zen import store, zen
 from torch import Tensor
 from tqdm import tqdm
 
-from home_robot.agent.ovmm_agent.ovmm_perception import OvmmPerception
+from home_robot.perception import OvmmPerception
 from home_robot.core.interfaces import Observations
 from home_robot.datasets.scannet import ScanNetDataset
 from home_robot.mapping.instance import Instance
