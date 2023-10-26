@@ -2,6 +2,13 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+"""
+Example script which
+- Loads ZeroDepth from TRI
+- Connects to a Spot robot
+- Gets an image from its camera
+- Tries to get the zerodepth predictions from this robot
+"""
 import timeit
 
 import matplotlib.pyplot as plt
