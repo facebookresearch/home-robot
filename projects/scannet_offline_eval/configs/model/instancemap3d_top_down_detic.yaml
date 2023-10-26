@@ -1,0 +1,8 @@
+defaults:
+  - _self_
+  - semantic_sensor: detic_perception
+  - voxel_map: default
+
+_target_: home_robot.agent.multitask.sparse_voxel_instance_map.SparseVoxelMapAgent
+device: 'cuda:0'
+
