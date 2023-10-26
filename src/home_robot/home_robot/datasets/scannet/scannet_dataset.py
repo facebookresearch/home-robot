@@ -68,6 +68,8 @@ class ScanNetDataset(object):
         scanrefer_config: Optional[ScanReferDataConfig] = None,
         show_load_progress: bool = False,
         n_classes: int = 20,
+        load_only_first_k_frames: Optional[int] = None,
+        skipnan: bool = True,
     ):
         """
 
@@ -170,7 +172,6 @@ class ScanNetDataset(object):
         self.split = split
         self.height = height
         self.width = width
-
         assert (self.height is None) == (self.width is None)  # Neither or both
         self.frame_skip = frame_skip
 
@@ -197,6 +198,9 @@ class ScanNetDataset(object):
             :keep_only_first_k_scenes
         ]
         assert len(self.scene_list) > 0
+
+        self.load_only_first_k_frames = load_only_first_k_frames
+        self.skipnan = skipnan
 
         # Referit3d
         self.referit_data: Optional[pd.DateFrame] = None
@@ -327,13 +331,18 @@ class ScanNetDataset(object):
                 show=show_progress,
             )
         ):
+            if (
+                self.load_only_first_k_frames is not None
+                and i >= self.load_only_first_k_frames
+            ):
+                continue
             pose = np.loadtxt(pose_path)
             pose = np.array(pose).reshape(4, 4)
             # pose[:3, 1] *= -1
             # pose[:3, 2] *= -1
             pose = axis_align_mat @ torch.from_numpy(pose.astype(np.float32)).float()
             # We cannot accept files directly, as some of the poses are invalid
-            if torch.any(torch.isnan(pose)):
+            if self.skipnan and torch.any(torch.isnan(pose)):
                 # print(f"Found inf pose in {scan_name}")
                 continue
             poses.append(pose)
