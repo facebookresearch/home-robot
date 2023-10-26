@@ -393,7 +393,9 @@ class ScanNetDataset(object):
             # keep_boxes = (box_classes.unsqueeze(1) == self.class_ids_ten.unsqueeze(0)).any(
             #     dim=1
             # )
-            keep_boxes = self.class_ids_lookup[box_classes] != self.DROP_CLASS_VAL
+            keep_boxes = (
+                self.class_ids_lookup[box_classes.long()] != self.DROP_CLASS_VAL
+            )
             boxes_aligned = boxes_aligned[keep_boxes]
             box_classes = box_classes[keep_boxes]
             box_obj_ids = box_obj_ids[keep_boxes]
