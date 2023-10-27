@@ -13,12 +13,16 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
-import home_robot_spot.nav_client as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import torch
 from atomicwrites import atomic_write
+from loguru import logger
+from PIL import Image
+
+import home_robot_spot.nav_client as nc
+from home_robot.agent.multitask import Parameters
 from home_robot.agent.ovmm_agent import (
     OvmmPerception,
     build_vocab_from_category_map,
@@ -39,14 +43,22 @@ from home_robot.utils.config import Config, get_config, load_config
 from home_robot.utils.demo_chat import DemoChat
 from home_robot.utils.geometry import xyt_global_to_base
 from home_robot.utils.point_cloud import numpy_to_pcd
+
+# RPC tools
+from home_robot.utils.rpc import (
+    get_obj_centric_world_representation,
+    get_output_from_world_representation,
+    get_vlm_rpc_stub,
+    parse_pick_and_place_plan,
+)
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
-from loguru import logger
-from PIL import Image
 
 
 class MockSpotDemoAgent:
+    """Mock agent for offline testing"""
+
     def __init__(
         self,
         parameters: Dict[str, Any],
@@ -55,6 +67,8 @@ class MockSpotDemoAgent:
         path: str = None,
     ):
         self.voxel_map = SparseVoxelMap()
+        self.chat = None
+        self.parameters = Parameters(**parameters)
 
     def say(self, msg: str):
         """Provide input either on the command line or via chat client"""
@@ -81,22 +95,32 @@ class MockSpotDemoAgent:
                 return False
             return True
 
-    def run(self):
+    def get_language_task(self):
+        raise NotImplementedError()
+
+    def run(
+        self,
+        input_path: str,
+        args,
+        stub,
+    ):
+        """Run a simple offline version of the agent"""
+
         # Should load parameters from the yaml file
         self.voxel_map.read_from_pickle(input_path)
         world_representation = get_obj_centric_world_representation(
-            voxel_map.get_instances(), args.context_length
+            self.voxel_map.get_instances(), args.context_length
         )
+        data = {}
         # task is the prompt, save it
         data["prompt"] = self.get_language_task()
-        output = stub.stream_act_on_observations(
-            ProtoConverter.wrap_obs_iterator(
-                episode_id=random.randint(1, 1000000),
-                obs=world_representation,
-                goal=data["prompt"],
-            )
+        output = get_output_from_world_representation(
+            stub, world_representation, data["prompt"]
         )
-        if confirm_plan(plan):
+        pick_instance_id = None
+        place_instance_id = None
+        plan = output.action
+        if self.confirm_plan(plan):
             # now it is hacky to get two instance ids TODO: make it more general for all actions
             # get pick instance id
             current_high_level_action = plan.split("; ")[0]
@@ -110,6 +134,7 @@ class MockSpotDemoAgent:
                     )
                 ].crop_id
             )
+            print(f"{pick_instance_id=}")
             if len(plan.split(": ")) > 2:
                 # get place instance id
                 current_high_level_action = plan.split("; ")[2]
@@ -123,7 +148,7 @@ class MockSpotDemoAgent:
                         )
                     ].crop_id
                 )
-                print("place_instance_id", place_instance_id)
+                print(f"{place_instance_id=}")
 
 
 class MethodCall:
