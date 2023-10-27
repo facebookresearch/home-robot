@@ -69,3 +69,4 @@ confirm_plan: True
 
 # User interface
 chat: False
+context_length: 20

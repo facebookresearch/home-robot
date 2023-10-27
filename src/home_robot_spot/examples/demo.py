@@ -217,11 +217,6 @@ if __name__ == "__main__":
         help="Num of times of calling VLM for inference -- might be useful for long context length",
     )
     parser.add_argument(
-        "--context_length",
-        default=20,
-        help="Maximum number of images the vlm can reason about",
-    )
-    parser.add_argument(
         "--location",
         "-l",
         default="pit",

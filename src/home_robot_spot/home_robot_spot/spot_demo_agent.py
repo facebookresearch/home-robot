@@ -24,8 +24,7 @@ import home_robot.utils.planar as nc
 from examples.demo_utils.mock_agent import MockSpotDemoAgent
 
 # Simple IO tool for robot agents
-from home_robot.agent.multitask.robot_agent import publish_obs
-from home_robot.agent.ovmm_agent import create_semantic_sensor
+from home_robot.agent.multitask.robot_agent import RobotAgent, publish_obs
 from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
 from home_robot.mapping.voxel import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
@@ -36,6 +35,7 @@ from home_robot.motion.shortcut import Shortcut
 from home_robot.motion.spot import (  # Just saves the Spot robot footprint for kinematic planning
     SimpleSpotKinematics,
 )
+from home_robot.perception import create_semantic_sensor
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.config import Config, get_config, load_config
 from home_robot.utils.demo_chat import (
@@ -56,7 +56,10 @@ from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
 
-class SpotDemoAgent:
+
+class SpotDemoAgent(RobotAgent):
+    """Demo agent for use in Spot experiments. Should extend the base robot demo agent."""
+
     def __init__(
         self,
         parameters: Dict[str, Any],
@@ -634,14 +637,14 @@ class SpotDemoAgent:
             self.goto(center)
             success = False
             pick_instance_id = None
-            if args.enable_vlm == 1:
+            if stub is not None:
                 # get world_representation for planning
                 while True:
                     # self.navigate_to_an_instance(
                     #    instance_id=0, should_plan=self.parameters["plan_to_instance"]
                     # )
                     world_representation = get_obj_centric_world_representation(
-                        instances, args.context_length
+                        instances, self.parameters["context_length"]
                     )
                     # task is the prompt, save it
                     data["prompt"] = self.get_language_task()
