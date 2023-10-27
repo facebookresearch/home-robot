@@ -16,7 +16,7 @@ from PIL import Image
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
-from home_robot.mapping.semantic.instance_tracking_modules import InstanceMemory
+from home_robot.mapping.instance.instance_map import InstanceMemory
 from home_robot.perception.constants import (
     FloorplannertoMukulIndoor,
     HM3DtoCOCOIndoor,

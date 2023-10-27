@@ -26,6 +26,7 @@ SEMANTIC_MAP:
   dilate_iter: 1
   record_instance_ids: False
   max_instances: 0
+  exploration_type: default
 
 SKILLS:
   GAZE_OBJ:
