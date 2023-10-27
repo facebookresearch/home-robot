@@ -14,6 +14,7 @@ from atomicwrites import atomic_write
 from loguru import logger
 from PIL import Image
 
+from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
 from home_robot.mapping.voxel import (
@@ -21,7 +22,7 @@ from home_robot.mapping.voxel import (
     SparseVoxelMapNavigationSpace,
     plan_to_frontier,
 )
-from home_robot.motion import RRTConnect, Shortcut
+from home_robot.motion import PlanResult, RRTConnect, Shortcut
 from home_robot.perception.encoders import get_encoder
 from home_robot.utils.demo_chat import (
     DemoChat,
@@ -115,7 +116,12 @@ class RobotAgent:
         grasp_client: Optional[GraspClient] = None,
         rpc_stub=None,
     ):
-        self.parameters = parameters
+        if isinstance(parameters, Dict):
+            self.parameters = Parameters(**parameters)
+        elif isinstance(parameters, Parameters):
+            self.parameters = parameters
+        else:
+            raise RuntimeError(f"parameters of unsupported type: {type(parameters)}")
         self.robot = robot
         self.rpc_stub = rpc_stub
         self.grasp_client = grasp_client
@@ -127,6 +133,9 @@ class RobotAgent:
         self.current_state = "WAITING"
         self.encoder = get_encoder(parameters["encoder"], parameters["encoder_args"])
         self.obs_count = 0
+        self.guarantee_instance_is_reachable = (
+            parameters.guarantee_instance_is_reachable
+        )
 
         # Wrapper for SparseVoxelMap which connects to ROS
         self.voxel_map = SparseVoxelMap(
@@ -155,6 +164,7 @@ class RobotAgent:
 
         # Dictionary storing attempts to visit each object
         self._object_attempts = {}
+        self._cached_plans = {}
 
         # Create a simple motion planner
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
@@ -291,6 +301,57 @@ class RobotAgent:
         if self.chat is not None:
             publish_obs(self.space, self.path, self.current_state, obs_count)
 
+    def plan_to_instance(
+        self,
+        instance: Instance,
+        start: np.ndarray,
+        verbose: bool = True,
+        instance_id: int = -1,
+    ) -> PlanResult:
+        """Move to a specific instance. Goes until a motion plan is found.
+
+        Args:
+            instance(Instance): an object in the world
+            verbose(bool): extra info is printed
+            instance_ind(int): if >= 0 we will try to use this to retrieve stored plans"""
+
+        res = None
+        if verbose:
+            for j, view in enumerate(instance.instance_views):
+                print(f"- instance {instance_id} view {j} at {view.cam_to_world}")
+
+        start_is_valid = self.space.is_valid(start)
+        if not start_is_valid:
+            return PlanResult(success=False, reason="invalid start state")
+
+        mask = self.voxel_map.mask_from_bounds(instance.bounds)
+        for goal in self.space.sample_near_mask(mask, radius_m=0.7):
+            goal = goal.cpu().numpy()
+            print("       Start:", start)
+            print("Sampled Goal:", goal)
+            show_goal = np.zeros(3)
+            show_goal[:2] = goal[:2]
+            goal_is_valid = self.space.is_valid(goal)
+            print("Start is valid:", start_is_valid)
+            print(" Goal is valid:", goal_is_valid)
+            if not goal_is_valid:
+                print(" -> resample goal.")
+                continue
+
+            # plan to the sampled goal
+            if instance_id >= 0 and instance_id in self._cached_plans:
+                if verbose:
+                    print(f"- retrieving cached plan for {instance_id}")
+                res = self._cached_plans[instance_id]
+            else:
+                res = self.planner.plan(start, goal)
+            print("Found plan:", res.success)
+            if res.success:
+                break
+        if res is None:
+            return PlanResult(success=False, reason="no valid plans found")
+        return res
+
     def move_to_any_instance(self, matches: List[Tuple[int, Instance]]):
         """Check instances and find one we can move to"""
         self.current_state = "NAV_TO_INSTANCE"
@@ -315,29 +376,9 @@ class RobotAgent:
         for i, match in matches:
             print("Checking instance", i)
             # TODO: this is a bad name for this variable
-            for j, view in enumerate(match.instance_views):
-                print(i, j, view.cam_to_world)
-            print("at =", match.bounds)
-            res = None
-            mask = self.voxel_map.mask_from_bounds(match.bounds)
-            for goal in self.space.sample_near_mask(mask, radius_m=0.7):
-                goal = goal.cpu().numpy()
-                print("       Start:", start)
-                print("Sampled Goal:", goal)
-                show_goal = np.zeros(3)
-                show_goal[:2] = goal[:2]
-                goal_is_valid = self.space.is_valid(goal)
-                print("Start is valid:", start_is_valid)
-                print(" Goal is valid:", goal_is_valid)
-                if not goal_is_valid:
-                    print(" -> resample goal.")
-                    continue
-
-                # plan to the sampled goal
-                res = self.planner.plan(start, goal)
-                print("Found plan:", res.success)
-                if res.success:
-                    break
+            res = self.plan_to_instance(match, instance_id=i)
+            if res is not None and res.success:
+                break
             else:
                 # TODO: remove debug code
                 print("-> could not plan to instance", i)
@@ -402,8 +443,17 @@ class RobotAgent:
 
     def get_found_instances_by_class(
         self, goal: Optional[str], threshold: int = 0, debug: bool = False
-    ) -> Optional[List[Tuple[int, Instance]]]:
-        """Check to see if goal is in our instance memory or not. Return a list of everything with the correct class."""
+    ) -> List[Tuple[int, Instance]]:
+        """Check to see if goal is in our instance memory or not. Return a list of everything with the correct class.
+
+        Parameters:
+            goal(str): optional name of the object we want to find
+            threshold(int): number of object attempts we are allowed to do for this object
+            debug(bool): print debug info
+
+        Returns:
+            instance_id(int): a unique int identifying this instance
+            instance(Instance): information about a particular object we believe exists"""
         matching_instances = []
         if goal is None:
             # No goal means no matches
@@ -418,17 +468,38 @@ class RobotAgent:
 
     def get_reachable_instances_by_class(
         self, goal: Optional[str], threshold: int = 0, debug: bool = False
-    ):
-        """See if we can reach dilated object masks for different objects."""
-        matches = self.get_found_instances_by_class
+    ) -> List[Tuple[int, Instance]]:
+        """See if we can reach dilated object masks for different objects.
+
+        Parameters:
+            goal(str): optional name of the object we want to find
+            threshold(int): number of object attempts we are allowed to do for this object
+            debug(bool): print debug info
+
+        Returns list of tuples with two members:
+            instance_id(int): a unique int identifying this instance
+            instance(Instance): information about a particular object we believe exists"""
+        matches = self.get_found_instances_by_class(
+            goal=goal, threshold=threshold, debug=debug
+        )
         reachable_matches = []
-        for instance in matches:
+        self._cached_plans = {}
+        start = self.robot.get_base_pose()
+        for i, instance in matches:
             # compute its mask
             # see if this mask's area is explored and reachable from the current robot
-            breakpoint()
+            if self.guarantee_instance_is_reachable:
+                res = self.plan_to_instance(instance, start, instance_id=i)
+                self._cached_plans[i] = res
+                if res.success:
+                    reachable_matches.append(instance)
+            else:
+                reachable_matches.append(instance)
         return reachable_matches
 
-    def filter_matches(self, matches: List[Tuple[int, Instance]], threshold: int = 1):
+    def filter_matches(
+        self, matches: List[Tuple[int, Instance]], threshold: int = 1
+    ) -> Tuple[int, Instance]:
         """return only things we have not tried {threshold} times"""
         filtered_matches = []
         for i, instance in matches:

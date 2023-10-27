@@ -25,7 +25,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         exploration_strategy: str,
         num_sem_categories: int,
         explored_area_dilation_radius=10,
-        explored_area_erosion_radius=5,
     ):
         super().__init__()
         assert exploration_strategy in ["seen_frontier", "been_close_to_frontier"]
@@ -33,13 +32,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
 
         self.dilate_explored_kernel = nn.Parameter(
             torch.from_numpy(skimage.morphology.disk(explored_area_dilation_radius))
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .float(),
-            requires_grad=False,
-        )
-        self.erosion_explored_kernel = nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(explored_area_erosion_radius))
             .unsqueeze(0)
             .unsqueeze(0)
             .float(),
@@ -57,7 +49,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     @property
     def goal_update_steps(self):
         return 1
-        # return 5  # 1
 
     def reach_single_category(self, map_features, category):
         # if the goal is found, reach it
@@ -246,10 +237,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             frontier_map = (map_features[:, [MC.BEEN_CLOSE_MAP], :, :] == 0).float()
         else:
             raise Exception("not implemented")
-
-        # erode and dilate to remove small components
-        # eroded = 1 - binary_erosion(1 - frontier_map,self.erosion_explored_kernel)
-        # frontier_map = 1 - binary_dilation(1 - eroded,self.erosion_explored_kernel)
 
         # Dilate explored area
         frontier_map = 1 - binary_dilation(

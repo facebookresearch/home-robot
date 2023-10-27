@@ -67,7 +67,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_policy = None
         self.semantic_sensor = None
 
-        if config.GROUND_TRUTH_SEMANTICS == 1 and not self.store_all_categories_in_map:
+        if config.GROUND_TRUTH_SEMANTICS == 1 and self.store_all_categories_in_map:
             # currently we get ground truth semantics of only the target object category and all scene receptacles from the simulator
             raise NotImplementedError
 

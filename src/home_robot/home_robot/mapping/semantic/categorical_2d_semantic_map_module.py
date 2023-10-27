@@ -463,7 +463,8 @@ class Categorical2DSemanticMapModule(nn.Module):
             tilt = torch.zeros(batch_size)
             agent_height = self.agent_height
 
-        yaw = torch.tensor(yaw)
+        if not isinstance(yaw, torch.Tensor):
+            yaw = torch.tensor(yaw)
         depth = obs[:, 3, :, :].float()
         depth[depth > self.max_depth] = 0
 
@@ -747,22 +748,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             translated = self._aggregate_instance_map_channels_per_category(
                 translated, num_instance_channels
             )
-
-        # Remove people from the last map if people are detected
-        # TODO Handle people more cleanly
-        if translated[:, MC.NON_SEM_CHANNELS + 11, :, :].sum() > 0.99:
-            print("Detected a person, removing previous people from the map")
-            prev_map[:, MC.NON_SEM_CHANNELS + 11, :, :] = 0
-
-        # Update obstacles in current map
-        # TODO Implement this properly for num_environments > 1
-        if obstacle_locations is not None:
-            translated[
-                0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]
-            ] = 1
-        if free_locations is not None:
-            translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
-            prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
