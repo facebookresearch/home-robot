@@ -446,6 +446,11 @@ class RobotAgent:
     ) -> List[Tuple[int, Instance]]:
         """Check to see if goal is in our instance memory or not. Return a list of everything with the correct class.
 
+        Parameters:
+            goal(str): optional name of the object we want to find
+            threshold(int): number of object attempts we are allowed to do for this object
+            debug(bool): print debug info
+
         Returns:
             instance_id(int): a unique int identifying this instance
             instance(Instance): information about a particular object we believe exists"""
@@ -464,7 +469,16 @@ class RobotAgent:
     def get_reachable_instances_by_class(
         self, goal: Optional[str], threshold: int = 0, debug: bool = False
     ) -> List[Tuple[int, Instance]]:
-        """See if we can reach dilated object masks for different objects."""
+        """See if we can reach dilated object masks for different objects.
+
+        Parameters:
+            goal(str): optional name of the object we want to find
+            threshold(int): number of object attempts we are allowed to do for this object
+            debug(bool): print debug info
+
+        Returns list of tuples with two members:
+            instance_id(int): a unique int identifying this instance
+            instance(Instance): information about a particular object we believe exists"""
         matches = self.get_found_instances_by_class(
             goal=goal, threshold=threshold, debug=debug
         )
