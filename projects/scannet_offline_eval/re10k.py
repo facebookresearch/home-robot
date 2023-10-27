@@ -44,16 +44,18 @@ Ks = []
 poses = []
 height = 720
 width = 1280
+new_height = int(height / 4)
+new_width = int(width / 4)
 for line in lines[1:]:
     line = line.strip()
     words = line.split()
     timestamp = int(words[0])
     floats = [float(word) for word in words[1:]]
     K = np.eye(3)
-    K[0, 0] = floats[0] * width
-    K[1, 1] = floats[1] * height
-    K[0, 2] = floats[2] * width
-    K[1, 2] = floats[3] * height
+    K[0, 0] = floats[0] * new_width
+    K[1, 1] = floats[1] * new_height
+    K[0, 2] = floats[2] * new_width
+    K[1, 2] = floats[3] * new_height
     pose = floats[6:]
     assert len(pose) == 12
     pose = np.array(pose).reshape(3, 4)
@@ -63,6 +65,13 @@ for line in lines[1:]:
     Ks.append(K)
     poses.append(pose)
 
+from home_robot.mapping.voxel.voxel import SparseVoxelMap
+from home_robot.utils.image import Camera
+
+camera = Camera.from_K(K, width=new_width, height=new_height)
+svm = SparseVoxelMap(use_instance_memory=False, min_depth=-999, max_depth=999)
+
+show = False
 debug = False
 skip_fade_in = 100
 frame_count = 0
@@ -75,10 +84,14 @@ while True:
     if frame_count <= skip_fade_in:
         continue
 
+    assert frame.shape[0] == height, f"{height=} {frame.shape=}"
+    assert frame.shape[1] == width, f"{width=} {frame.shape=}"
+
+    # Use the resize function to downsample the image
+    downsized_image = cv2.resize(frame, (new_width, new_height))
+
     # Convert the frame to RGB (OpenCV loads images in BGR format by default)
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    assert rgb.shape[0] == height, f"{height=} {rgb.shape=}"
-    assert rgb.shape[1] == width, f"{width=} {rgb.shape=}"
+    rgb = cv2.cvtColor(downsized_image, cv2.COLOR_BGR2RGB)
 
     # Append the RGB frame to the list
     frame_list.append(rgb)
@@ -94,7 +107,7 @@ while True:
     pose = poses[frame_count - 1]
 
     orig_rgb = rgb / 255.0
-    device = torch.device("cpu")
+    device = torch.device("cuda")
     zerodepth_model = zerodepth_model.to(device)
     rgb = torch.FloatTensor(orig_rgb[None]).permute(0, 3, 1, 2).to(device)
     intrinsics = torch.FloatTensor(K[None]).to(device)
@@ -104,21 +117,29 @@ while True:
     t1 = timeit.default_timer()
     print("...done. Took", t1 - t0, "seconds.")
 
-    plt.figure()
-    plt.subplot(1, 2, 1)
-    plt.imshow(orig_rgb)
-    plt.subplot(1, 2, 2)
-    plt.imshow(pred_depth)
-    plt.show()
+    if show:
+        plt.figure()
+        plt.subplot(1, 2, 1)
+        plt.imshow(orig_rgb)
+        plt.subplot(1, 2, 2)
+        plt.imshow(pred_depth)
+        plt.show()
 
-    from home_robot.utils.image import Camera
-
-    camera = Camera.from_K(K, width=rgb.shape[1], height=rgb.shape[0])
     pred_xyz = camera.depth_to_xyz(pred_depth)
-    print("Original depth...")
-    show_point_cloud(xyz, orig_rgb, orig=np.zeros(3))
-    print("Predicted depth...")
-    show_point_cloud(pred_xyz, orig_rgb, orig=np.zeros(3))
+    if show:
+        print("Predicted xyz and showing...")
+        show_point_cloud(pred_xyz, orig_rgb, orig=np.zeros(3))
+    camera_pose = np.eye(4)
+    camera_pose[:3, :] = pose
+    camera_pose = torch.from_numpy(camera_pose).float()
+    svm.add(
+        camera_pose,
+        orig_rgb.reshape(-1, 3) * 255,
+        xyz=torch.from_numpy(pred_xyz).reshape(-1, 3).float(),
+        camera_K=K,
+        xyz_frame="camera",
+    )
+    svm.show()
 
 # Release the video capture object
 cap.release()

@@ -749,6 +749,7 @@ class InstanceMemory:
                 embedding = None
 
             # get point cloud
+            breakpoint()
             point_mask_downsampled = (
                 instance_mask_downsampled & valid_points_downsampled
             )
