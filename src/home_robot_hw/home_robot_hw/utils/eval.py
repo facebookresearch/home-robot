@@ -13,6 +13,7 @@ import evaluation_pb2
 import evaluation_pb2_grpc
 import grpc
 import rospy
+
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
@@ -28,6 +29,8 @@ def grpc_loads(entity):
 
 
 class Environment(evaluation_pb2_grpc.EnvironmentServicer):
+    """RPC version of the environment."""
+
     def __init__(
         self,
         test_pick=False,
