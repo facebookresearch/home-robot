@@ -39,23 +39,27 @@ with open(txt_path, "r") as file:
     # Read all lines from the file and store them in a list
     lines = file.readlines()
 
+debug = False
 Ks = []
 poses = []
+height = 720
+width = 1280
 for line in lines[1:]:
     line = line.strip()
     words = line.split()
     timestamp = int(words[0])
     floats = [float(word) for word in words[1:]]
     K = np.eye(3)
-    K[0, 0] = floats[0]
-    K[1, 1] = floats[1]
-    K[0, 2] = floats[2]
-    K[1, 2] = floats[3]
+    K[0, 0] = floats[0] * width
+    K[1, 1] = floats[1] * height
+    K[0, 2] = floats[2] * width
+    K[1, 2] = floats[3] * height
     pose = floats[6:]
     assert len(pose) == 12
     pose = np.array(pose).reshape(3, 4)
-    print(f"{K=}")
-    print(f"{pose=}")
+    if debug:
+        print(f"{K=}")
+        print(f"{pose=}")
     Ks.append(K)
     poses.append(pose)
 
@@ -73,6 +77,8 @@ while True:
 
     # Convert the frame to RGB (OpenCV loads images in BGR format by default)
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    assert rgb.shape[0] == height, f"{height=} {rgb.shape=}"
+    assert rgb.shape[1] == width, f"{width=} {rgb.shape=}"
 
     # Append the RGB frame to the list
     frame_list.append(rgb)
@@ -107,7 +113,7 @@ while True:
 
     from home_robot.utils.image import Camera
 
-    camera = Camera.from_K(K, width=rgb.shape[0], height=rgb.shape[1])
+    camera = Camera.from_K(K, width=rgb.shape[1], height=rgb.shape[0])
     pred_xyz = camera.depth_to_xyz(pred_depth)
     print("Original depth...")
     show_point_cloud(xyz, orig_rgb, orig=np.zeros(3))
