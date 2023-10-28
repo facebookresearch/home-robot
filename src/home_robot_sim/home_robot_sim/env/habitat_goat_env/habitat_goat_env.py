@@ -276,4 +276,5 @@ class HabitatGoatEnv(HabitatEnv):
                 ][1]
                 != "image"
             ):
+                info["top_down_map"] = self.get_observation().task_observations.get("top_down_map")
                 self.visualizer.visualize(**info)

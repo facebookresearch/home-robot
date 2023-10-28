@@ -311,10 +311,11 @@ class GoatAgent(Agent):
         self.semantic_map.lmb = seq_lmb[:, -1]
         self.semantic_map.origins = seq_origins[:, -1]
 
-        if matches is not None or confidence is not None:
+
+        goal_map = self.goal_map.squeeze(1).cpu().numpy()
+
+        if self.found_goal[0].item():
             goal_map = self._prep_goal_map_input()
-        else:
-            goal_map = self.goal_map.squeeze(1).cpu().numpy()
 
         # found_goal = self.found_goal.squeeze(1).cpu()
 
@@ -332,6 +333,7 @@ class GoatAgent(Agent):
             self.timesteps_before_goal_update[e] = (
                 self.timesteps_before_goal_update[e] - 1
             )
+
 
         planner_inputs = [
             {

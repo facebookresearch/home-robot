@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 import skimage.morphology
 from PIL import Image
+from habitat.utils.visualizations import maps
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -39,10 +40,13 @@ class VIS_LAYOUT:
     FIRST_SEM_X2 = FIRST_SEM_X1 + FIRST_PERSON_W
     TOP_DOWN_X1 = FIRST_SEM_X2 + MIDDLE_PADDING
     TOP_DOWN_X2 = TOP_DOWN_X1 + TOP_DOWN_W
+
+    ORACLE_TOP_DOWN_X1 = TOP_DOWN_X2 + MIDDLE_PADDING
+    ORACLE_TOP_DOWN_X2 = ORACLE_TOP_DOWN_X1 + TOP_DOWN_W
     # THIRD_PERSON_X1 = TOP_DOWN_X2 + MIDDLE_PADDING
     # THIRD_PERSON_X2 = THIRD_PERSON_X1 + THIRD_PERSON_W
     IMAGE_HEIGHT = Y2 + BOTTOM_PADDING
-    IMAGE_WIDTH = TOP_DOWN_X2 + LEFT_PADDING
+    IMAGE_WIDTH = ORACLE_TOP_DOWN_X2 + LEFT_PADDING
 
 
 V = VIS_LAYOUT
@@ -89,6 +93,8 @@ class Visualizer:
         self.text_color = (20, 20, 20)  # BGR
         self.text_thickness = 1
         self.show_rl_obs = config.SHOW_RL_OBS
+        self.ind_frame_height = 480
+
 
     def reset(self):
         self.vis_dir = self.default_vis_dir
@@ -101,6 +107,15 @@ class Visualizer:
         self.vis_dir = os.path.join(self.default_vis_dir, f"{scene_id}_{episode_id}")
         shutil.rmtree(self.vis_dir, ignore_errors=True)
         os.makedirs(self.vis_dir, exist_ok=True)
+
+    def _add_border(self, frame: np.ndarray, border_size: int) -> np.ndarray:
+        """Add a white border to a frame."""
+        h, w = frame.shape[:2]
+        side = np.ones((h, border_size, 3), dtype=np.uint8) * 255
+        frame = np.concatenate([side, frame, side], axis=1)
+        top = np.ones((border_size, w + 2 * border_size, 3), dtype=np.uint8) * 255
+        frame = np.concatenate([top, frame, top], axis=0)
+        return frame
 
     def disable_print_images(self):
         self.print_images = False
@@ -165,6 +180,39 @@ class Visualizer:
             # update semantic map with instance ids
             semantic_map[border_pixels > 0] = PI.INSTANCE_BORDER
 
+    def make_td_map(self, top_down_map: np.ndarray) -> np.ndarray:
+        """
+        In Habitat Simulation, an oracle top-down map may be provided.
+        Visualize that sub-frame.
+        """
+        # border_size = 10
+        # text_bar_height = 50 - border_size
+        new_h = self.ind_frame_height
+
+        td_map = maps.colorize_draw_agent_and_fit_to_height(top_down_map, output_height=top_down_map["map"].shape[0])
+        td_map = cv2.cvtColor(td_map, cv2.COLOR_RGB2BGR)
+
+        # add map outline
+        # color = [100, 100, 100]
+        # h, w = td_map.shape[:2]
+        # td_map[0, 0:] = color
+        # td_map[h - 1, 0:] = color
+        # td_map[0:, 0] = color
+        # td_map[0:, w - 1] = color
+
+        # td_map = self._add_border(td_map, border_size)
+        # w = td_map.shape[1]
+
+        # top_bar = np.ones((text_bar_height, w, 3), dtype=np.uint8) * 255
+        # frame = np.concatenate([top_bar, td_map.astype(np.uint8)], axis=0)
+
+        # font = cv2.FONT_HERSHEY_SIMPLEX
+        # fontScale = 0.8
+        # color = (20, 20, 20)
+        # thickness = 2
+
+        return td_map
+
     def visualize(
         self,
         timestep: int,
@@ -193,6 +241,7 @@ class Visualizer:
         instance_map: Optional[np.ndarray] = None,
         instance_memory: Optional[InstanceMemory] = None,
         goal_pose = None,
+        top_down_map = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -224,6 +273,8 @@ class Visualizer:
 
         if semantic_category_mapping is not None:
             self.semantic_category_mapping = semantic_category_mapping
+
+        td_map_frame = None if top_down_map is None else self.make_td_map(top_down_map)
 
         # Initialize
         if self.image_vis is None or self.show_rl_obs:
@@ -343,14 +394,14 @@ class Visualizer:
             ) / 2
 
             # overlay blacklisted targets
-            blacklisted_targets_map = np.flipud(np.rint(blacklisted_targets_map) == 1)
-            color_index = PI.BLACKLISTED_TARGETS_MAP * 3
-            color = self.semantic_category_mapping.map_color_palette[
-                color_index : color_index + 3
-            ][::-1]
-            semantic_map_vis[blacklisted_targets_map] = (
-                semantic_map_vis[blacklisted_targets_map] + color
-            ) / 2
+            # blacklisted_targets_map = np.flipud(np.rint(blacklisted_targets_map) == 1)
+            # color_index = PI.BLACKLISTED_TARGETS_MAP * 3
+            # color = self.semantic_category_mapping.map_color_palette[
+            #     color_index : color_index + 3
+            # ][::-1]
+            # semantic_map_vis[blacklisted_targets_map] = (
+            #     semantic_map_vis[blacklisted_targets_map] + color
+            # ) / 2
 
             semantic_map_vis = cv2.resize(
                 semantic_map_vis,
@@ -392,6 +443,15 @@ class Visualizer:
                 (V.THIRD_PERSON_W, V.HEIGHT),
             )
 
+        if td_map_frame is not None:
+            td_map_frame = cv2.resize(
+                td_map_frame,
+                (V.TOP_DOWN_W, V.HEIGHT),
+                interpolation=cv2.INTER_NEAREST,
+            )
+
+            image_vis[V.Y1 : V.Y2, V.ORACLE_TOP_DOWN_X1 : V.ORACLE_TOP_DOWN_X2] = td_map_frame
+
         # First-person RGB frame
         rgb_frame = semantic_frame[:, :, [2, 1, 0]]
         image_vis[V.Y1 : V.Y2, V.FIRST_RGB_X1 : V.FIRST_RGB_X2] = cv2.resize(
@@ -407,8 +467,8 @@ class Visualizer:
             (V.FIRST_PERSON_W, V.HEIGHT),
             interpolation=cv2.INTER_NEAREST,
         )
-        if instance_memory is not None:
-            image_vis = self._visualize_instance_counts(image_vis, instance_memory)
+        # if instance_memory is not None:
+        #     image_vis = self._visualize_instance_counts(image_vis, instance_memory)
         if self.show_images:
             cv2.imshow("Visualization", image_vis)
             cv2.waitKey(1)

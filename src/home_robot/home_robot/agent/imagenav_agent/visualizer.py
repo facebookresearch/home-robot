@@ -242,7 +242,6 @@ class NavVisualizer:
             found_goal,
             metrics,
         )
-        print(np.unique(semantic_frame))
         sem_frame = self.make_sem_observations(
             semantic_frame,
             last_collisions["is_collision"],
@@ -274,13 +273,24 @@ class NavVisualizer:
             #     upper_frame.shape[1],
             # )
             lower_frame = np.concatenate([map_pred_frame, td_map_frame], axis=1)
-            upper_frame = self.pad_frame(
-                np.concatenate([goal_frame, obs_frame, sem_frame], axis=1),
-                lower_frame.shape[1]
-            )
-            frame = np.concatenate([upper_frame, lower_frame], axis=0)
+            upper_frame = np.concatenate([goal_frame, obs_frame, sem_frame], axis=1)
 
-        nframes = 1 if metrics is None else 5
+            if lower_frame.shape[1] > upper_frame.shape[1]:
+                upper_frame = self.pad_frame(
+                    upper_frame,
+                    lower_frame.shape[1]
+                )
+            else:
+                lower_frame = self.pad_frame(
+                    lower_frame,
+                    upper_frame.shape[1]
+                )
+
+            frame = np.concatenate([upper_frame, lower_frame], axis=0)
+        try:
+            nframes = 1 if metrics is None else 5
+        except Exception as e:
+            import pdb; pdb.set_trace()
         for i in range(nframes):
             name = f"snapshot_{timestep}_{i}.png"
             cv2.imwrite(os.path.join(self.vis_dir, name), frame)
@@ -441,7 +451,7 @@ class NavVisualizer:
             "P", (sem_img.shape[1], sem_img.shape[0])
         )
 
-        sem_img = sem_img % 255
+        # sem_img = sem_img % 255
 
         semantic_map_vis.putpalette(languagenav_2categories_color_palette)
         semantic_map_vis.putdata(sem_img.flatten().astype(np.uint8))
