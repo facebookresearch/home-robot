@@ -333,7 +333,7 @@ class OVMMEvaluator(PPOTrainer):
         import grpc
 
         # Wait for the remote environment to be up and running
-        time.sleep(60)
+        time.sleep(1)
 
         def grpc_dumps(entity):
             return pickle.dumps(entity)

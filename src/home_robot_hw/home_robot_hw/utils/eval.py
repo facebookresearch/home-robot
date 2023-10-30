@@ -18,7 +18,7 @@ from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.utils.config import load_config
-
+from habitat.core.dataset import BaseEpisode
 
 def grpc_dumps(entity):
     return pickle.dumps(entity)
@@ -72,8 +72,6 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     def init_env(self, request, context):
         """Initialize robot environment"""
 
-        print("- Starting ROS node")
-        rospy.init_node("eval_episode_stretch_objectnav")
 
         print("- Loading configuration")
         config = load_config(
@@ -88,8 +86,10 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
             cat_map_file=self.cat_map_file,
             visualize_grasping=self.visualize_grasping,
         )
-
-        self._env_number_of_episodes = self._env.number_of_episodes
+        if self._env.number_of_episodes is not None:
+            self._env_number_of_episodes = self._env.number_of_episodes
+        else:
+            self._env_number_of_episodes = 10000
 
         self._robot = self._env.get_robot()
 
@@ -117,7 +117,10 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
     def get_current_episode(self, request, context):
         """Return current episode id"""
-        current_episode = 1  # real world doesn't seem to have episodes yet
+        current_episode = BaseEpisode(
+                  episode_id='743', 
+                  scene_id='data/hssd-han/scenes-uncluttered/104348328_171513363.scene_instance.json'
+            ) # real world doesn't seem to have episodes yet
         return evaluation_pb2.Package(SerializedEntity=grpc_dumps(current_episode))
 
     def apply_action(self, request, context):
@@ -196,6 +199,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 @click.option("--port", default=8085)
 def main(
     test_pick=False,
+    test_gaze=False,
     reset_nav=False,
     pick_object="cup",
     start_recep="table",
@@ -204,11 +208,16 @@ def main(
     visualize_maps=False,
     visualize_grasping=False,
     test_place=False,
+    skip_gaze=False
     cat_map_file=None,
     max_num_steps=200,
     config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
+    debug=False
     port=8085,
 ):
+
+    print("- Starting ROS node")
+    rospy.init_node("eval_episode_stretch_objectnav")
 
     server = grpc.server(
         thread_pool=futures.ThreadPoolExecutor(max_workers=1),
