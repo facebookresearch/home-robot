@@ -67,7 +67,9 @@ jobs:
                 curl \
                 vim \
                 ca-certificates \
-                libboost-python-dev \ 
+                g++ \
+                python-dev autotools-dev libicu-dev libbz2-dev \
+                libboost-all-dev \
                 unzip || true
       - conda_env_setup
       - run:

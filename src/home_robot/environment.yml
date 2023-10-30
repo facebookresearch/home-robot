@@ -13,6 +13,7 @@ dependencies:
   - pytorch3d
   - torchvision
   - torchaudio
+  # - pinocchio
   - pyg
   - pytorch-cluster
   - pytorch-scatter
