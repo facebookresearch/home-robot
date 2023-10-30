@@ -45,6 +45,7 @@ dependencies:
     # Command line tools
     - click
     # data tools
+    - atomicwrites
     - yacs
     - h5py
     - imageio
