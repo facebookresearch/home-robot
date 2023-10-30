@@ -15,6 +15,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from PIL import Image
 from tqdm import tqdm
 
 from home_robot.utils.point_cloud import show_point_cloud
@@ -57,9 +58,17 @@ def main():
 
     frame_list = []
 
-    zerodepth_model = torch.hub.load(
-        "TRI-ML/vidar", "ZeroDepth", pretrained=True, trust_repo=True
-    )
+    # zerodepth_model = torch.hub.load(
+    #    "TRI-ML/vidar", "ZeroDepth", pretrained=True, trust_repo=True
+    # )
+    torch.hub.help(
+        "intel-isl/MiDaS", "DPT_BEiT_L_384", force_reload=True
+    )  # Triggers fresh download of MiDaS repo
+    repo = "isl-org/ZoeDepth"
+    model_zoe_k = torch.hub.load(repo, "ZoeD_NK", pretrained=True)
+    zerodepth_model = model_zoe_k
+    # model_zoe_n = torch.hub.load(repo, "ZoeD_N", pretrained=True)
+    # zerodepth_model = model_zoe_n
 
     with open(txt_path, "r") as file:
         # Read all lines from the file and store them in a list
@@ -68,10 +77,10 @@ def main():
     debug = False
     Ks = []
     poses = []
-    height = 720
-    width = 1280
-    new_height = int(height / 4)
-    new_width = int(width / 4)
+    height = 1080
+    width = 1920
+    new_height = int(height / 8)
+    new_width = int(width / 8)
     for i, line in enumerate(lines[1:]):
         line = line.strip()
         words = line.split()
@@ -107,7 +116,7 @@ def main():
     skip_fade_in = 0
     for i, frame_file in enumerate(tqdm(frames, ncols=50)):
         # ret, frame = cap.read()
-        print(frame_file)
+        frame = np.array(Image.open(frame_file))
 
         assert frame.shape[0] == height, f"{height=} {frame.shape=}"
         assert frame.shape[1] == width, f"{width=} {frame.shape=}"
@@ -136,11 +145,14 @@ def main():
         zerodepth_model = zerodepth_model.to(device)
         rgb = torch.FloatTensor(orig_rgb[None]).permute(0, 3, 1, 2).to(device)
         intrinsics = torch.FloatTensor(K[None]).to(device)
-        print("Predicting depth...")
+        # print("Predicting depth...")
         t0 = timeit.default_timer()
-        pred_depth = zerodepth_model(rgb, intrinsics)[0, 0].detach().cpu().numpy()
+        # print(rgb.shape)
+        # pred_depth = zerodepth_model.infer(rgb, intrinsics)[0, 0].detach().cpu().numpy()
+        # pred_depth = zerodepth_model(rgb, intrinsics)[0, 0].detach().cpu().numpy()
+        pred_depth = zerodepth_model.infer(rgb)[0, 0].detach().cpu().numpy()
         t1 = timeit.default_timer()
-        print("...done. Took", t1 - t0, "seconds.")
+        # print("...done. Took", t1 - t0, "seconds.")
 
         if show:
             plt.figure()
@@ -164,10 +176,10 @@ def main():
             camera_K=K,
             xyz_frame="camera",
         )
-        svm.show()
+    svm.show()
 
     # Release the video capture object
-    cap.release()
+    # cap.release()
 
 
 if __name__ == "__main__":
