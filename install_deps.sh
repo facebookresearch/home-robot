@@ -31,6 +31,11 @@ echo ""
 echo "Ensure Git LFS is installed"
 git lfs install
 
+# Install robotics IK dependency
+echo ""
+echo "Install pinocchio IK dependency"
+conda install pinocchio -c conda-forge
+
 echo ""
 echo "Install home_robot core..."
 python -m pip install -e src/home_robot
