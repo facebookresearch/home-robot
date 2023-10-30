@@ -15,6 +15,9 @@ pad_obstacles: 2
 min_depth: 0.1
 max_depth: 3.5
 
+# TAMP parameters
+guarantee_instance_is_reachable: True
+
 # Navigation space - used for motion planning and computing goals.
 step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
 rotation_step_size: 0.2 
@@ -41,5 +44,5 @@ limited_obs_publish_sleep: 0.5
 command: "pick up a bottle and put it on the chair"
 # name: "spot"
 exploration_steps: 10
-# object_to_find: "bottle"
-# location_to_place: "chair"
+object_to_find: "bottle"
+location_to_place: "chair"

@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Optional
 
 import torch
 
@@ -53,3 +54,14 @@ class RobotClient(ABC):
     def get_robot_model() -> RobotModel:
         """return a model of the robot for planning"""
         raise NotImplementedError()
+
+
+class GraspClient(ABC):
+    """Connection to grasping."""
+
+    def set_robot_client(self, robot_client: RobotClient):
+        """Update the robot client this grasping client uses"""
+        self.robot_client = robot_client
+
+    def try_grasping(self, object_goal: Optional[str] = None) -> bool:
+        raise NotImplementedError

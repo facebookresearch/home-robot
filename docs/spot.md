@@ -1,173 +1,141 @@
-# Spot Setup
+# Spot Setup with demo branch
 
 ## Installation
 
-### Basic
+### Requirements
 
-#### 0. Requirements
++ Home robot - [Demo branch](https://github.com/facebookresearch/home-robot/tree/demo)
++ Spot sim2real - [Jay's fork with no_habitat branch](https://github.com/jdvakil/spot-sim2real)
 
-- **home-robot branch:** `goat`
-- Access to [Mathews fork](https://github.com/MatthewChang/spot-sim2real/tree/b66f4dd399efeca16a115ef5d106759fb871adc7) of spotsim2real is required.
+### Steps
 
-#### 1. Install Home-robot as usual.
-
-> Make sure to initialize all submodules needed by goat. Notice the addition of spotsim2real, habitat-lab, MiDaS
-> and SuperGlue
+#### Home-Robot
+```
+git clone https://github.com/facebookresearch/home-robot.git --recursive
+cd home-robot && git checkout demo_grasp
+```
 
 ```
-git submodule sync
+echo 'alias HOME_ROBOT_ROOT=<path/to/home-robot>' >> ~/.bashrc 
+source ~/.bashrc
+```
+
+```
 git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
+``` 
+
+- If this command doesn't add all the submodules
+
+```
+git submodule update -f src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
 ```
 
-#### 2. Install spotsim2real
+```
+mamba env create -n home-robot -f projects/vlm_planning/environment.yaml
+```
 
-The pinned branch in the submodule is wrong so do:
+ If `mamba` not found, `conda install -c conda-forge mamba --yes`
+ 
+```
+conda activate home-robot
+pip install -e src/home_robot/. 
+pip install -e src/home_robot_hw/.
+pip install -e src/home_robot_spot/.
+```
+
+Change this env variable to your cuda -- `CUDA_HOME=/usr/local/cuda-<version_tag>`
+
+
+#### Install spot sim2real
 
 ```
 cd src/third_party/spot-sim2real
 git checkout no_habitat
 ```
-
-Install the spotsim2real packages
+##### Installing spot sim2real packages
 
 ```
-# Spot Wrapper
 cd bd_spot_wrapper/
 python generate_executables.py
 pip install -e .
-
-# Spot RL
+```
+```
 cd ../spot_rl_experiments
 python generate_executables.py
 pip install -e .
-
-### The following is a minimal set of dependencies needed to use the functionalities that GOAT uses from spotsim2real + some home-robot deps
-pip install bosdyn-api bosdyn-client transforms3d einops gym==0.23.1 vtk scikit-image open3d natsort scikit-fmm imutils
+```
+```
+pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk scikit-image open3d natsort scikit-fmm pandas==2.1.1 atomicwrites loguru
 ```
 
-#### MiDaS
-
+#### Install MiDaS
++ Make sure you are on the master branch
 ```
-git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
+cd $HOME_ROBOT_ROOT/src/third_party/MiDaS
+git checkout master
+git pull origin
 ```
-cd $HOME_ROBOT_ROOT/src/third_party/MiDaS/weights
-wget https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt
-cd $HOME_ROBOT_ROOT
++ Install weights
 ```
-
-
-### GOAT - Old Instructions
-
-0. Requirements
-
-- **home-robot branch:** `goat`
-- Access to [Mathews fork](https://github.com/MatthewChang/spot-sim2real/tree/b66f4dd399efeca16a115ef5d106759fb871adc7) of spotsim2real is required.
-
-1. Install Home-robot as usual.
-
-> Make sure to initialize all submodules needed by goat. Notice the addition of spotsim2real, habitat-lab, MiDaS
-> and SuperGlue
-
-```
-git submodule update --init --recursive src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
-```
-cd $HOME_ROBOT_ROOT/src/third_party/MiDaS/weights
+cd weights
 wget https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt
 ```
-
-2. Install spotsim2real
-
-The pinned branch in the submodule is wrong so do:
-
++ Packages
 ```
-cd src/third_party/spot-sim2real
-git checkout no_habitat
-```
-
-Install the spotsim2real packages
-
-```
-# Spot Wrapper
-cd bd_spot_wrapper/
-python generate_executables.py
+cd ../
 pip install -e .
-
-# Spot RL
-cd ../spot_rl_experiments
-python generate_executables.py
-pip install -e .
-
-### The following is a minimal set of dependencies needed to use the functionalities that GOAT uses from spotsim2real
-pip install bosdyn-api==3.2.3 transforms3d einops gym==0.23.1 vtk
+pip install imutils
 
 ```
 
-3. Install habitat
-
+#### Install Habitat-sim
 ```
-### Install habitat. We should be able to remove all pointers to habitat-lab from the goat entrypoint on the future.
-cd src/third_party/habitat-lab
+cd $HOME_ROBOT_ROOT/src/third_party/habitat-lab
 pip install -e habitat-lab
-conda install habitat-sim headless -c conda-forge -c aihabitat
+mamba install habitat-sim headless -c conda-forge -c aihabitat --yes
 ```
 
-4. Make sure that detic was indeed installed. Run the detic demo.py
-5. Superglue: we might be missing a step here
 
+#### Install SuperGLUE
 ```
 pip install -r src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork/requirements.txt
 ```
 
-6. MiDas: checkout to master, pull and add models
-
+#### Install Detic
 ```
-cd src/third_party/MiDaS
-git checkout master
-git pull origin/master
-# download the following model https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt
-# and move it to src/third_party/MiDaS/weights
-```
-
-7. Spot Network configuration
-   1. See https://github.com/facebookresearch/spot-sim2real/blob/main/installation/SETUP_INSTRUCTIONS.md#setup-spot-robot. Make sure you can ping the SPOT_IP
-
-8. Entrypoints
-   1. Run `python projects/spot/objectnav.py` for the objectnav entrypoint
-   2. Run `python projects/spot/goat` for the goat entrypoint
-
-### Basic
-
-```
-pip install bosdyn-api
-```
-Version should be >= 3.3 - tested with 3.3.0 and 3.3.1
-
-### ROS - Deprecated
-
-#### Catkin Environment
-
-You need a full real catkin env for this.
-```
-conda deactivate
-cd $HOME
-mkdir spot_ws
-catkin_make -DPYTHON_EXECUTABLE=`which python3`
+cd src/home_robot/home_robot/perception/detection/detic/Detic
+pip install -r requirements.txt
+mkdir models
+wget https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+wget https://eecs.engin.umich.edu/~fouhey/fun/desk/desk.jpg
+python demo.py --config-file configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml --input desk.jpg --output out.jpg --vocabulary lvis --opts MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
 ```
 
-#### ROS Packages
 
-You need some additional packages
+#### Additional installtions
+
 ```
-sudo apt install ros-noetic-twist-mux ros-noetic-joy-node ros-noetic-joy ros-noetic-interactive-marker-twist-server ros-noetic-teleop-twist-joy
+cd $HOME_ROBOT_ROOT
+pip install -e src/third_party/detectron2/.
 ```
-Alternately
+##### Issues with installing detectron2
+Set `CUDA_HOME=/usr/local/cuda-<VERSION>/` and install again
+
+###### If getting a version_mismatch error
++ Install cuda from this [website](https://developer.nvidia.com/cuda-downloads) and select the correct version tag when installing cuda. 
+##### For `qObject: movToThread` errors/warnings when running the demo
+
 ```
-mamba install ros-noetic-twist-mux ros-noetic-joy ros-noetic-interactive-marker-twist-server ros-noetic-teleop-twist-joy -c robostack
+pip install --no-binary opencv-python opencv-python
 ```
 
-### Example data
-
-This contains some trajectory examples:
+##### Attribute error for SE3 with sophuspy
 ```
-https://drive.google.com/file/d/195z0DoyxIdT47zN_E44gogPgAeIn3krq/view?usp=drive_link
+git clone https://github.com/pybind/pybind11.git
+cd pybind11
+mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=../install/
+make -j8
+make install
+pybind11_DIR=$PWD/../install/share/cmake/pybind11/ pip3 install --user sophuspy
 ```

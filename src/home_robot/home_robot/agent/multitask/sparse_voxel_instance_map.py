@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 """
-    Creates a SparseVoxelMap of a ScanNet scene and evaluates it on that scene
+Creates a SparseVoxelMap of a ScanNet scene and evaluates it on that scene
 """
 import logging
 from enum import IntEnum, auto
@@ -17,11 +17,11 @@ from hydra_zen import store, zen
 from torch import Tensor
 from tqdm import tqdm
 
-from home_robot.agent.ovmm_agent.ovmm_perception import OvmmPerception
 from home_robot.core.interfaces import Observations
 from home_robot.datasets.scannet import ScanNetDataset
 from home_robot.mapping.instance import Instance
 from home_robot.mapping.voxel import SparseVoxelMap
+from home_robot.perception import OvmmPerception
 from home_robot.perception.constants import RearrangeDETICCategories
 
 logger = logging.getLogger(__name__)

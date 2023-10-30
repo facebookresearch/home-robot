@@ -56,15 +56,18 @@ class ObjectNavAgentModule(nn.Module):
             evaluate_instance_tracking=getattr(
                 config.ENVIRONMENT, "evaluate_instance_tracking", False
             ),
-            exploration_type=config.AGENT.SEMANTIC_MAP.exploration_type,
-            gaze_width=config.AGENT.SEMANTIC_MAP.gaze_width,
-            gaze_distance=config.AGENT.SEMANTIC_MAP.gaze_distance,
+            exploration_type=getattr(
+                config.AGENT.SEMANTIC_MAP, "exploration_type", "default"
+            ),
+            gaze_width=getattr(config.AGENT.SEMANTIC_MAP, "gaze_width", 40),
+            gaze_distance=getattr(config.AGENT.SEMANTIC_MAP, "gaze_distance", 1.5),
         )
         self.policy = ObjectNavFrontierExplorationPolicy(
             exploration_strategy=config.AGENT.exploration_strategy,
             num_sem_categories=config.AGENT.SEMANTIC_MAP.num_sem_categories,
-            explored_area_dilation_radius=config.AGENT.PLANNER.explored_area_dilation_radius,
-            explored_area_erosion_radius=config.AGENT.PLANNER.explored_area_erosion_radius,
+            explored_area_dilation_radius=getattr(
+                config.AGENT.PLANNER, "explored_area_dilation_radius", 10
+            ),
         )
 
     @property

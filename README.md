@@ -9,7 +9,7 @@
 
 Your open-source robotic mobile manipulation stack!
 
-HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or OVMM. OVMM is a challenging task which means that, in an unknown environment, a robot must:
+HomeRobot lets you get started running a range of robotics tasks on a low-cost mobile manipulator, starting with _Open Vocabulary Mobile Manipulation_, or [OVMM](https://ovmm.github.io/). OVMM is a challenging task which means that, in an unknown environment, a robot must:
   - Explore its environment
   - Find an object
   - Find a receptacle -- a location on which it must place this object
@@ -165,13 +165,14 @@ See the robot [hardware development guide](docs/hardware_development.md) for som
 
 ### Organization
 
-[HomeRobot](https://github.com/facebookresearch/home-robot/) is broken up into three different packages:
+[HomeRobot](https://github.com/facebookresearch/home-robot/) is broken up into multiple different packages:
 
 | Resource | Description |
 | -------- | ----------- |
 | [home_robot](src/home_robot) | Core package containing agents and interfaces |
 | [home_robot_sim](src/home_robot_sim) | OVMM simulation environment based on [AI Habitat](https://aihabitat.org/) |
 | [home_robot_hw](src/home_robot_hw) | ROS package containing hardware interfaces for the Hello Robot Stretch |
+| [home_robot_spot](src/home_robot_spot) | Minimal package for using the Boston Dynamics Spot |
 
 The [home_robot](src/home_robot) package contains embodiment-agnostic agent code, such as our [ObjectNav agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/objectnav_agent/objectnav_agent.py) (finds objects in scenes) and our [hierarchical OVMM agent](https://github.com/facebookresearch/home-robot/blob/main/src/home_robot/home_robot/agent/ovmm_agent/ovmm_agent.py). These agents can be extended or modified to implement your own solution.
 
@@ -195,14 +196,3 @@ To format manually, run: `pre-commit run --show-diff-on-failure --all-files`
 
 ## License
 Home Robot is MIT licensed. See the [LICENSE](./LICENSE) for details.
-
-## References (temp)
-
-- [hello-robot/stretch_body](https://github.com/hello-robot/stretch_body)
-  - Base API for interacting with the Stretch robot
-  - Some scripts for interacting with the Stretch
-- [hello-robot/stretch_ros](https://github.com/hello-robot/stretch_ros)
-  - Builds on top of stretch_body
-  - ROS-related code for Stretch
-- [RoboStack/ros-noetic](https://github.com/RoboStack/ros-noetic)
-  - Conda stream with ROS binaries

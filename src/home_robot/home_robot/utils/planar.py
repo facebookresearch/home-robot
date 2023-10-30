@@ -108,6 +108,8 @@ def find_placeable_location(
     max_tries: Optional[int] = None,
     min_neighborhood_points: int = 3,
     min_area_prop: float = 0.25,
+    debug: bool = False,
+    step: Optional[int] = None,
 ) -> Tuple[Tensor, float]:
     """
     Finds a suitable placement location within a given point cloud based on the provided thresholds and ground normal.
@@ -143,7 +145,15 @@ def find_placeable_location(
     max_tries = min(max_tries, num_points)
 
     idxs = torch.randperm(num_points)[:max_tries]
-    for idx in idxs:
+    center_point = pointcloud.mean(dim=0)
+    dists_to_center = torch.norm(pointcloud - center_point.unsqueeze(0), dim=1)
+    for i, (dist_to_center, idx) in enumerate(
+        sorted(zip(dists_to_center, idxs), key=lambda p: p[0])
+    ):
+
+        if step is not None and i % step != 0:
+            continue
+
         # 1. Sample a location from the pointcloud
         sample_point = pointcloud[idx]
 
@@ -169,6 +179,7 @@ def find_placeable_location(
         # 4. If the fit average absolute residual is under some threshold, return that location
         avg_residual = torch.mean(torch.abs(residuals))
         if avg_residual < residual_thresh:
-            print(area, (nbr_dist * 2) ** 2)
+            if debug:
+                print(f"{area=}", (nbr_dist * 2) ** 2)
             return sample_point, avg_residual
     raise ValueError(f"No suitable location found after {max_tries} tries")
