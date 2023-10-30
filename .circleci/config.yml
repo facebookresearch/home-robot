@@ -31,7 +31,7 @@ commands:
       - run:
           name: Setup env
           command: |
-            [ -d ~/env_home_robot ] || conda env create -f src/home_robot/environment.yml -p ~/env_home_robot
+            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
       - run:
           name: Add pinocchio IK dependency
           command: |
