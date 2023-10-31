@@ -729,13 +729,7 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
         st_pose[:, 2] = 90.0 - (st_pose[:, 2])
 
-        # st_pose is current pose, last term in degrees
-        # account for camera yaw here by rotating the new map based on camera yaw
-        st_pose_adjusted = st_pose.clone()
-        # yaw has to be inverted here, below rotates the map clockwise
-        st_pose_adjusted[:, 2] -= yaw.to(st_pose_adjusted.device) * 180 / np.pi
-
-        rot_mat, trans_mat = ru.get_grid(st_pose_adjusted, agent_view.size(), dtype)
+        rot_mat, trans_mat = ru.get_grid(st_pose, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
         plt.imshow(rotated[0, 0].cpu())
