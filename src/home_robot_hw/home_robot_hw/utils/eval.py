@@ -13,12 +13,15 @@ import evaluation_pb2
 import evaluation_pb2_grpc
 import grpc
 import rospy
+import numpy as np
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 from home_robot_hw.utils.config import load_config
 from habitat.core.dataset import BaseEpisode
+
+NON_SCALAR_METRICS = {"top_down_map", "collisions.is_collision"}
 
 def grpc_dumps(entity):
     return pickle.dumps(entity)
