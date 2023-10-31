@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Dict, Iterable, List, Optional
 
+import imageio
 import numpy as np
 import torch
 from home_robot.core.interfaces import (
@@ -38,6 +39,8 @@ class OvmmSimClient(RobotClient):
         self.done = False
         self.hab_info = None
 
+        self.video_frames = [self.obs.third_person_image]
+
         if is_stretch_robot:
             self._robot_model = HelloStretchKinematics(
                 urdf_path="",
@@ -64,7 +67,7 @@ class OvmmSimClient(RobotClient):
         if type(xyt) == np.ndarray:
             xyt = ContinuousNavigationAction(xyt)
 
-        self.obs, self.done, self.hab_info = self.env.apply_action(xyt)
+        self.apply_action(xyt)
 
     def reset(self):
         """Reset everything in the robot's internal state"""
@@ -73,14 +76,14 @@ class OvmmSimClient(RobotClient):
 
     def switch_to_navigation_mode(self) -> bool:
         """Apply sim navigation mode action and set internal state"""
-        self.env.apply_action(DiscreteNavigationAction.NAVIGATION_MODE)
+        self.apply_action(DiscreteNavigationAction.NAVIGATION_MODE)
         self._base_control_mode = ControlMode.NAVIGATION
 
         return True
 
     def switch_to_manipulation_mode(self) -> bool:
         """Apply sim manipulation mode action and set internal state"""
-        self.env.apply_action(DiscreteNavigationAction.MANIPULATION_MODE)
+        self.apply_action(DiscreteNavigationAction.MANIPULATION_MODE)
         self._base_control_mode = ControlMode.MANIPULATION
 
         return True
@@ -96,11 +99,11 @@ class OvmmSimClient(RobotClient):
 
     def move_to_nav_posture(self):
         """No applicable action in sim"""
-        self.env.apply_action(DiscreteNavigationAction.EMPTY_ACTION)
+        self.apply_action(DiscreteNavigationAction.EMPTY_ACTION)
 
     def move_to_manip_posture(self):
         """No applicable action in sim"""
-        self.env.apply_action(DiscreteNavigationAction.EMPTY_ACTION)
+        self.apply_action(DiscreteNavigationAction.EMPTY_ACTION)
 
     def get_base_pose(self):
         """xyt position of robot"""
@@ -108,6 +111,11 @@ class OvmmSimClient(RobotClient):
 
     def apply_action(self, action):
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
+
+        self.video_frames.append(self.obs.third_person_image)
+
+    def make_video(self):
+        imageio.mimsave(f"debug.mp4", self.video_frames, fps=30)
 
     def execute_trajectory(
         self,
