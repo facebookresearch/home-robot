@@ -203,3 +203,7 @@ EVAL_VECTORIZED:
   record_videos: 0          # 1: record videos from printed images, 0: don't
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
   metrics_save_freq: 5      # save metrics after every n episodes
+
+start_recep: chair
+pick_object: cup
+goal_recep: table
