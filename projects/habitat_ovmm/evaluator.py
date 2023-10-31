@@ -327,8 +327,8 @@ class OVMMEvaluator(PPOTrainer):
         import pickle
         import time
         
-        import evaluation_pb2
-        import evaluation_pb2_grpc
+        from home_robot_hw.utils.eval_ai import evaluation_pb2
+        from home_robot_hw.utils.eval_ai import evaluation_pb2_grpc
         import grpc
 
         # Wait for the remote environment to be up and running
