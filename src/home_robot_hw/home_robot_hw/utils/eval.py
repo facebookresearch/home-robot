@@ -86,10 +86,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
             cat_map_file=self.cat_map_file,
             visualize_grasping=self.visualize_grasping,
         )
-        if self._env.number_of_episodes is not None:
-            self._env_number_of_episodes = self._env.number_of_episodes
-        else:
-            self._env_number_of_episodes = 10000
+        self._env_number_of_episodes = 10000 #self._env.number_of_episodes
 
         self._robot = self._env.get_robot()
 
