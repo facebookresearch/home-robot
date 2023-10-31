@@ -1,6 +1,6 @@
 ## Detailed Workstation Instructions
 
-If you have trouble using the [install script](../install.sh), you can try to follow these instructions.
+If you have trouble using the [install script](../install_deps.sh), you can try to follow these instructions.
 
 #### 1. Create Your Environment
 
@@ -19,6 +19,16 @@ conda activate home-robot
 This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
 
 Optionally, setup a [catkin workspace](catkin.md) to use improved ROS visualizations.
+
+##### Installing Pinocchio
+
+[Pinocchio](https://stack-of-tasks.github.io/pinocchio/) is an optional fast inverse kinematics library used in HomeRobot for some manipulation tasks on Stretch. It's an optional dependency which requires a version of libboost that may conflict with the installation above. As such it's best to install separately:
+
+```
+conda install pinocchio>=2.6.17 -c conda-forge
+```
+
+This will automatically be called in the [install script](../install_deps.sh).
 
 
 #### 2. Install Home Robot Packages

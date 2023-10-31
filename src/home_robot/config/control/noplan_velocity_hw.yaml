@@ -7,8 +7,8 @@ acc_lin: 0.2  # 0.5 * base.params["motion"]["max"]["accel_m"]
 acc_ang: 0.4  # 0.5 * (accel_m_max - accel_m_default) / wheel_separation_m
 
 # Tolerances for determining whether the goal position or orientation is reached
-lin_error_tol: 0.08
-ang_error_tol: 0.08
+lin_error_tol: 0.15
+ang_error_tol: 0.15
 
 # Error tolerance ratio - scale target error by this to a minimum of the tolerance below
 lin_error_ratio: 0.5
@@ -25,4 +25,4 @@ max_heading_ang: 0.7854  # 45 degrees
 max_rev_dist: 0.5
 
 # Time taken before we stop trying
-timeout: 5.0
+timeout: 10.0

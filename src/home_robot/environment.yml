@@ -16,7 +16,6 @@ dependencies:
   - pyg
   - pytorch-cluster
   - pytorch-scatter
-  - pinocchio
   - exa # optional: nice ls
   - fzf # optional: fancy ctrl + R
   - pip
@@ -46,6 +45,8 @@ dependencies:
     # Command line tools
     - click
     # data tools
+    - atomicwrites
+    - loguru
     - yacs
     - h5py
     - imageio

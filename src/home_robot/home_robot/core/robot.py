@@ -4,8 +4,9 @@
 # LICENSE file in the root directory of this source tree.
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
+import numpy as np
 import torch
 
 from home_robot.core.interfaces import ContinuousNavigationAction
@@ -53,6 +54,20 @@ class RobotClient(ABC):
     @abstractmethod
     def get_robot_model() -> RobotModel:
         """return a model of the robot for planning"""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def execute_trajectory(
+        self,
+        trajectory: List[np.ndarray],
+        pos_err_threshold: float = 0.2,
+        rot_err_threshold: float = 0.75,
+        spin_rate: int = 10,
+        verbose: bool = False,
+        per_waypoint_timeout: float = 10.0,
+        relative: bool = False,
+    ):
+        """Open loop trajectory execution"""
         raise NotImplementedError()
 
 

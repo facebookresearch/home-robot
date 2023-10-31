@@ -47,6 +47,8 @@ To set up the hardware stack on a Hello Robot  Stretch, see the [ROS installatio
 
 You may need a calibrated URDF for our inverse kinematics code to work well; see [calibration notes](docs/calibration.md).
 
+[Spot installation instructions](docs/spot.md) are experimental but are also available.
+
 #### Network Setup
 
 Follow the [network setup guide](docs/network.md) to set up your robot to use the network, and make sure that it can communicate between workstation and robot via ROS. On the robot side, start up the controllers with:
@@ -88,7 +90,7 @@ conda activate home-robot
 mamba env update -f src/home_robot_hw/environment.yml
 ```
 
-This should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
+These should install pytorch; if you run into trouble, you may need to edit the installation to make sure you have the right CUDA version. See the [pytorch install notes](docs/install_pytorch.md) for more.
 
 Optionally, setup a [catkin workspace](docs/catkin.md) to use improved ROS visualizations.
 
@@ -113,6 +115,8 @@ cd $HOME_ROBOT_ROOT
 
 If you run into issues, check out the [step-by-step instructions](docs/install_workstation.md).
 
+*As of 2023-10-31,* you may see some issues with the version of [ros-numpy](git@github.com:cpaxton/ros_numpy.git) installed via pip; try installing it directly from source.
+
 
 #### 3. Simulation Setup
 
@@ -129,17 +133,17 @@ $HOME_ROBOT_ROOT/projects/habitat_ovmm/install.sh
 
 You should then be able to run the Stretch OVMM example.
 
-Run a grasping server; either Contact Graspnet or our simple grasp server.
+Run a grasping server; either Contact Graspnet or our simple grasp server. We recommend starting with our grasp server:
 ```
-# For contact graspnet
-cd $HOME_ROBOT_ROOT/src/third_party/contact_graspnet
-conda activate contact_graspnet_env
-python contact_graspnet/graspnet_ros_server.py  --local_regions --filter_grasps
-
 # For simple grasping server
 cd $HOME_ROBOT_ROOT
 conda activate home-robot
 python src/home_robot_hw/home_robot_hw/nodes/simple_grasp_server.py
+
+# For contact graspnet
+cd $HOME_ROBOT_ROOT/src/third_party/contact_graspnet
+conda activate contact_graspnet_env
+python contact_graspnet/graspnet_ros_server.py  --local_regions --filter_grasps
 ```
 
 Then you can run the OVMM example script:

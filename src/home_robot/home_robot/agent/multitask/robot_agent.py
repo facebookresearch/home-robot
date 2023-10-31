@@ -355,13 +355,13 @@ class RobotAgent:
     def move_to_any_instance(self, matches: List[Tuple[int, Instance]]):
         """Check instances and find one we can move to"""
         self.current_state = "NAV_TO_INSTANCE"
-        self.robot.switch_to_nav_posture()
+        self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
         start_is_valid = self.space.is_valid(start)
         start_is_valid_retries = 5
         while not start_is_valid and start_is_valid_retries > 0:
             print(f"Start {start} is not valid. back up a bit.")
-            self.robot.nav.navigate_to([-0.1, 0, 0], relative=True)
+            self.robot.navigate_to([-0.1, 0, 0], relative=True)
             # Get the current position in case we are still invalid
             start = self.robot.get_base_pose()
             start_is_valid = self.space.is_valid(start)
@@ -376,7 +376,7 @@ class RobotAgent:
         for i, match in matches:
             print("Checking instance", i)
             # TODO: this is a bad name for this variable
-            res = self.plan_to_instance(match, instance_id=i)
+            res = self.plan_to_instance(match, start, instance_id=i)
             if res is not None and res.success:
                 break
             else:
@@ -400,7 +400,7 @@ class RobotAgent:
                 rot_err_threshold=self.rot_err_threshold,
             )
             time.sleep(1.0)
-            self.robot.nav.navigate_to([0, 0, np.pi / 2], relative=True)
+            self.robot.navigate_to([0, 0, np.pi / 2], relative=True)
             self.robot.move_to_manip_posture()
             return True
 
@@ -523,7 +523,7 @@ class RobotAgent:
         # if it fails, skip; else, execute a trajectory to this position
         if res.success:
             print("- executing full plan to home!")
-            self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+            self.robot.execute_trajectory([pt.state for pt in res.trajectory])
             print("Done!")
         else:
             print("Can't go home!")
@@ -576,7 +576,7 @@ class RobotAgent:
         self.robot.move_to_nav_posture()
 
         print("Go to (0, 0, 0) to start with...")
-        self.robot.nav.navigate_to([0, 0, 0])
+        self.robot.navigate_to([0, 0, 0])
 
         # Explore some number of times
         matches = []
@@ -589,7 +589,7 @@ class RobotAgent:
             # if start is not valid move backwards a bit
             if not start_is_valid:
                 print("Start not valid. back up a bit.")
-                self.robot.nav.navigate_to([-0.1, 0, 0], relative=True)
+                self.robot.navigate_to([-0.1, 0, 0], relative=True)
                 continue
             print("       Start:", start)
             # sample a goal

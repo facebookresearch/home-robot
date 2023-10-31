@@ -152,6 +152,7 @@ class FMMPlanner:
             dist_vis[:, 2 * c :] = np.flipud(self.fmm_dist / self.fmm_dist.max())
 
             if self.visualize:
+                print("VIsualizing planner distance...")
                 cv2.imshow("Planner Distance", dist_vis)
                 cv2.waitKey(1)
 
@@ -204,7 +205,6 @@ class FMMPlanner:
         subset *= mask
         subset += (1 - mask) * self.fmm_dist.shape[0] ** 2
 
-        visualize = True
         if visualize:
             plt.subplot(232)
             plt.imshow(subset)

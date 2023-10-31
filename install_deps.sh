@@ -27,20 +27,14 @@ case $yn in
 		exit 1;;
 esac
 
-# Activate conda environment
-# conda activate $ENV
-export CUDA_VERSION=117
-export TORCH_VERSION=1.13.1
-
-echo ""
-echo "WARNING! we should include this elsewhere"
-echo "Installing geometric libraries for torch=$TORCH_VERSION, cuda=$CUDA_VERSION"
-python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-$TORCH_VERSION+$CUDA_VERSION.html
-python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-$TORCH_VERSION+$CUDA_VERSION.html
-
 echo ""
 echo "Ensure Git LFS is installed"
 git lfs install
+
+# Install robotics IK dependency
+echo ""
+echo "Install pinocchio IK dependency"
+conda install pinocchio -c conda-forge
 
 echo ""
 echo "Install home_robot core..."
