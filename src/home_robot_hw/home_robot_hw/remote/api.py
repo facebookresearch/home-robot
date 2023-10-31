@@ -212,6 +212,10 @@ class StretchClient(RobotClient):
         """Get the robot's base pose as XYT."""
         return self.nav.get_base_pose()
 
+    def execute_trajectory(self, *args, **kwargs):
+        """Open-loop trajectory execution wrapper. Executes a multi-step trajectory; this is always blocking since it waits to reach each one in turn."""
+        return self.nav.execute_trajectory(*args, **kwargs)
+
     def navigate_to(
         self,
         xyt: Iterable[float],

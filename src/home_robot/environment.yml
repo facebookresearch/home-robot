@@ -46,6 +46,7 @@ dependencies:
     - click
     # data tools
     - atomicwrites
+    - loguru
     - yacs
     - h5py
     - imageio

@@ -523,7 +523,7 @@ class RobotAgent:
         # if it fails, skip; else, execute a trajectory to this position
         if res.success:
             print("- executing full plan to home!")
-            self.robot.nav.execute_trajectory([pt.state for pt in res.trajectory])
+            self.robot.execute_trajectory([pt.state for pt in res.trajectory])
             print("Done!")
         else:
             print("Can't go home!")
