@@ -11,9 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from atomicwrites import atomic_write
-from loguru import logger
-from PIL import Image
-
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
@@ -30,6 +27,8 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
+from loguru import logger
+from PIL import Image
 
 
 def publish_obs(
@@ -394,7 +393,7 @@ class RobotAgent:
             print("Full plan to object:")
             for i, pt in enumerate(res.trajectory):
                 print("-", i, pt.state)
-            self.robot.nav.execute_trajectory(
+            self.robot.execute_trajectory(
                 [pt.state for pt in res.trajectory],
                 pos_err_threshold=self.pos_err_threshold,
                 rot_err_threshold=self.rot_err_threshold,
@@ -425,7 +424,7 @@ class RobotAgent:
         self.robot.switch_to_manipulation_mode()
 
         self.robot.move_to_nav_posture()
-        self.robot.head.look_close(blocking=False)
+        # self.robot.head.look_close(blocking=False)
         print("... done.")
 
         # Move the robot into navigation mode
@@ -513,7 +512,7 @@ class RobotAgent:
         print("- change posture and switch to navigation mode")
         self.current_state = "NAV_TO_HOME"
         # self.robot.move_to_nav_posture()
-        self.robot.head.look_close(blocking=False)
+        # self.robot.head.look_close(blocking=False)
         self.robot.switch_to_navigation_mode()
 
         print("- try to motion plan there")
@@ -612,7 +611,7 @@ class RobotAgent:
             if res.success:
                 print("Plan successful!")
                 if not dry_run:
-                    self.robot.nav.execute_trajectory(
+                    self.robot.execute_trajectory(
                         [pt.state for pt in res.trajectory],
                         pos_err_threshold=self.pos_err_threshold,
                         rot_err_threshold=self.rot_err_threshold,
@@ -642,9 +641,7 @@ class RobotAgent:
                 for i, pt in enumerate(res.trajectory):
                     print("-", i, pt.state)
                 if not dry_run:
-                    self.robot.nav.execute_trajectory(
-                        [pt.state for pt in res.trajectory]
-                    )
+                    self.robot.execute_trajectory([pt.state for pt in res.trajectory])
             else:
                 print("WARNING: planning to home failed!")
         return matches

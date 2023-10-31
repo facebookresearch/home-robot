@@ -11,8 +11,11 @@ from home_robot.core.interfaces import (
     DiscreteNavigationAction,
     Observations,
 )
-from home_robot.core.robot import ControlMode, RobotClient
+from home_robot.core.robot import ControlMode, GraspClient, RobotClient
+from home_robot.motion.robot import RobotModel
 from home_robot.motion.stretch import HelloStretchKinematics
+from home_robot.utils.geometry import xyt_global_to_base
+from home_robot.utils.image import Camera
 from home_robot_sim.env.habitat_ovmm_env.habitat_ovmm_env import (
     HabitatOpenVocabManipEnv,
 )
@@ -30,8 +33,9 @@ class OvmmSimClient(RobotClient):
         super().__init__()
 
         self.env = sim_env
-        self.obs = None
-        self.done = None
+        self.obs = self.env.reset()
+
+        self.done = False
         self.hab_info = None
 
         if is_stretch_robot:
@@ -44,11 +48,22 @@ class OvmmSimClient(RobotClient):
                 manip_mode_controlled_joints=None,
             )
 
+            self.camera = Camera.from_width_height_fov(
+                width=480,
+                height=640,
+                fov_degrees=42,
+            )
+
     def navigate_to(
         self, xyt: ContinuousNavigationAction, relative=False, blocking=False
     ):
         """Move to xyt in global coordinates or relative coordinates."""
-        assert relative == True
+        if not relative:
+            xyt = xyt_global_to_base(xyt, self.get_base_pose())
+
+        if type(xyt) == np.ndarray:
+            xyt = ContinuousNavigationAction(xyt)
+
         self.obs, self.done, self.hab_info = self.env.apply_action(xyt)
 
     def reset(self):
@@ -76,6 +91,7 @@ class OvmmSimClient(RobotClient):
 
     def get_observation(self):
         """Return obs from last apply action"""
+        self.obs.camera_K = self.camera.K
         return self.obs
 
     def move_to_nav_posture(self):
@@ -88,10 +104,29 @@ class OvmmSimClient(RobotClient):
 
     def get_base_pose(self):
         """xyt position of robot"""
-        return [self.obs.gps[0], self.obs.gps[1], self.obs.compass]
+        return np.array([self.obs.gps[0], self.obs.gps[1], self.obs.compass[0]])
 
     def apply_action(self, action):
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
+
+    def execute_trajectory(
+        self,
+        trajectory: List[np.ndarray],
+        pos_err_threshold: float = 0.2,
+        rot_err_threshold: float = 0.75,
+        spin_rate: int = 10,
+        verbose: bool = False,
+        per_waypoint_timeout: float = 10.0,
+        relative: bool = False,
+    ):
+        """Execute a multi-step trajectory by making looping calls to navigate_to"""
+        for i, pt in enumerate(trajectory):
+            assert (
+                len(pt) == 3 or len(pt) == 2
+            ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
+            just_xy = len(pt) == 2
+
+            self.navigate_to(pt, relative)
 
 
 class SimGraspPlanner(GraspClient):

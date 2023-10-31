@@ -8,8 +8,10 @@ import argparse
 import logging
 import os
 
+from home_robot.agent.multitask import get_parameters
 from home_robot.agent.multitask.robot_agent import RobotAgent
 from home_robot.perception import create_semantic_sensor
+from loguru import logger
 from ovmm_sim_client import OvmmSimClient, SimGraspPlanner
 
 from utils.config_utils import (
@@ -53,6 +55,37 @@ if __name__ == "__main__":
         help="GPU device id",
     )
     parser.add_argument(
+        "--rate",
+        type=int,
+        default=5,
+        help="rate?",
+    )
+    parser.add_argument(
+        "--manual_wait",
+        type=bool,
+        default=False,
+        help="manual_wait?",
+    )
+    parser.add_argument(
+        "--navigate_home",
+        type=bool,
+        default=False,
+        help="manual_wait?",
+    )
+    parser.add_argument(
+        "--verbose",
+        type=bool,
+        default=True,
+        help="verbose output",
+    )
+    parser.add_argument(
+        "--show_intermediate_maps",
+        type=bool,
+        default=True,
+        help="verbose output",
+    )
+
+    parser.add_argument(
         "overrides",
         default=None,
         nargs=argparse.REMAINDER,
@@ -82,19 +115,35 @@ if __name__ == "__main__":
 
     print("- Create semantic sensor based on detic")
     config, semantic_sensor = create_semantic_sensor(
-        device_id=args.device_id, verbose=verbose
+        device_id=args.device_id, verbose=args.verbose
     )
 
     grasp_client = SimGraspPlanner(robot)
 
-    parameters = None
+    parameters = get_parameters("src/home_robot_hw/configs/default.yaml")
+    print(parameters)
+    object_to_find, location_to_place = parameters.get_task_goals()
+
     stub = None
 
     demo = RobotAgent(
         robot, semantic_sensor, parameters, rpc_stub=stub, grasp_client=grasp_client
     )
-    demo.start(goal=object_to_find, visualize_map_at_start=show_intermediate_maps)
+    demo.start(goal=object_to_find, visualize_map_at_start=args.show_intermediate_maps)
 
+    matches = demo.get_found_instances_by_class(object_to_find)
+
+    print(matches)
+
+    demo.run_exploration(
+        args.rate,
+        args.manual_wait,
+        explore_iter=parameters["exploration_steps"],
+        task_goal=object_to_find,
+        go_home_at_end=args.navigate_home,
+    )
+
+    matches = demo.get_found_instances_by_class(object_to_find)
     breakpoint()
 
     # merge env config and baseline config to create agent config
