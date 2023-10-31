@@ -50,7 +50,11 @@ def main(
     rospy.init_node("eval_episode_stretch_objectnav")
 
     print("- Loading configuration")
-    config = load_config(visualize=visualize_maps, **kwargs)
+    config = load_config(
+        visualize=visualize_maps,
+        config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
+        **kwargs
+    )
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
