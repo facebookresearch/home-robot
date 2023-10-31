@@ -208,11 +208,11 @@ def main(
     visualize_maps=False,
     visualize_grasping=False,
     test_place=False,
-    skip_gaze=False
+    skip_gaze=False,
     cat_map_file=None,
     max_num_steps=200,
     config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
-    debug=False
+    debug=False,
     port=8085,
 ):
 
@@ -249,7 +249,7 @@ def main(
     print(f"Starting server. Listening on port {port}.")
     server.add_insecure_port(f"[::]:{port}")
     server.start()
-
+    server.wait_for_termination()
 
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")
