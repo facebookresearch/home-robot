@@ -13,8 +13,8 @@ import rospy
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
+from home_robot.utils.config import load_config
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
-from home_robot_hw.utils.config import load_config
 
 
 @click.command()
