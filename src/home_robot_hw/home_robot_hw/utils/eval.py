@@ -102,6 +102,31 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
         return evaluation_pb2.Package()
 
+
+    def _extract_scalars_from_info(self, info):
+        result = {}
+        for k, v in info.items():
+            if not isinstance(k, str) or k in NON_SCALAR_METRICS:
+                continue
+
+            if isinstance(v, dict):
+                result.update(
+                    {
+                        k + "." + subk: subv
+                        for subk, subv in self._extract_scalars_from_info(
+                            v
+                        ).items()
+                        if isinstance(subk, str)
+                        and k + "." + subk not in NON_SCALAR_METRICS
+                    }
+                )
+            # Things that are scalar-like will have an np.size of 1.
+            # Strings also have an np.size of 1, so explicitly ban those
+            elif np.size(v) == 1 and not isinstance(v, str):
+                result[k] = float(v)
+
+        return result
+
     def number_of_episodes(self, request, context):
         """Return number of episodes"""
         ## does real world have episodes yet? Only looks like one episode
@@ -133,6 +158,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         hab_info = {}
 
         if "skill_done" in info and info["skill_done"] != "":
+            #Maybe add a flag if hab_info is none skip it?
             metrics = self._extract_scalars_from_info(hab_info)
             metrics_at_skill_end = {
                 f"{info['skill_done']}." + k: v for k, v in metrics.items()
