@@ -14,6 +14,7 @@ import torch
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 
 
+@click.command()
 @click.option(
     "--input-path",
     type=click.Path(),
