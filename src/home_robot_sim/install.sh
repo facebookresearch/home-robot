@@ -27,7 +27,9 @@ case $yn in
 		exit 1;;
 esac
 
-conda env update -f $HOME_ROBOT_ROOT/src/home_robot_sim/environment.yml
+echo "We currently recommend installing simulation from source."
+# conda env update -f $HOME_ROBOT_ROOT/src/home_robot_sim/environment.yml
+
 cd $HOME_ROBOT_ROOT
 pip install -e $HOME_ROBOT_ROOT/src/home_robot_sim
 
@@ -41,4 +43,4 @@ pip install -e src/third_party/habitat-lab/habitat-baselines
 echo ""
 echo "Download data from submodules..."
 cd $HOME_ROBOT_ROOT
-git submodule update --init --recursive 
+git submodule update --init --recursive data/objects
