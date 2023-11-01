@@ -579,7 +579,7 @@ def load_3d_bboxes(path) -> Tuple[torch.Tensor, torch.Tensor]:
         obj_id: IntTensor of object IDs
     """
     bboxes = np.load(path)
-    bbox_coords = torch.from_numpy(bboxes[:, :6])
+    bbox_coords = torch.from_numpy(bboxes[:, :6]).float()
     labels = torch.from_numpy(bboxes[:, -2]).int()
     obj_ids = torch.from_numpy(bboxes[:, -1]).int()
     centers, lengths = bbox_coords[:, :3], bbox_coords[:, 3:6]
