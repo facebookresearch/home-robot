@@ -6,7 +6,7 @@
 	url = https://github.com/facebookresearch/habitat-lab
 [submodule "src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork"]
 	path = src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
-	url = https://github.com/magicleap/SuperGluePretrainedNetwork.git
+	url = https://github.com/mukulkhanna/SuperGluePretrainedNetwork.git
 [submodule "src/third_party/detectron2"]
 	path = src/third_party/detectron2
 	url = https://github.com/facebookresearch/detectron2.git
@@ -22,6 +22,16 @@
 [submodule "data/hssd-hab"]
 	path = data/hssd-hab
 	url = https://huggingface.co/datasets/hssd/hssd-hab
+[submodule "spot-sim2real"]
+	path = src/third_party/spot-sim2real
+	url = git@github.com:jdvakil/spot-sim2real.git
+	branch = no_habitat
+[submodule "src/third_party/MiDaS"]
+	path = src/third_party/MiDaS
+	url = git@github.com:MatthewChang/MiDaS.git
 [submodule "src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything"]
 	path = src/home_robot/home_robot/perception/detection/grounded_sam/Grounded-Segment-Anything
 	url = https://github.com/IDEA-Research/Grounded-Segment-Anything
+[submodule "src/third_party/spot-sim2real"]
+	path = src/third_party/spot-sim2real
+	url = git@github.com:Jdvakil/spot-sim2real.git

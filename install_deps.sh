@@ -27,26 +27,24 @@ case $yn in
 		exit 1;;
 esac
 
-# Activate conda environment
-# conda activate $ENV
-export CUDA_VERSION=117
-export TORCH_VERSION=1.13.1
-
-echo ""
-echo "WARNING! we should include this elsewhere"
-echo "Installing geometric libraries for torch=$TORCH_VERSION, cuda=$CUDA_VERSION"
-python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-$TORCH_VERSION+$CUDA_VERSION.html
-python -m pip install torch_scatter torch_cluster -f https://data.pyg.org/whl/torch-$TORCH_VERSION+$CUDA_VERSION.html
-
 echo ""
 echo "Ensure Git LFS is installed"
 git lfs install
+
+# Install robotics IK dependency
+echo ""
+echo "Install pinocchio IK dependency"
+conda install pinocchio -c conda-forge
 
 echo ""
 echo "Install home_robot core..."
 python -m pip install -e src/home_robot
 echo "Install home_robot ROS..."
 python -m pip install -e src/home_robot_hw
+
+echo ""
+echo "Submodule checks"
+git submodule update -f src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
 
 echo ""
 echo "Install habitat dependencies..."
@@ -70,6 +68,11 @@ echo "Download DETIC checkpoint..."
 cd $HOME_ROBOT_ROOT/src/home_robot/home_robot/perception/detection/detic/Detic
 mkdir models
 wget --no-check-certificate https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth -O models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
+
+echo ""
+echo "Download MiDaS checkpoint..."
+cd $HOME_ROBOT_ROOT/src/third_party/MiDaS/weights
+wget https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt
 
 cd $HOME_ROBOT_ROOT
 echo ""

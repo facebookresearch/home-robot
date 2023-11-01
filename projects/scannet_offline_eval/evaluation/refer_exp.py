@@ -55,26 +55,38 @@ def get_stats_ious_at_thresh(
 
         mean_iou (float): Average IoU
     """
-    results = defaultdict({})
+    results = defaultdict(dict)
     for iou in iou_thresh:
         is_above_thresh = ious > iou
         ious_above_thresh = ious[is_above_thresh]
-        results["prop_at_iou_overall"][
-            iou
-        ] = is_above_thresh.mean()  # On a bool tensor returns float
-        results["mean_iou_given_thresh_overall"][iou] = ious[is_above_thresh].mean()
+        results["prop_at_iou_overall"][iou] = (
+            is_above_thresh.float().mean().item()
+        )  # On a bool tensor returns float
+        results["mean_iou_given_thresh_overall"][iou] = (
+            ious[is_above_thresh].float().mean().item()
+        )
         if is_unique is not None:
-            results["prop_at_iou_unique"][iou] = is_above_thresh[is_unique].mean()
-            results["mean_iou_given_thresh_unique"][iou] = ious[
-                is_above_thresh & is_unique
-            ].mean()
+            results["prop_at_iou_unique"][iou] = (
+                is_above_thresh[is_unique].float().mean().item()
+            )
+            results["mean_iou_given_thresh_unique"][iou] = (
+                ious[is_above_thresh & is_unique].mean().item()
+            )
 
-            results["prop_at_iou_multiple"][iou] = is_above_thresh[~is_unique].mean()
-            results["mean_iou_given_thresh_multiple"][iou] = ious[
-                is_above_thresh & (~is_unique)
-            ].mean()
-    results["mean_iou"] = ious.mean()
-    return results
+            results["prop_at_iou_multiple"][iou] = (
+                is_above_thresh[~is_unique].float().mean().item()
+            )
+            results["mean_iou_given_thresh_multiple"][iou] = (
+                ious[is_above_thresh & (~is_unique)].mean().item()
+            )
+    results["mean_iou"] = ious.mean().item()
+    # import pprint
+    # pprint.pprint(dict(results), indent=4)
+    return dict(results)
+
+
+def find(tensor, values):
+    return torch.nonzero(tensor[..., None] == values)
 
 
 @torch.no_grad()
@@ -85,6 +97,7 @@ def eval_obj_selection_bboxes(
     exp_target_ids: Sequence[int],
     box_pred_bounds: Sequence[Tensor],
     iou_thr: Sequence[float] = (0.25, 0.5, 0.75),
+    box_min_vol: float = 1e-6,
 ):
     """
     Metrics are proportion of IoUs above a threshold
@@ -115,10 +128,18 @@ def eval_obj_selection_bboxes(
     device = classes.device
     cls_to_retvals = defaultdict(list)
     n_scenes = len(box_gt_bounds)
-    assert len(box_gt_class) == n_scenes, len(box_gt_class)
-    assert len(box_gt_ids) == n_scenes, len(box_gt_ids)
-    assert len(exp_target_ids) == n_scenes, len(exp_target_ids)
-    assert len(box_pred_bounds) == n_scenes, len(box_pred_bounds)
+    assert (
+        len(box_gt_class) == n_scenes
+    ), f"({len(box_gt_class)=}) != ({len(box_gt_bounds)=})"
+    assert (
+        len(box_gt_ids) == n_scenes
+    ), f"({len(box_gt_ids)=}) != ({len(box_gt_bounds)=})"
+    assert (
+        len(exp_target_ids) == n_scenes
+    ), f"({len(exp_target_ids)=}) != ({len(box_gt_bounds)=})"
+    assert (
+        len(box_pred_bounds) == n_scenes
+    ), f"({len(box_pred_bounds)=}) != ({len(box_gt_bounds)=})"
 
     # Compute summary statistics
     ious_targets = []
@@ -127,11 +148,11 @@ def eval_obj_selection_bboxes(
     unique_classes = []  # Whether this was the only instance of that class
     # Loop over each prediction, target_bbox_id, all_bboxes_in_scene
     for i, (
-        _gt_bounds,
-        _gt_class,
-        _gt_obj_ids,
-        _exp_target_ids,
-        _pred_bounds,
+        scene_gt_bounds,
+        scene_gt_class,
+        scene_gt_obj_ids,
+        ref_exp_target_ids,
+        ref_exp_pred_bounds,
     ) in enumerate(
         zip(
             box_gt_bounds,
@@ -141,33 +162,48 @@ def eval_obj_selection_bboxes(
             box_pred_bounds,
         )
     ):
-        assert len(_pred_bounds) == 1, _pred_bounds.shape
-        assert len(_gt_bounds) == 1, _gt_bounds.shape
+        n_expr = len(ref_exp_target_ids)
+        assert len(ref_exp_pred_bounds) == len(
+            ref_exp_target_ids
+        ), f"({len(ref_exp_pred_bounds)=}) != ({len(ref_exp_target_ids)=})"
+        assert len(scene_gt_bounds) == len(
+            scene_gt_class
+        ), f"({len(scene_gt_bounds)=}) != ({len(scene_gt_class)=})"
+        assert len(scene_gt_bounds) == len(
+            scene_gt_obj_ids
+        ), f"({len(scene_gt_bounds)=}) != ({len(scene_gt_obj_ids)=})"
+        box_idx = find(torch.LongTensor(ref_exp_target_ids), scene_gt_obj_ids)[:, 1]
+        assert len(box_idx) == len(
+            ref_exp_target_ids
+        ), f"{box_idx} gt box ids matched {len(ref_exp_target_ids)} ref exps -- maybe gt_classes and gt_ids were swapped?"
 
-        _pred_corners = get_box_verts_from_bounds(_pred_bounds)
-        _gt_corners = get_box_verts_from_bounds(_gt_bounds)
-        _, box_iou = box3d_overlap(_pred_corners, _gt_corners)
-        box_iou = box_iou[
-            0
-        ]  # We are only evaluating one detection at a time       target_iou = box_iou[o]
+        ref_exp_gt_bounds = scene_gt_bounds[box_idx]
+        ref_exp_gt_classes = scene_gt_class[box_idx]
+        scene_gt_corners = get_box_verts_from_bounds(scene_gt_bounds)
 
-        # Get IoU against target
-        assert (_gt_obj_ids == _exp_target_ids).sum() == 1, _gt_obj_ids.sum()
-        target_iou = box_iou[_gt_obj_ids == _exp_target_ids]
-        ious_targets.append(target_iou)
+        # We are only evaluating one detection at a time       target_iou = box_iou[o]
+        for _curr_gt_box_idx, _curr_gt_class, _curr_pred_bounds in zip(
+            box_idx, ref_exp_gt_classes, ref_exp_pred_bounds
+        ):
+            _pred_corners = get_box_verts_from_bounds(_curr_pred_bounds.unsqueeze(0))
+            _, box_iou = box3d_overlap(_pred_corners, scene_gt_corners, eps=box_min_vol)
+            box_iou = box_iou[0]
 
-        # Get IoU against anything in the target class
-        same_class = _gt_class == _exp_target_ids
-        _gt_class[same_class]
-        _gt_corners[same_class]
-        class_iou = box_iou[same_class].max()
-        ious_classes.append(class_iou)
+            # Get IoU against target
+            target_iou = box_iou[_curr_gt_box_idx]
+            ious_targets.append(target_iou)
 
-        unique_class = same_class.sum() > 1
-        unique_classes.append(unique_class)
-        # Get IoU against anything
-        anything_iou = box_iou.max()
-        ious_anything.append(anything_iou)
+            # Get IoU against anything in the target class
+            same_class = scene_gt_class == _curr_gt_class
+            class_iou = box_iou[same_class].max()
+            ious_classes.append(class_iou)
+
+            unique_class = same_class.sum() == 1
+            unique_classes.append(unique_class)
+
+            # Get IoU against anything
+            anything_iou = box_iou.max()
+            ious_anything.append(anything_iou)
 
     iou_types = [
         "target",
@@ -177,22 +213,24 @@ def eval_obj_selection_bboxes(
     eval_dict = {}
     for iou_type, ious in zip(iou_types, [ious_targets, ious_classes, ious_anything]):
         eval_dict[iou_type] = get_stats_ious_at_thresh(
-            ious, iou_thresh=iou_thr, unique_classes=torch.stack(unique_classes)
+            torch.Tensor(ious),
+            iou_thresh=iou_thr,
+            is_unique=torch.stack(unique_classes),
         )
 
     header = ["classes"]
-    table_columns = []
+    table_columns = [[iou_type for iou_type in iou_types]]
     return_dict = {}
 
     metric_name = "mean_iou"
     header.append(metric_name)
-    table_columns.append([eval_dict[iou_type] for iou_type in iou_types])
+    table_columns.append([eval_dict[iou_type]["mean_iou"] for iou_type in iou_types])
     return_dict[metric_name] = {
         iou_type: vals for iou_type, vals in zip(iou_types, table_columns[-1])
     }
 
     for i, iou in enumerate(iou_thr):
-        metric_name = f"prop_gt_{iou:2f}_oval"
+        metric_name = f"iou > {iou:2f}"
         header.append(metric_name)
         table_columns.append(
             [eval_dict[iou_type]["prop_at_iou_overall"][iou] for iou_type in iou_types]
@@ -201,7 +239,7 @@ def eval_obj_selection_bboxes(
             iou_type: vals for iou_type, vals in zip(iou_types, table_columns[-1])
         }
 
-        metric_name = f"mean_iou_given_{iou:2f}_oval"
+        metric_name = f"mean_iou @ {iou:0.2f}"
         header.append(metric_name)
         table_columns.append(
             [
@@ -213,7 +251,7 @@ def eval_obj_selection_bboxes(
             iou_type: vals for iou_type, vals in zip(iou_types, table_columns[-1])
         }
 
-        metric_name = f"prop_gt_{iou:2f}_uniq"
+        metric_name = f"iou > {iou:0.2f} (uniq)"
         header.append(metric_name)
         table_columns.append(
             [eval_dict[iou_type]["prop_at_iou_unique"][iou] for iou_type in iou_types]
@@ -222,7 +260,7 @@ def eval_obj_selection_bboxes(
             iou_type: vals for iou_type, vals in zip(iou_types, table_columns[-1])
         }
 
-        metric_name = f"mean_iou_given_{iou:2f}_uniq"
+        metric_name = f"mean_iou @ {iou:0.2f} (uniq)"
         header.append(metric_name)
         table_columns.append(
             [
@@ -234,16 +272,16 @@ def eval_obj_selection_bboxes(
             iou_type: vals for iou_type, vals in zip(iou_types, table_columns[-1])
         }
 
-        metric_name = f"prop_gt_{iou:2f}_mult"
+        metric_name = f"iou > {iou:0.2f} (mult)"
         header.append(metric_name)
         table_columns.append(
-            [eval_dict[iou_type]["prop_at_iou_ultiple"][iou] for iou_type in iou_types]
+            [eval_dict[iou_type]["prop_at_iou_multiple"][iou] for iou_type in iou_types]
         )
         return_dict[metric_name] = {
             iou_type: vals for iou_type, vals in zip(iou_types, table_columns[-1])
         }
 
-        metric_name = f"mean_iou_given_{iou:2f}_mult"
+        metric_name = f"mean_iou @ {iou:0.2f} (mult)"
         header.append(metric_name)
         table_columns.append(
             [
@@ -256,9 +294,9 @@ def eval_obj_selection_bboxes(
         }
 
     table_data = [header]
-    table_rows = list(zip(*table_rows))
+    table_rows = [list(r) for r in zip(*table_columns)]
     table_data += table_rows
     table = AsciiTable(table_data)
-    table.inner_footing_row_border = True
+    # table.inner_footing_row_border = True
     print("\n" + table.table)
     return eval_dict

@@ -266,6 +266,9 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
     # --------------------------------------------------------------------------------------------
     # Load trajectory of home_robot Observations
     # --------------------------------------------------------------------------------------------
+    print("Read trajectories from:", input_trajectory_dir)
+    print("        Output data to:", output_visualization_dir)
+    print("          Legend is at:", legend_path)
     observations = []
     for path in natsort.natsorted(glob.glob(f"{input_trajectory_dir}/*.pkl")):
         with open(path, "rb") as f:
@@ -284,7 +287,7 @@ def main(input_trajectory_dir: str, output_visualization_dir: str, legend_path: 
         sem_gpu_id=0,
     )
     observations = [
-        segmentation.predict(obs, depth_threshold=None) for obs in observations
+        segmentation.predict(obs, depth_threshold=0.5) for obs in observations
     ]
     for obs in observations:
         obs.semantic[obs.semantic == 0] = len(categories) - 1

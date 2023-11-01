@@ -31,6 +31,7 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 import home_robot
 import home_robot.core.abstract_env
 from home_robot.core.interfaces import Action, Observations
+from home_robot.core.robot import ControlMode
 from home_robot.core.state import ManipulatorBaseParams
 from home_robot.motion.stretch import HelloStretchIdx
 from home_robot.utils.geometry import (
@@ -51,7 +52,6 @@ from home_robot_hw.constants import (
     ROS_WRIST_ROLL,
     ROS_WRIST_YAW,
     T_LOC_STABILIZE,
-    ControlMode,
 )
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.camera import RosCamera

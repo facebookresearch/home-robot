@@ -13,8 +13,7 @@ import skimage.morphology
 import torch
 
 from home_robot.mapping.voxel import SparseVoxelMap
-from home_robot.motion.robot import Robot
-from home_robot.motion.space import XYT
+from home_robot.motion import XYT, RobotModel
 from home_robot.utils.geometry import angle_difference, interpolate_angles
 from home_robot.utils.morphology import (
     binary_dilation,
@@ -28,22 +27,27 @@ from home_robot.utils.morphology import (
 class SparseVoxelMapNavigationSpace(XYT):
     """subclass for sampling XYT states from explored space"""
 
+    # Used for making sure we do not divide by zero anywhere
+    tolerance: float = 1e-8
+
     def __init__(
         self,
         voxel_map: SparseVoxelMap,
-        robot: Robot,
+        robot: RobotModel,
         step_size: float = 0.1,
         rotation_step_size: float = 0.5,
         use_orientation: bool = False,
         orientation_resolution: int = 64,
         dilate_frontier_size: int = 12,
         dilate_obstacle_size: int = 2,
+        extend_mode: str = "separate",
     ):
         self.robot = robot
         self.step_size = step_size
         self.rotation_step_size = rotation_step_size
         self.voxel_map = voxel_map
         self.create_collision_masks(orientation_resolution)
+        self.extend_mode = extend_mode
 
         # Always use 3d states
         self.use_orientation = use_orientation
@@ -120,12 +124,30 @@ class SparseVoxelMapNavigationSpace(XYT):
             return np.linalg.norm(q0[:2] - q1[:2])
 
     def extend(self, q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
+        """extend towards another configuration in this space. Will be either separate or joint depending on if the robot can "strafe":
+        separate: move then rotate
+        joint: move and rotate all at once."""
+        assert len(q0) == 3, f"initial configuration must be 3d, was {q0}"
+        assert (
+            len(q1) == 3 or len(q1) == 2
+        ), f"final configuration can be 2d or 3d, was {q1}"
+        if self.extend_mode == "separate":
+            return self._extend_separate(q0, q1)
+        elif self.extend_mode == "joint":
+            # Just default to linear interpolation, does not use rotation_step_size
+            return super().extend(q0, q1)
+        else:
+            raise NotImplementedError(f"not supported: {self.extend_mode=}")
+
+    def _extend_separate(self, q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
         """extend towards another configuration in this space.
         TODO: we can set the classes here, right now assuming still np.ndarray"""
-        assert len(q0) == 3, "initial configuration must be 3d"
-        assert len(q1) == 3 or len(q1) == 2, "final configuration can be 2d or 3d"
+        assert len(q0) == 3, f"initial configuration must be 3d, was {q0}"
+        assert (
+            len(q1) == 3 or len(q1) == 2
+        ), f"final configuration can be 2d or 3d, was {q1}"
         dxy = q1[:2] - q0[:2]
-        step = dxy / np.linalg.norm(dxy) * self.step_size
+        step = dxy / np.linalg.norm(dxy + self.tolerance) * self.step_size
         xy = q0[:2]
         if np.linalg.norm(q1[:2] - q0[:2]) > self.step_size:
             # Compute theta looking at new goal point
@@ -186,7 +208,13 @@ class SparseVoxelMapNavigationSpace(XYT):
         theta_idx = self._get_theta_index(theta)
         return self._oriented_masks[theta_idx]
 
-    def is_valid(self, state: torch.Tensor, debug: bool = False) -> bool:
+    def is_valid(
+        self,
+        state: torch.Tensor,
+        is_safe_threshold=0.95,
+        debug: bool = False,
+        verbose: bool = False,
+    ) -> bool:
         """Check to see if state is valid; i.e. if there's any collisions if mask is at right place"""
         assert len(state) == 3
         if isinstance(state, np.ndarray):
@@ -208,17 +236,28 @@ class SparseVoxelMapNavigationSpace(XYT):
         y1 = y0 + dim
 
         obstacles, explored = self.voxel_map.get_2d_map()
+
         crop_obs = obstacles[x0:x1, y0:y1]
         crop_exp = explored[x0:x1, y0:y1]
         assert mask.shape == crop_obs.shape
         assert mask.shape == crop_exp.shape
 
         collision = torch.any(crop_obs & mask)
-        is_safe = torch.all((crop_exp & mask) | ~mask)
+
+        p_is_safe = (
+            torch.sum((crop_exp & mask) | ~mask) / (mask.shape[0] * mask.shape[1])
+        ).item()
+        is_safe = p_is_safe > is_safe_threshold
+        if verbose:
+            print(f"{collision=}, {is_safe=}, {p_is_safe=}, {is_safe_threshold=}")
 
         valid = bool((not collision) and is_safe)
-
         if debug:
+            if collision:
+                print("- state in collision")
+            if not is_safe:
+                print("- not safe")
+
             print(f"{valid=}")
             obs = obstacles.cpu().numpy().copy()
             exp = explored.cpu().numpy().copy()
@@ -239,14 +278,113 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         return valid
 
+    def sample_near_mask(
+        self,
+        mask: torch.Tensor,
+        radius_m: float = 0.7,
+        max_tries: int = 1000,
+        verbose: bool = True,
+        debug: bool = False,
+        look_at_any_point: bool = False,
+    ) -> Optional[np.ndarray]:
+        """Sample a position near the mask and return.
+
+        Args:
+            look_at_any_point(bool): robot should look at the closest point on target mask instead of average pt
+        """
+
+        obstacles, explored = self.voxel_map.get_2d_map()
+
+        # Extract edges from our explored mask
+
+        # TODO: we might still need this, but should set it separately when not exploring
+        # less_explored = binary_erosion(
+        #     explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
+        # )[0, 0]
+
+        # Radius computed from voxel map measurements
+        radius = np.ceil(radius_m / self.voxel_map.grid_resolution)
+        expanded_mask = expand_mask(mask, radius)
+
+        # TODO: was this:
+        # expanded_mask = expanded_mask & less_explored & ~obstacles
+        expanded_mask = expanded_mask & explored & ~obstacles
+
+        if debug:
+            import matplotlib.pyplot as plt
+
+            plt.imshow(
+                mask.int()
+                + expanded_mask.int() * 10
+                + explored.int()
+                + obstacles.int() * 5
+            )
+            plt.show()
+
+        # Where can the robot go?
+        valid_indices = torch.nonzero(expanded_mask, as_tuple=False)
+        if valid_indices.size(0) == 0:
+            print("[VOXEL MAP: sampling] No valid goals near mask!")
+            return None
+        if not look_at_any_point:
+            mask_indices = torch.nonzero(mask, as_tuple=False)
+            outside_point = mask_indices.float().mean(dim=0)
+
+        # maximum number of tries
+        for i in range(max_tries):
+            random_index = torch.randint(valid_indices.size(0), (1,))
+            point_grid_coords = valid_indices[random_index]
+
+            if look_at_any_point:
+                outside_point = find_closest_point_on_mask(
+                    mask, point_grid_coords.float()
+                )
+
+            # convert back
+            point = self.voxel_map.grid_coords_to_xy(point_grid_coords)
+            if point is None:
+                print("[VOXEL MAP: sampling] ERR:", point, point_grid_coords)
+                continue
+            if outside_point is None:
+                print(
+                    "[VOXEL MAP: sampling] ERR finding closest pt:",
+                    point,
+                    point_grid_coords,
+                    "closest =",
+                    outside_point,
+                )
+                continue
+            theta = math.atan2(
+                outside_point[1] - point_grid_coords[0, 1],
+                outside_point[0] - point_grid_coords[0, 0],
+            )
+
+            # Ensure angle is in 0 to 2 * PI
+            if theta < 0:
+                theta += 2 * np.pi
+
+            xyt = torch.zeros(3)
+            xyt[:2] = point
+            xyt[2] = theta
+
+            # Check to see if this point is valid
+            if verbose:
+                print("[VOXEL MAP: sampling]", radius, i, "sampled", xyt)
+            if self.is_valid(xyt, verbose=verbose):
+                yield xyt
+
+        # We failed to find anything useful
+        return None
+
     def sample_closest_frontier(
         self,
         xyt: np.ndarray,
-        max_tries: int = 100,
+        max_tries: int = 1000,
         expand_size: int = 5,
         debug: bool = False,
         verbose: bool = False,
         step_dist: float = 0.5,
+        min_dist: float = 0.5,
     ) -> Optional[torch.Tensor]:
         """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
 
@@ -261,37 +399,39 @@ class SparseVoxelMapNavigationSpace(XYT):
             len(xyt) == 2 or len(xyt) == 3
         ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
 
-        # Get the masks from our 3d map
         obstacles, explored = self.voxel_map.get_2d_map()
-
         # Extract edges from our explored mask
-        less_explored = binary_erosion(
-            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
-        )[0, 0]
         obstacles = binary_dilation(
             obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
         )[0, 0].bool()
-        edges = get_edges(less_explored)
+        # Get the masks from our 3d map
+        edges = get_edges(explored)
 
         # Do not explore obstacles any more
-        frontier_edges = edges & ~obstacles
         traversible = explored & ~obstacles
-        outside_frontier = ~explored & ~obstacles
+        frontier_edges = edges & ~obstacles
+        expanded_frontier = binary_dilation(
+            frontier_edges.float().unsqueeze(0).unsqueeze(0),
+            self.dilate_explored_kernel,
+        )[0, 0].bool()
+        outside_frontier = expanded_frontier & ~explored
+        frontier = expanded_frontier & ~obstacles & explored
 
         if debug:
             import matplotlib.pyplot as plt
 
             plt.subplot(221)
-            plt.imshow(frontier_edges.cpu().numpy())
+            print("obstacles")
+            plt.imshow(obstacles.cpu().numpy())
             plt.subplot(222)
-            # plt.imshow(expanded_frontier.cpu().numpy())
-            # plt.title("expanded frontier")
-            plt.subplot(223)
-            plt.imshow(traversible.cpu().numpy())
-            plt.title("traversible")
-            plt.subplot(224)
-            plt.imshow((less_explored + explored).cpu().numpy())
+            plt.imshow(explored.bool().cpu().numpy())
             plt.title("explored")
+            plt.subplot(223)
+            plt.imshow((traversible + frontier).cpu().numpy())
+            plt.title("traversible + frontier")
+            plt.subplot(224)
+            plt.imshow((frontier_edges).cpu().numpy())
+            plt.title("just frontiers")
             plt.show()
 
         # from scipy.ndimage.morphology import distance_transform_edt
@@ -307,9 +447,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         distance_map = skfmm.distance(m, dx=1)
         frontier_map = distance_map.copy()
         # Masks are the areas we are ignoring - ignore everything but the frontiers
-        frontier_map.mask = np.bitwise_or(
-            frontier_map.mask, ~frontier_edges.cpu().numpy()
-        )
+        frontier_map.mask = np.bitwise_or(frontier_map.mask, ~frontier.cpu().numpy())
 
         # Get distances of frontier points
         distances = frontier_map.compressed()
@@ -333,6 +471,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         tries = 1
         prev_dist = -1 * float("Inf")
         for x, y, dist in sorted(zip(xs, ys, distances), key=lambda x: x[2]):
+            if dist < min_dist:
+                continue
 
             # Don't explore too close to where we are
             if dist < prev_dist + step_dist:
@@ -377,7 +517,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             # Check to see if this point is valid
             if verbose:
                 print("[VOXEL MAP: sampling] sampled", xyt)
-            if self.is_valid(xyt):
+            if self.is_valid(xyt, debug=debug):
                 yield xyt
 
             tries += 1

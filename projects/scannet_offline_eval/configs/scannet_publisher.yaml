@@ -1,0 +1,13 @@
+defaults:
+  - _self_
+  - dataset: scannet
+  - model: instancemap3d_top_down
+  - paths: default
+  - hydra: default
+
+scene_name: scene0011_00
+show_backend: false # open3d, pytorch3d
+dump_dir: 'published_trajectory'
+task_name: 'huh'
+wait_keypress_for_start: False
+wait_keypress_for_continue: False

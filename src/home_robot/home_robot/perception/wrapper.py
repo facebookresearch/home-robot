@@ -5,50 +5,11 @@
 
 
 import json
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from home_robot.core.interfaces import Observations
 from home_robot.perception.constants import RearrangeDETICCategories
-from home_robot.perception.detection.detic.detic_perception import DeticPerception
-
-
-def read_category_map_file(
-    category_map_file: str,
-) -> Tuple[Dict[int, str], Dict[int, str]]:
-    """
-    Reads a category map file in JSON and extracts mappings between category names and category IDs.
-    These mappings are also present in the episodes file but are extracted to use in a stand-alone manner.
-    Returns object and receptacle mappings.
-    """
-    with open(category_map_file) as f:
-        category_map = json.load(f)
-
-    obj_name_to_id_mapping = category_map["obj_category_to_obj_category_id"]
-    rec_name_to_id_mapping = category_map["recep_category_to_recep_category_id"]
-    obj_id_to_name_mapping = {k: v for v, k in obj_name_to_id_mapping.items()}
-    rec_id_to_name_mapping = {k: v for v, k in rec_name_to_id_mapping.items()}
-
-    return obj_id_to_name_mapping, rec_id_to_name_mapping
-
-
-def build_vocab_from_category_map(
-    obj_id_to_name_mapping: Dict[int, str], rec_id_to_name_mapping: Dict[int, str]
-) -> RearrangeDETICCategories:
-    """
-    Build vocabulary from category maps that can be used for semantic sensor and visualizations.
-    """
-    obj_rec_combined_mapping = {}
-    for i in range(len(obj_id_to_name_mapping) + len(rec_id_to_name_mapping)):
-        if i < len(obj_id_to_name_mapping):
-            obj_rec_combined_mapping[i + 1] = obj_id_to_name_mapping[i]
-        else:
-            obj_rec_combined_mapping[i + 1] = rec_id_to_name_mapping[
-                i - len(obj_id_to_name_mapping)
-            ]
-    vocabulary = RearrangeDETICCategories(
-        obj_rec_combined_mapping, len(obj_id_to_name_mapping)
-    )
-    return vocabulary
+from home_robot.utils.config import load_config
 
 
 class OvmmPerception:
@@ -74,13 +35,18 @@ class OvmmPerception:
         self._current_vocabulary_id: int = None
         self.verbose = verbose
         if self._detection_module == "detic":
+            # Lazy import
+            from home_robot.perception.detection.detic.detic_perception import (
+                DeticPerception,
+            )
+
             # TODO Specify confidence threshold as a parameter
             self._segmentation = DeticPerception(
                 vocabulary="custom",
                 custom_vocabulary=".",
                 sem_gpu_id=gpu_device_id,
                 verbose=verbose,
-                **module_kwargs
+                **module_kwargs,
             )
         elif self._detection_module == "grounded_sam":
             from home_robot.perception.detection.grounded_sam.grounded_sam_perception import (
@@ -91,7 +57,7 @@ class OvmmPerception:
                 custom_vocabulary=".",
                 sem_gpu_id=gpu_device_id,
                 verbose=verbose,
-                **module_kwargs
+                **module_kwargs,
             )
         else:
             raise NotImplementedError
@@ -131,6 +97,14 @@ class OvmmPerception:
 
         self._current_vocabulary = vocabulary
         self._current_vocabulary_id = vocabulary_id
+
+    def get_class_name_for_id(self, oid: int) -> str:
+        """return name of a class from a detection"""
+        return self._current_vocabulary.goal_id_to_goal_name[oid]
+
+    def get_class_id_for_name(self, name: str) -> int:
+        """return the id associated with a class"""
+        return self._current_vocabulary.goal_name_to_goal_id[name]
 
     def _process_obs(self, obs: Observations):
         """
@@ -182,3 +156,74 @@ class OvmmPerception:
         obs = self.predict(obs, depth_threshold)
         self._process_obs(obs)
         return obs
+
+
+def read_category_map_file(
+    category_map_file: str,
+) -> Tuple[Dict[int, str], Dict[int, str]]:
+    """
+    Reads a category map file in JSON and extracts mappings between category names and category IDs.
+    These mappings are also present in the episodes file but are extracted to use in a stand-alone manner.
+    Returns object and receptacle mappings.
+    """
+    with open(category_map_file) as f:
+        category_map = json.load(f)
+
+    obj_name_to_id_mapping = category_map["obj_category_to_obj_category_id"]
+    rec_name_to_id_mapping = category_map["recep_category_to_recep_category_id"]
+    obj_id_to_name_mapping = {k: v for v, k in obj_name_to_id_mapping.items()}
+    rec_id_to_name_mapping = {k: v for v, k in rec_name_to_id_mapping.items()}
+
+    return obj_id_to_name_mapping, rec_id_to_name_mapping
+
+
+def build_vocab_from_category_map(
+    obj_id_to_name_mapping: Dict[int, str], rec_id_to_name_mapping: Dict[int, str]
+) -> RearrangeDETICCategories:
+    """
+    Build vocabulary from category maps that can be used for semantic sensor and visualizations.
+    """
+    obj_rec_combined_mapping = {}
+    for i in range(len(obj_id_to_name_mapping) + len(rec_id_to_name_mapping)):
+        if i < len(obj_id_to_name_mapping):
+            obj_rec_combined_mapping[i + 1] = obj_id_to_name_mapping[i]
+        else:
+            obj_rec_combined_mapping[i + 1] = rec_id_to_name_mapping[
+                i - len(obj_id_to_name_mapping)
+            ]
+    vocabulary = RearrangeDETICCategories(
+        obj_rec_combined_mapping, len(obj_id_to_name_mapping)
+    )
+    return vocabulary
+
+
+def create_semantic_sensor(
+    config=None,
+    category_map_file: Optional[str] = None,
+    device_id: int = 0,
+    verbose: bool = True,
+    module_kwargs: Dict[str, Any] = {},
+    **kwargs,
+):
+    """Create segmentation sensor and load config. Returns config from file, as well as a OvmmPerception object that can be used to label scenes."""
+    if verbose:
+        print("- Loading configuration")
+    if config is None:
+        config = load_config(visualize=False, **kwargs)
+    if category_map_file is None:
+        category_map_file = config.ENVIRONMENT.category_map_file
+
+    if verbose:
+        print("- Create and load vocabulary and perception model")
+    semantic_sensor = OvmmPerception(
+        config=config,
+        gpu_device_id=device_id,
+        verbose=verbose,
+        module="detic",
+        module_kwargs=module_kwargs,
+    )
+    obj_name_to_id, rec_name_to_id = read_category_map_file(category_map_file)
+    vocab = build_vocab_from_category_map(obj_name_to_id, rec_name_to_id)
+    semantic_sensor.update_vocabulary_list(vocab, 0)
+    semantic_sensor.set_vocabulary(0)
+    return config, semantic_sensor

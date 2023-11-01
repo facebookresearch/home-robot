@@ -52,6 +52,27 @@ class Camera(object):
             horizontal_fov_rad,
         )
 
+    @staticmethod
+    def from_K(K: np.ndarray, width: float, height: float):
+        """return camera created from a 3x3 camera intrinsics matrix K"""
+        assert K.shape == (3, 3)
+        return Camera(
+            (0, 0, 0),
+            (0, 0, 0, 1),
+            height,
+            width,
+            K[0, 0],
+            K[1, 1],
+            K[0, 2],
+            K[1, 2],
+            0,
+            5,
+            np.eye(4),
+            None,
+            None,
+            None,
+        )
+
     def __init__(
         self,
         pos,

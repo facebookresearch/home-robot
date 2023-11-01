@@ -19,7 +19,9 @@ from natsort import natsorted
 from PIL import Image
 
 import home_robot.utils.pose as pu
-from home_robot.perception.detection.coco_maskrcnn.coco_categories import (
+from home_robot.perception.constants import PaletteIndices as PI
+from home_robot.perception.constants import languagenav_2categories_map_color_palette
+from home_robot.perception.detection.maskrcnn.coco_categories import (
     coco_categories_color_palette,
 )
 from home_robot.utils.visualization import draw_line, get_contour_points
@@ -45,9 +47,23 @@ MAP_COLOR_PALETTE = [
         0.63,
         0.78,
         0.95,  # rest of goal
+        0.6,
+        0.87,
+        0.54,  # been close map
+        0.0,
+        1.0,
+        0.0,  # short term goal
+        0.6,
+        0.17,
+        0.54,  # blacklisted targets map
+        0.0,
+        0.0,
+        0.0,  # instance border
         *coco_categories_color_palette,
     ]
 ]
+
+MAP_COLOR_PALETTE = languagenav_2categories_map_color_palette
 
 
 def append_text_to_image_right_align(
@@ -180,7 +196,13 @@ class NavVisualizer:
         semantic_map: Optional[np.ndarray] = None,
         visualize_goal: bool = True,
         metrics: Dict[str, Any] = None,
-        **kwargs,
+        been_close_map=None,
+        blacklisted_targets_map=None,
+        frontier_map: Optional[np.ndarray] = None,
+        dilated_obstacle_map: Optional[np.ndarray] = None,
+        instance_map: Optional[np.ndarray] = None,
+        short_term_goal: Optional[np.ndarray] = None,
+        goal_pose=None,
     ) -> None:
         """Visualize frame input and semantic map.
 
@@ -207,6 +229,9 @@ class NavVisualizer:
         if last_collisions is None:
             last_collisions = {"is_collision": False}
 
+        if dilated_obstacle_map is not None:
+            obstacle_map = dilated_obstacle_map
+
         goal_frame = self.make_goal(last_goal_image)
         obs_frame = self.make_observations(
             semantic_frame,
@@ -225,7 +250,8 @@ class NavVisualizer:
         )
         td_map_frame = None if last_td_map is None else self.make_td_map(last_td_map)
 
-        kp_frame = self.make_keypoint(timestep)
+        kp_frame = np.ones_like(goal_frame) * 255
+        # kp_frame = self.make_keypoint(timestep)
 
         if td_map_frame is None:
             frame = np.concatenate(
@@ -419,30 +445,30 @@ class NavVisualizer:
             )
         self.last_xy = (curr_x, curr_y)
 
-        semantic_map += 6
+        semantic_map += PI.SEM_START
 
         # Obstacles, explored, and visited areas
-        no_category_mask = semantic_map == 6 + self.num_sem_categories - 1
+        no_category_mask = semantic_map == PI.SEM_START + self.num_sem_categories - 1
         obstacle_mask = np.rint(obstacle_map) == 1
         explored_mask = np.rint(explored_map) == 1
         visited_mask = self.visited_map_vis[gy1:gy2, gx1:gx2] == 1
-        semantic_map[no_category_mask] = 0
-        semantic_map[np.logical_and(no_category_mask, explored_mask)] = 2
-        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = 1
-        semantic_map[visited_mask] = 3
+        semantic_map[no_category_mask] = PI.EMPTY_SPACE
+        semantic_map[np.logical_and(no_category_mask, explored_mask)] = PI.EXPLORED
+        semantic_map[np.logical_and(no_category_mask, obstacle_mask)] = PI.OBSTACLES
+        semantic_map[visited_mask] = PI.VISITED
 
         # Goal
         if visualize_goal:
             selem = skimage.morphology.disk(4)
             goal_mat = 1 - skimage.morphology.binary_dilation(goal_map, selem) != 1
             goal_mask = goal_mat == 1
-            semantic_map[goal_mask] = 21
+            semantic_map[goal_mask] = PI.REST_OF_GOAL
             if closest_goal_map is not None:
                 closest_goal_mat = (
                     1 - skimage.morphology.binary_dilation(closest_goal_map, selem) != 1
                 )
                 closest_goal_mask = closest_goal_mat == 1
-                semantic_map[closest_goal_mask] = 4
+                semantic_map[closest_goal_mask] = PI.CLOSEST_GOAL
 
         # Semantic categories
         semantic_map_vis = Image.new(
@@ -477,7 +503,7 @@ class NavVisualizer:
         color = MAP_COLOR_PALETTE[9:12][::-1]
         cv2.drawContours(semantic_map_vis, [agent_arrow], 0, color, -1)
 
-        semantic_map_vis = cv2.cvtColor(semantic_map_vis, cv2.COLOR_RGB2BGR)
+        # semantic_map_vis = cv2.cvtColor(semantic_map_vis, cv2.COLOR_RGB2BGR)
 
         # add map outline
         color = [100, 100, 100]
