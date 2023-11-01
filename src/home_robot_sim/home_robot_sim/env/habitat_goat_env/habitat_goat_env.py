@@ -23,6 +23,8 @@ from home_robot.perception.detection.maskrcnn.maskrcnn_perception import (
 )
 
 from home_robot.perception.constants import df as hm3d_mapping_df
+import os, cv2
+
 
 all_ovon_categories_path = "/srv/flash1/rramrakhya3/fall_2023/goat/data/hm3d_meta/ovon_categories_final_split.json"
 with open(all_ovon_categories_path, "r") as f:
@@ -90,6 +92,9 @@ class HabitatGoatEnv(HabitatEnv):
 
         if not self.ground_truth_semantics:
             self.init_perception_module()
+        self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}"
+        os.makedirs(self.default_vis_dir, exist_ok=True)
+        self.timestep = 0
 
     def fetch_vocabulary(self, goals):
         # TODO: get open set vocabulary
@@ -175,10 +180,33 @@ class HabitatGoatEnv(HabitatEnv):
                 "tasks": goals,
                 "top_down_map": self.get_episode_metrics()["goat_top_down_map"],
             },
-            camera_pose=None,
+            camera_pose=habitat_obs['camera_pose'],
             third_person_image=None,
         )
         obs = self._preprocess_semantic(obs, habitat_obs["semantic"])
+
+        scene_id = self.habitat_env.current_episode.scene_id.split("/")[-1].split(".")[
+            0
+        ]
+        episode_id = self.habitat_env.current_episode.episode_id
+        save_dir = os.path.join(self.default_vis_dir, f"{scene_id}_{episode_id}")
+
+        os.makedirs(os.path.join(save_dir, "depth"), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "rgb"), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "semantic"), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "all_observations"), exist_ok=True)
+        timestep = self.timestep
+        cv2.imwrite(os.path.join(save_dir, "depth", str(timestep) + ".png"), depth)
+        cv2.imwrite(
+            os.path.join(save_dir, "rgb", str(timestep) + ".png"),
+            obs.rgb[:, :, [2, 1, 0]],
+        )
+        cv2.imwrite(
+            os.path.join(save_dir, "semantic", str(timestep) + ".png"), obs.semantic
+        )
+        np.save(os.path.join(save_dir, "all_observations", str(timestep) + ".pkl"), obs)
+        self.timestep += 1
+
         return obs
 
     def _preprocess_semantic(

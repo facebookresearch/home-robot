@@ -46,10 +46,17 @@ class LanguageNavFrontierExplorationPolicy(nn.Module):
 
     def reach_single_category(self, map_features, category, reject_visited_targets):
         # if the goal is found, reach it
-        goal_map, found_goal = self.reach_goal_if_in_map(
-            map_features, category, reject_visited_targets=reject_visited_targets
-        )
+        # goal_map, found_goal = self.reach_goal_if_in_map(
+        #     map_features, category, reject_visited_targets=reject_visited_targets
+        # )
         # otherwise, do frontier exploration
+        batch_size, _, height, width = map_features.shape
+        device = map_features.device
+        # Otherwise, set closest frontier as the goal
+        goal_map = torch.zeros((batch_size, height, width), device=device)
+        found_goal = torch.zeros(
+            batch_size, dtype=torch.bool, device=device
+        )
         goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
         return goal_map, found_goal
 
