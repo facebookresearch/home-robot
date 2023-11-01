@@ -7,6 +7,7 @@
 import argparse
 import logging
 import os
+from typing import Any, Dict, List, Optional, Tuple
 
 from home_robot.agent.multitask import get_parameters
 from home_robot.agent.multitask.robot_agent import RobotAgent
@@ -122,7 +123,7 @@ if __name__ == "__main__":
 
     parameters = get_parameters("src/home_robot_hw/configs/default.yaml")
     print(parameters)
-    object_to_find, location_to_place = parameters.get_task_goals()
+    object_to_find, location_to_place = robot.get_task_obs()
 
     stub = None
 
@@ -133,8 +134,6 @@ if __name__ == "__main__":
 
     matches = demo.get_found_instances_by_class(object_to_find)
 
-    print(matches)
-
     demo.run_exploration(
         args.rate,
         args.manual_wait,
@@ -143,7 +142,45 @@ if __name__ == "__main__":
         go_home_at_end=args.navigate_home,
     )
 
+    print("Done collecting data (exploration).")
     matches = demo.get_found_instances_by_class(object_to_find)
+    print("-> Found", len(matches), f"instances of class {object_to_find}.")
+
+    print(f"- Move to any instance of {object_to_find}")
+    smtai = demo.move_to_any_instance(matches)
+    if not smtai:
+        print("Moving to instance failed!")
+    else:
+        print(f"- Grasp {object_to_find} using FUNMAP")
+        res = demo.grasp(object_goal=object_to_find)
+        print(f"- Grasp result: {res}")
+
+        matches = demo.get_found_instances_by_class(location_to_place)
+        if len(matches) == 0:
+            print(f"!!! No location {location_to_place} found. Exploring !!!")
+            demo.run_exploration(
+                rate,
+                manual_wait,
+                explore_iter=explore_iter,
+                task_goal=location_to_place,
+                go_home_at_end=navigate_home,
+            )
+
+        print(f"- Move to any instance of {location_to_place}")
+        smtai2 = demo.move_to_any_instance(matches)
+        if not smtai2:
+            print(f"Going to instance of {location_to_place} failed!")
+        else:
+            print(f"- Placing on {location_to_place} using FUNMAP")
+            if not no_manip:
+                # run_grasping(
+                #    robot,
+                #    semantic_sensor,
+                #    to_grasp=None,
+                #    to_place=location_to_place,
+                # )
+                pass
+
     breakpoint()
 
     # # merge env config and baseline config to create agent config

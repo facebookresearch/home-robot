@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import imageio
 import numpy as np
@@ -96,6 +96,13 @@ class OvmmSimClient(RobotClient):
         """Return obs from last apply action"""
         self.obs.camera_K = self.camera.K
         return self.obs
+
+    def get_task_obs(self) -> Tuple[str, str]:
+        """Return object_to_find and location_to_place"""
+        return (
+            self.obs.task_observations["object_name"],
+            self.obs.task_observations["place_recep_name"],
+        )
 
     def move_to_nav_posture(self):
         """No applicable action in sim"""
