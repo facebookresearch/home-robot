@@ -226,24 +226,28 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         goal_name = (
             "Move " + obj_name + " from " + start_receptacle + " to " + goal_receptacle
         )
-        obj_goal_id = (
-            1 + habitat_obs["object_category"]
-        )  # semantic sensor returns binary mask for goal object
         if self.ground_truth_semantics:
+            if "all_object_segmentation" in habitat_obs:
+                obj_goal_id = 1 + habitat_obs["object_category"]
+                obj_categories_in_seg = len(self._obj_id_to_name_mapping)
+            else:
+                obj_goal_id = 1
+                obj_categories_in_seg = 1
             start_rec_goal_id = (
                 self._rec_name_to_id_mapping[start_receptacle]
                 + 1
-                + len(self._obj_id_to_name_mapping)
+                + obj_categories_in_seg
             )
             end_rec_goal_id = (
                 self._rec_name_to_id_mapping[goal_receptacle]
                 + 1
-                + len(self._obj_id_to_name_mapping)
+                + obj_categories_in_seg
             )
         else:
             # To be populated by the agent
             start_rec_goal_id = -1
             end_rec_goal_id = -1
+            obj_goal_id = 1
 
         obs.task_observations["goal_name"] = goal_name
         obs.task_observations["object_name"] = obj_name
