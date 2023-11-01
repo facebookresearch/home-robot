@@ -9,8 +9,10 @@ import numpy as np
 import torch
 from PIL import Image
 
+from .base_encoder import BaseImageTextEncoder
 
-class ClipEncoder:
+
+class ClipEncoder(BaseImageTextEncoder):
     """Simple wrapper for encoding different things as text."""
 
     def __init__(self, version="ViT-B/32", device: Optional[str] = None):

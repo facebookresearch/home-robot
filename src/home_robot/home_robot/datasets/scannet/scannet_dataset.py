@@ -48,7 +48,6 @@ class ScanNetModalities(Enum):
 
 
 class ScanNetDataset(object):
-
     DEPTH_SCALE_FACTOR = 0.001  # to MM
     DEFAULT_HEIGHT = 968.0
     DEFAULT_WIDTH = 1296.0
@@ -402,6 +401,9 @@ class ScanNetDataset(object):
 
             if len(boxes_aligned) == 0:
                 raise RuntimeError(f"No GT boxes for scene {scan_name}")
+
+        if len(boxes_aligned) == 0:
+            raise RuntimeError(f"No GT boxes for scene {scan_name}")
 
         # Referring expressions
         column_names = [

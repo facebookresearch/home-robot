@@ -1,0 +1,2 @@
+_target_: home_robot.utils.voxel.VoxelizedPointcloud
+voxel_size: 0.02
