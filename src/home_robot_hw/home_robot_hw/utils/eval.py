@@ -5,8 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 import pickle
 from concurrent import futures
-from datetime import datetime
-from typing import Optional, Tuple
 
 import click
 from home_robot_hw.utils.eval_ai import evaluation_pb2
@@ -24,12 +22,28 @@ from habitat.core.dataset import BaseEpisode
 NON_SCALAR_METRICS = {"top_down_map", "collisions.is_collision"}
 
 def grpc_dumps(entity):
+    """
+    Serialize an entity using pickle.
+
+    Args:
+        entity: The Python object to serialize.
+
+    Returns:
+        bytes: The serialized representation of the entity.
+    """
     return pickle.dumps(entity)
 
-
 def grpc_loads(entity):
-    return pickle.loads(entity)
+    """
+    Deserialize an entity using pickle.
 
+    Args:
+        entity: The serialized representation of the entity.
+
+    Returns:
+        Any: The deserialized Python object.
+    """
+    return pickle.loads(entity)
 
 class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     """RPC version of the environment."""
@@ -65,6 +79,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         self.config_path = config_path
 
         self._env = None
+        self._robot = None
         self._env_number_of_episodes = None
         self._episode_metrics = {}
         self._current_episode_key = None
@@ -74,7 +89,6 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
     def init_env(self, request, context):
         """Initialize robot environment"""
-
 
         print("- Loading configuration")
         config = load_config(
@@ -91,7 +105,6 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         )
 
         self._env.reset(config.start_recep, config.pick_object, config.goal_recep)
-        
         self._env_number_of_episodes = 10000 #self._env.number_of_episodes
 
         self._robot = self._env.get_robot()
@@ -194,20 +207,38 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
             SerializedEntity=grpc_dumps((observations, done, hab_info))
         )
 
+  
     def evalai_update_submission(self, request, context):
+        """
+        Update the submission in the environment.
+
+        Args:
+            request: The request message containing the submission information.
+            context: The gRPC context.
+
+        Returns:
+            evaluation_pb2.Package: An empty response message.
+        """
         return evaluation_pb2.Package()
 
     def close(self, request, context):
-        """Close environment"""
+        """
+        Close the environment.
+
+        Args:
+            request: The request message.
+            context: The gRPC context.
+
+        Returns:
+            evaluation_pb2.Package: An empty response message.
+        """
         self._env.close()
         return evaluation_pb2.Package()
 
 
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
-@click.option("--test-gaze", default=False, is_flag=True)
 @click.option("--test-place", default=False, is_flag=True)
-@click.option("--skip-gaze", default=True, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--pick-object", default="cup")
@@ -219,16 +250,9 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 @click.option("--max-num-steps", default=200)
 @click.option("--visualize-maps", default=False, is_flag=True)
 @click.option("--visualize-grasping", default=False, is_flag=True)
-@click.option(
-    "--debug",
-    default=False,
-    is_flag=True,
-    help="Add pauses for debugging manipulation behavior.",
-)
 @click.option("--port", default=8085)
 def main(
     test_pick=False,
-    test_gaze=False,
     reset_nav=False,
     pick_object="cup",
     start_recep="table",
@@ -237,13 +261,32 @@ def main(
     visualize_maps=False,
     visualize_grasping=False,
     test_place=False,
-    skip_gaze=False,
     cat_map_file=None,
     max_num_steps=200,
     config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
-    debug=False,
     port=8085,
 ):
+    """
+    Start a gRPC server for environment evaluation.
+
+    Args:
+        test_pick (bool): Flag for testing picking action.
+        reset_nav (bool): Flag for resetting navigation.
+        pick_object (str): The object to pick.
+        start_recep (str): The starting reception area.
+        goal_recep (str): The goal reception area.
+        dry_run (bool): Flag for running in dry-run mode.
+        visualize_maps (bool): Flag for visualizing maps.
+        visualize_grasping (bool): Flag for visualizing grasping.
+        test_place (bool): Flag for testing placing action.
+        cat_map_file (str): The path to a category map file.
+        max_num_steps (int): Maximum number of simulation steps.
+        config_path (str): The path to the configuration file.
+        port (int): The gRPC server port.
+
+    Returns:
+        None
+    """
 
     print("- Starting ROS node")
     rospy.init_node("eval_episode_stretch_objectnav")

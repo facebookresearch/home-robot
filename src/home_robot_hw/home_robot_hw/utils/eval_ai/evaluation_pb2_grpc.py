@@ -98,6 +98,26 @@ class EnvironmentServicer(object):
 
 
 def add_EnvironmentServicer_to_server(servicer, server):
+    """
+    Add an EnvironmentServicer to a gRPC server.
+
+    This function sets up gRPC method handlers for an EnvironmentServicer and
+    adds them to the provided server.
+
+    Args:
+        servicer: An instance of the EnvironmentServicer.
+        server: The gRPC server to which to add the servicer.
+
+    The function configures gRPC method handlers for the following methods and
+    adds them to the server:
+    - 'init_env': Initialize the environment.
+    - 'number_of_episodes': Get the number of episodes in the environment.
+    - 'reset': Reset the environment to its initial state.
+    - 'get_current_episode': Get information about the current episode.
+    - 'apply_action': Apply an action to the environment.
+    - 'evalai_update_submission': Update the submission in the EvalAI environment.
+    - 'close': Close the environment.
+    """
     rpc_method_handlers = {
             'init_env': grpc.unary_unary_rpc_method_handler(
                     servicer.init_env,
@@ -155,11 +175,30 @@ class Environment(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
+        """
+        Initialize the environment.
+
+        Args:
+            request: The request message.
+            target: The target gRPC endpoint.
+            options: Additional gRPC options.
+            channel_credentials: Channel credentials (default: None).
+            call_credentials: Call credentials (default: None).
+            insecure: Whether the connection is insecure (default: False).
+            compression: Compression algorithm to use (default: None).
+            wait_for_ready: Wait for the server to become ready (default: None).
+            timeout: Timeout for the gRPC call (default: None).
+            metadata: Additional metadata to include in the request (default: None).
+
+        Returns:
+            The response message.
+        """
         return grpc.experimental.unary_unary(request, target, '/evaluation.Environment/init_env',
             evaluation__pb2.Package.SerializeToString,
             evaluation__pb2.Package.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
 
     @staticmethod
     def number_of_episodes(request,
@@ -172,11 +211,32 @@ class Environment(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/evaluation.Environment/number_of_episodes',
+        """
+        Get the number of episodes in the environment.
+
+        Args:
+            request: The request message.
+            target: The target gRPC endpoint.
+            options: Additional gRPC options.
+            channel_credentials: Channel credentials (default: None).
+            call_credentials: Call credentials (default: None).
+            insecure: Whether the connection is insecure (default: False).
+            compression: Compression algorithm to use (default: None).
+            wait_for_ready: Wait for the server to become ready (default: None).
+            timeout: Timeout for the gRPC call (default: None).
+            metadata: Additional metadata to include in the request (default: None).
+
+        Returns:
+            The response message containing the number of episodes.
+        """
+        return grpc.experimental.unary_unary(
+            request, target, '/evaluation.Environment/number_of_episodes',
             evaluation__pb2.Package.SerializeToString,
             evaluation__pb2.Package.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata
+            )
+
 
     @staticmethod
     def reset(request,
@@ -189,11 +249,31 @@ class Environment(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/evaluation.Environment/reset',
+        """
+        Reset the environment to its initial state.
+
+        Args:
+            request: The request message.
+            target: The target gRPC endpoint.
+            options: Additional gRPC options.
+            channel_credentials: Channel credentials (default: None).
+            call_credentials: Call credentials (default: None).
+            insecure: Whether the connection is insecure (default: False).
+            compression: Compression algorithm to use (default: None).
+            wait_for_ready: Wait for the server to become ready (default: None).
+            timeout: Timeout for the gRPC call (default: None).
+            metadata: Additional metadata to include in the request (default: None).
+
+        Returns:
+            The response message indicating the environment has been reset.
+        """
+        return grpc.experimental.unary_unary(
+            request, target, '/evaluation.Environment/reset',
             evaluation__pb2.Package.SerializeToString,
             evaluation__pb2.Package.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata
+            )
 
     @staticmethod
     def get_current_episode(request,
@@ -206,11 +286,31 @@ class Environment(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/evaluation.Environment/get_current_episode',
+        """
+        Get information about the current episode in the environment.
+
+        Args:
+            request: The request message.
+            target: The target gRPC endpoint.
+            options: Additional gRPC options.
+            channel_credentials: Channel credentials (default: None).
+            call_credentials: Call credentials (default: None).
+            insecure: Whether the connection is insecure (default: False).
+            compression: Compression algorithm to use (default: None).
+            wait_for_ready: Wait for the server to become ready (default: None).
+            timeout: Timeout for the gRPC call (default: None).
+            metadata: Additional metadata to include in the request (default: None).
+
+        Returns:
+            The response message containing information about the current episode.
+        """
+        return grpc.experimental.unary_unary(
+            request, target, '/evaluation.Environment/get_current_episode',
             evaluation__pb2.Package.SerializeToString,
             evaluation__pb2.Package.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata
+            )
 
     @staticmethod
     def apply_action(request,
@@ -223,11 +323,31 @@ class Environment(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/evaluation.Environment/apply_action',
+        """
+        Apply an action to the environment.
+
+        Args:
+            request: The request message containing the action to apply.
+            target: The target gRPC endpoint.
+            options: Additional gRPC options.
+            channel_credentials: Channel credentials (default: None).
+            call_credentials: Call credentials (default: None).
+            insecure: Whether the connection is insecure (default: False).
+            compression: Compression algorithm to use (default: None).
+            wait_for_ready: Wait for the server to become ready (default: None).
+            timeout: Timeout for the gRPC call (default: None).
+            metadata: Additional metadata to include in the request (default: None).
+
+        Returns:
+            The response message indicating the result of applying the action.
+        """
+        return grpc.experimental.unary_unary(
+            request, target, '/evaluation.Environment/apply_action',
             evaluation__pb2.Package.SerializeToString,
             evaluation__pb2.Package.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata
+            )
 
     @staticmethod
     def evalai_update_submission(request,
@@ -240,11 +360,31 @@ class Environment(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/evaluation.Environment/evalai_update_submission',
+        """
+        Update the submission in the EvalAI environment.
+
+        Args:
+            request: The request message containing the submission information.
+            target: The target gRPC endpoint.
+            options: Additional gRPC options.
+            channel_credentials: Channel credentials (default: None).
+            call_credentials: Call credentials (default: None).
+            insecure: Whether the connection is insecure (default: False).
+            compression: Compression algorithm to use (default: None).
+            wait_for_ready: Wait for the server to become ready (default: None).
+            timeout: Timeout for the gRPC call (default: None).
+            metadata: Additional metadata to include in the request (default: None).
+
+        Returns:
+            The response message indicating the status of the submission update.
+        """
+        return grpc.experimental.unary_unary(
+            request, target, '/evaluation.Environment/evalai_update_submission',
             evaluation__pb2.Package.SerializeToString,
             evaluation__pb2.Package.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata
+            )
 
     @staticmethod
     def close(request,
@@ -257,8 +397,28 @@ class Environment(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/evaluation.Environment/close',
+        """
+        Close the environment.
+
+        Args:
+            request: The request message.
+            target: The target gRPC endpoint.
+            options: Additional gRPC options.
+            channel_credentials: Channel credentials (default: None).
+            call_credentials: Call credentials (default: None).
+            insecure: Whether the connection is insecure (default: False).
+            compression: Compression algorithm to use (default: None).
+            wait_for_ready: Wait for the server to become ready (default: None).
+            timeout: Timeout for the gRPC call (default: None).
+            metadata: Additional metadata to include in the request (default: None).
+
+        Returns:
+            The response message indicating that the environment has been closed.
+        """
+        return grpc.experimental.unary_unary(
+            request, target, '/evaluation.Environment/close',
             evaluation__pb2.Package.SerializeToString,
             evaluation__pb2.Package.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata
+            )
