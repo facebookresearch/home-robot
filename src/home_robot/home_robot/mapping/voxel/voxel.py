@@ -579,7 +579,7 @@ class SparseVoxelMap(object):
         assert filename.exists(), f"No file found at {filename}"
         with filename.open("rb") as f:
             data = pickle.load(f)
-        for camera_pose, xyz, rgb, feats, depth, base_pose, obs in zip(
+        for camera_pose, xyz, rgb, feats, depth, base_pose, obs, K, world_xyz in zip(
             data["camera_poses"],
             data["xyz"],
             data["rgb"],
@@ -587,6 +587,8 @@ class SparseVoxelMap(object):
             data["depth"],
             data["base_poses"],
             data["obs"],
+            data["camera_K"],
+            data["world_xyz"],
         ):
             camera_pose = self.fix_data_type(camera_pose)
             xyz = self.fix_data_type(xyz)
@@ -605,6 +607,7 @@ class SparseVoxelMap(object):
                 base_pose=base_pose,
                 instance_image=instance,
                 obs=obs,
+                camera_K=K,
             )
 
     def recompute_map(self):
