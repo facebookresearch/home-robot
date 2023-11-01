@@ -326,14 +326,13 @@ class OVMMEvaluator(PPOTrainer):
         # These modules are not part of the home-robot repository.
         import pickle
         import time
-
-        import evalai_environment_habitat  # noqa: F401
-        import evaluation_pb2
-        import evaluation_pb2_grpc
+        
+        from home_robot_hw.utils.eval_ai import evaluation_pb2
+        from home_robot_hw.utils.eval_ai import evaluation_pb2_grpc
         import grpc
 
         # Wait for the remote environment to be up and running
-        time.sleep(60)
+        time.sleep(1)
 
         def grpc_dumps(entity):
             return pickle.dumps(entity)
