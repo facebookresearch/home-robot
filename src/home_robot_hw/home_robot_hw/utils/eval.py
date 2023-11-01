@@ -7,19 +7,17 @@ import pickle
 from concurrent import futures
 
 import click
-from home_robot_hw.utils.eval_ai import evaluation_pb2
-from home_robot_hw.utils.eval_ai import evaluation_pb2_grpc
 import grpc
-import rospy
 import numpy as np
-
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
-from home_robot.motion.stretch import STRETCH_HOME_Q
-from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
-from home_robot_hw.utils.config import load_config
+import rospy
 from habitat.core.dataset import BaseEpisode
 
+from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
+from home_robot_hw.utils.config import load_config
+from home_robot_hw.utils.eval_ai import evaluation_pb2, evaluation_pb2_grpc
+
 NON_SCALAR_METRICS = {"top_down_map", "collisions.is_collision"}
+
 
 def grpc_dumps(entity):
     """
@@ -33,6 +31,7 @@ def grpc_dumps(entity):
     """
     return pickle.dumps(entity)
 
+
 def grpc_loads(entity):
     """
     Deserialize an entity using pickle.
@@ -44,6 +43,7 @@ def grpc_loads(entity):
         Any: The deserialized Python object.
     """
     return pickle.loads(entity)
+
 
 class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     """RPC version of the environment."""
@@ -105,7 +105,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
         )
 
         self._env.reset(config.start_recep, config.pick_object, config.goal_recep)
-        self._env_number_of_episodes = 10000 #self._env.number_of_episodes
+        self._env_number_of_episodes = 10000  # self._env.number_of_episodes
 
         self._robot = self._env.get_robot()
 
@@ -118,7 +118,6 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
         return evaluation_pb2.Package()
 
-
     def _extract_scalars_from_info(self, info):
         result = {}
         for k, v in info.items():
@@ -129,9 +128,7 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
                 result.update(
                     {
                         k + "." + subk: subv
-                        for subk, subv in self._extract_scalars_from_info(
-                            v
-                        ).items()
+                        for subk, subv in self._extract_scalars_from_info(v).items()
                         if isinstance(subk, str)
                         and k + "." + subk not in NON_SCALAR_METRICS
                     }
@@ -159,9 +156,9 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
     def get_current_episode(self, request, context):
         """Return current episode id"""
         current_episode = BaseEpisode(
-                  episode_id='743', 
-                  scene_id='data/hssd-han/scenes-uncluttered/104348328_171513363.scene_instance.json'
-            ) # real world doesn't seem to have episodes yet
+            episode_id="743",
+            scene_id="data/hssd-han/scenes-uncluttered/104348328_171513363.scene_instance.json",
+        )  # real world doesn't seem to have episodes yet
         return evaluation_pb2.Package(SerializedEntity=grpc_dumps(current_episode))
 
     def apply_action(self, request, context):
@@ -173,33 +170,33 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
 
         hab_info = {}
 
-        if "skill_done" in info and info["skill_done"] != "":
-            #Maybe add a flag if hab_info is none skip it?
-            metrics = self._extract_scalars_from_info(hab_info)
-            metrics_at_skill_end = {
-                f"{info['skill_done']}." + k: v for k, v in metrics.items()
-            }
-            self._current_episode_metrics = {
-                **metrics_at_skill_end,
-                **self._current_episode_metrics,
-            }
-            if "goal_name" in info:
-                self._current_episode_metrics["goal_name"] = info["goal_name"]
+        # if "skill_done" in info and info["skill_done"] != "":
+        #     #Maybe add a flag if hab_info is none skip it?
+        #     metrics = self._extract_scalars_from_info(hab_info)
+        #     metrics_at_skill_end = {
+        #         f"{info['skill_done']}." + k: v for k, v in metrics.items()
+        #     }
+        #     self._current_episode_metrics = {
+        #         **metrics_at_skill_end,
+        #         **self._current_episode_metrics,
+        #     }
+        #     if "goal_name" in info:
+        #         self._current_episode_metrics["goal_name"] = info["goal_name"]
 
-        if done:
-            metrics = self._extract_scalars_from_info(hab_info)
-            metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
-            self._current_episode_metrics = {
-                **metrics_at_episode_end,
-                **self._current_episode_metrics,
-            }
-            if "goal_name" in info:
-                self._current_episode_metrics["goal_name"] = info["goal_name"]
+        # if done:
+        #     metrics = self._extract_scalars_from_info(hab_info)
+        #     metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
+        #     self._current_episode_metrics = {
+        #         **metrics_at_episode_end,
+        #         **self._current_episode_metrics,
+        #     }
+        #     if "goal_name" in info:
+        #         self._current_episode_metrics["goal_name"] = info["goal_name"]
 
-            self._episode_metrics[
-                self._current_episode_key
-            ] = self._current_episode_metrics
-            self._current_episode_metrics = {}
+        #     self._episode_metrics[
+        #         self._current_episode_key
+        #     ] = self._current_episode_metrics
+        #     self._current_episode_metrics = {}
 
         observations = self._env.get_observation()
         hab_info = None  # not sure what hab_info should be for real world
@@ -207,7 +204,6 @@ class Environment(evaluation_pb2_grpc.EnvironmentServicer):
             SerializedEntity=grpc_dumps((observations, done, hab_info))
         )
 
-  
     def evalai_update_submission(self, request, context):
         """
         Update the submission in the environment.
@@ -322,6 +318,7 @@ def main(
     server.add_insecure_port(f"[::]:{port}")
     server.start()
     server.wait_for_termination()
+
 
 if __name__ == "__main__":
     print("---- Starting real-world evaluation ----")
