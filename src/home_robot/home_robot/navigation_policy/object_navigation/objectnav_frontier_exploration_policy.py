@@ -10,7 +10,7 @@ import torch.nn as nn
 from sklearn.cluster import DBSCAN
 
 from home_robot.mapping.semantic.constants import MapConstants as MC
-from home_robot.utils.morphology import binary_dilation
+from home_robot.utils.morphology import binary_dilation, binary_erosion
 
 
 class ObjectNavFrontierExplorationPolicy(nn.Module):
@@ -20,13 +20,18 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
     unexplored region) otherwise.
     """
 
-    def __init__(self, exploration_strategy: str):
+    def __init__(
+        self,
+        exploration_strategy: str,
+        num_sem_categories: int,
+        explored_area_dilation_radius=10,
+    ):
         super().__init__()
         assert exploration_strategy in ["seen_frontier", "been_close_to_frontier"]
         self.exploration_strategy = exploration_strategy
 
         self.dilate_explored_kernel = nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(10))
+            torch.from_numpy(skimage.morphology.disk(explored_area_dilation_radius))
             .unsqueeze(0)
             .unsqueeze(0)
             .float(),
@@ -39,6 +44,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             .float(),
             requires_grad=False,
         )
+        self.num_sem_categories = num_sem_categories
 
     @property
     def goal_update_steps(self):
@@ -78,6 +84,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         object_category=None,
         start_recep_category=None,
         end_recep_category=None,
+        instance_id=None,
         nav_to_recep=None,
     ):
         """
@@ -93,9 +100,32 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             found_goal: binary variables to denote whether we found the object
             goal category of shape (batch_size,)
         """
-        assert object_category is not None or end_recep_category is not None
+        assert (
+            object_category is not None
+            or end_recep_category is not None
+            or instance_id is not None
+        )
+        if instance_id is not None:
+            instance_map = map_features[0][
+                2 * MC.NON_SEM_CHANNELS
+                + self.num_sem_categories : 2 * MC.NON_SEM_CHANNELS
+                + 2 * self.num_sem_categories,
+                :,
+                :,
+            ]
+            inst_map_idx = instance_map == instance_id
+            inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
+            goal_map = (
+                (instance_map[inst_map_idx] == instance_id).to(torch.float).unsqueeze(0)
+            )
+            if torch.sum(goal_map) == 0:
+                found_goal = torch.tensor([0])
+            else:
+                found_goal = torch.tensor([1])
+            goal_map = self.explore_otherwise(map_features, goal_map, found_goal)
+            return goal_map, found_goal
 
-        if object_category is not None and start_recep_category is not None:
+        elif object_category is not None and start_recep_category is not None:
             if nav_to_recep is None or end_recep_category is None:
                 nav_to_recep = torch.tensor([0] * map_features.shape[0])
 
@@ -205,6 +235,8 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             frontier_map = (map_features[:, [MC.EXPLORED_MAP], :, :] == 0).float()
         elif self.exploration_strategy == "been_close_to_frontier":
             frontier_map = (map_features[:, [MC.BEEN_CLOSE_MAP], :, :] == 0).float()
+        else:
+            raise Exception("not implemented")
 
         # Dilate explored area
         frontier_map = 1 - binary_dilation(
@@ -215,6 +247,7 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
         frontier_map = (
             binary_dilation(frontier_map, self.select_border_kernel) - frontier_map
         )
+
         return frontier_map
 
     def explore_otherwise(self, map_features, goal_map, found_goal):

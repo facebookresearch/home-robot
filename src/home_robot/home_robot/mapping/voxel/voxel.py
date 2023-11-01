@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import copy
+import logging
 import pickle
 from collections import namedtuple
 from pathlib import Path
@@ -10,19 +11,19 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import open3d as open3d
+import skimage
 import torch
 import trimesh
 from pytorch3d.structures import Pointclouds
 from torch import Tensor
 
 from home_robot.core.interfaces import Observations
-from home_robot.mapping.semantic.instance_tracking_modules import (
-    Instance,
-    InstanceMemory,
-)
-from home_robot.motion import PlanResult, Robot
+from home_robot.mapping.instance import Instance, InstanceMemory, InstanceView
+from home_robot.motion import PlanResult, RobotModel
+from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
+from home_robot.utils.morphology import binary_dilation, binary_erosion
 from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
@@ -56,6 +57,8 @@ VALID_FRAMES = ["camera", "world"]
 
 DEFAULT_GRID_SIZE = [1024, 1024]
 
+logger = logging.getLogger(__name__)
+
 
 def ensure_tensor(arr):
     if isinstance(arr, np.ndarray):
@@ -65,58 +68,120 @@ def ensure_tensor(arr):
 
 
 class SparseVoxelMap(object):
-    """Create a voxel map object which captures 3d information."""
+    """Create a voxel map object which captures 3d information.
+
+    This class represents a 3D voxel map used for capturing environmental information. It provides various parameters
+    for configuring the map's properties, such as resolution, feature dimensions, and instance memory settings.
+
+    Attributes:
+        resolution (float): The size of a voxel in meters.
+        feature_dim (int): The size of feature embeddings to capture per-voxel point, separate from instance memory.
+        grid_size (Tuple[int, int]): The dimensions of the voxel grid (optional).
+        grid_resolution (float): The resolution of the grid (optional).
+        obs_min_height (float): The minimum height for observations.
+        obs_max_height (float): The maximum height for observations.
+        obs_min_density (float): The minimum density for observations.
+        smooth_kernel_size (int): The size of the smoothing kernel.
+        add_local_radius_points (bool): Whether to add local radius points.
+        local_radius (float): The radius for local points.
+        min_depth (float): The minimum depth for observations.
+        max_depth (float): The maximum depth for observations.
+        pad_obstacles (int): Padding for obstacles.
+        background_instance_label (int): The label for the background instance.
+        instance_memory_kwargs (Dict[str, Any]): Additional instance memory configuration.
+        voxel_kwargs (Dict[str, Any]): Additional voxel configuration.
+        encoder (Optional[ClipEncoder]): An encoder for feature embeddings (optional).
+        map_2d_device (str): The device for 2D mapping.
+        use_instance_memory (bool): Whether to create object-centric instance memory.
+    """
 
     DEFAULT_INSTANCE_MAP_KWARGS = dict(
         du_scale=1,
         instance_association="bbox_iou",
+        log_dir_overwrite_ok=True,
+        mask_cropped_instances="False",
     )
 
     def __init__(
         self,
-        resolution=0.01,
-        feature_dim=3,
+        resolution: float = 0.01,
+        feature_dim: int = 3,
         grid_size: Tuple[int, int] = None,
         grid_resolution: float = 0.05,
         obs_min_height: float = 0.1,
         obs_max_height: float = 1.8,
         obs_min_density: float = 10,
+        smooth_kernel_size: int = 2,
         add_local_radius_points: bool = True,
         local_radius: float = 0.15,
         min_depth: float = 0.1,
         max_depth: float = 4.0,
+        pad_obstacles: int = 0,
         background_instance_label: int = -1,
         instance_memory_kwargs: Dict[str, Any] = {},
         voxel_kwargs: Dict[str, Any] = {},
+        encoder: Optional[ClipEncoder] = None,
+        map_2d_device: str = "cpu",
+        use_instance_memory: bool = True,
     ):
+        """
+        Args:
+            resolution(float): in meters, size of a voxel
+            feature_dim(int): size of feature embeddings to capture per-voxel point (separate from instance memory)
+            use_instance_memory(bool): if we should create object-centric instance memory
+        """
         # TODO: We an use fastai.store_attr() to get rid of this boilerplate code
         self.resolution = resolution
         self.feature_dim = feature_dim
         self.obs_min_height = obs_min_height
         self.obs_max_height = obs_max_height
         self.obs_min_density = obs_min_density
+        self.smooth_kernel_size = smooth_kernel_size
+        if self.smooth_kernel_size > 0:
+            self.smooth_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(smooth_kernel_size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.smooth_kernel = None
         self.grid_resolution = grid_resolution
         self.voxel_resolution = resolution
         self.min_depth = min_depth
         self.max_depth = max_depth
+        self.pad_obstacles = pad_obstacles
         self.background_instance_label = background_instance_label
         self.instance_memory_kwargs = update(
             copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
         )
+        self.use_instance_memory = use_instance_memory
         self.voxel_kwargs = voxel_kwargs
+        self.encoder = encoder
+        self.map_2d_device = map_2d_device
 
-        # TODO: This 2D map code could be moved to another class or helper function
-        #   This class could use that code via containment (same as InstanceMemory or VoxelizedPointcloud)
-
-        # Create disk for mapping explored areas near the robot - since camera can't always see it
-        self._disk_size = np.ceil(1.0 / self.grid_resolution)
-        self._visited_disk = torch.from_numpy(
-            create_disk(1.0 / self.grid_resolution, (2 * self._disk_size) + 1)
-        )
+        if self.pad_obstacles > 0:
+            self.dilate_obstacles_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(self.pad_obstacles))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.dilate_obstacles_kernel = None
 
         # Add points with local_radius to the voxel map at (0,0,0) unless we receive lidar points
         self.add_local_radius_points = add_local_radius_points
         self.local_radius = local_radius
+
+        # Create disk for mapping explored areas near the robot - since camera can't always see it
+        self._disk_size = np.ceil(self.local_radius / self.grid_resolution)
+
+        self._visited_disk = torch.from_numpy(
+            create_disk(self._disk_size, (2 * self._disk_size) + 1)
+        ).to(map_2d_device)
 
         if grid_size is not None:
             self.grid_size = [grid_size[0], grid_size[1]]
@@ -124,9 +189,11 @@ class SparseVoxelMap(object):
             self.grid_size = DEFAULT_GRID_SIZE
         # Track the center of the grid - (0, 0) in our coordinate system
         # We then just need to update everything when we want to track obstacles
-        self.grid_origin = Tensor(self.grid_size + [0]) // 2
+        self.grid_origin = Tensor(self.grid_size + [0], device=map_2d_device) // 2
+        # Used to track the offset from our observations so maps dont use too much space
+
         # Used for tensorized bounds checks
-        self._grid_size_t = Tensor(self.grid_size)
+        self._grid_size_t = Tensor(self.grid_size, device=map_2d_device)
 
         # Init variables
         self.reset()
@@ -156,7 +223,7 @@ class SparseVoxelMap(object):
     def reset_cache(self):
         """Clear some tracked things"""
         # Stores points in 2d coords where robot has been
-        self._visited = torch.zeros(self.grid_size)
+        self._visited = torch.zeros(self.grid_size, device=self.map_2d_device)
 
         # Store instances detected (all of them for now)
         self.instances.reset()
@@ -169,7 +236,7 @@ class SparseVoxelMap(object):
 
     def get_instances(self) -> List[Instance]:
         """Return a list of all viewable instances"""
-        return tuple(self.instances.instances[0].values())
+        return list(self.instances.instances[0].values())
 
     def fix_type(self, tensor: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
         """Convert to tensor and float"""
@@ -256,17 +323,34 @@ class SparseVoxelMap(object):
         # TODO: we should remove the xyz/feats maybe? just use observations as input?
         # TODO: switch to using just Obs struct?
         # Shape checking
-        assert rgb.ndim == 3, f"{rgb.ndim=}"
-        assert (
-            rgb.shape[:-1] == depth.shape
-        ), f"depth and rgb image sizes must match; got {rgb.shape=} {depth.shape=}"
-        H, W, _ = rgb.shape
+        assert rgb.ndim == 3 or rgb.ndim == 2, f"{rgb.ndim=}: must be 2 or 3"
+        if isinstance(rgb, np.ndarray):
+            rgb = torch.from_numpy(rgb)
+        if isinstance(camera_pose, np.ndarray):
+            camera_pose = torch.from_numpy(camera_pose)
+        if self.use_instance_memory:
+            assert rgb.ndim == 3, f"{rgb.ndim=}: must be 3 if using instance memory"
+            H, W, _ = rgb.shape
+            if instance_image is None:
+                assert (
+                    obs is not None
+                ), "must provide instance image or raw observations with instances"
+                assert (
+                    obs.instance is not None
+                ), "must provide instance image in observation if not available otherwise"
+                if isinstance(obs.instance, np.ndarray):
+                    instance_image = torch.from_numpy(obs.instance)
+        if depth is not None:
+            assert (
+                rgb.shape[:-1] == depth.shape
+            ), f"depth and rgb image sizes must match; got {rgb.shape=} {depth.shape=}"
         assert xyz is not None or (camera_K is not None and depth is not None)
         if xyz is not None:
             assert (
                 xyz.shape[-1] == 3
             ), "xyz must have last dimension = 3 for x, y, z position of points"
             assert rgb.shape == xyz.shape, "rgb shape must match xyz"
+            # Make sure shape is correct here for xyz and any passed-in features
             if feats is not None:
                 assert (
                     feats.shape[-1] == self.feature_dim
@@ -276,23 +360,17 @@ class SparseVoxelMap(object):
                 ), "features must be available for each point"
             else:
                 pass
+            if isinstance(xyz, np.ndarray):
+                xyz = torch.from_numpy(xyz)
         if depth is not None:
             assert depth.ndim == 2 or xyz_frame == "world"
         if camera_K is not None:
-            assert camera_K.ndim == 2
-        if instance_image is None:
-            assert (
-                obs is not None
-            ), "must provide instance image or raw observations with instances"
-            assert (
-                obs.instance is not None
-            ), "must provide instance image in observation if not available otherwise"
-            instance_image = torch.from_numpy(obs.instance)
+            assert camera_K.ndim == 2, "camera intrinsics K must be a 3x3 matrix"
         assert (
             camera_pose.ndim == 2
             and camera_pose.shape[0] == 4
             and camera_pose.shape[1] == 4
-        )
+        ), "Camera pose must be a 4x4 matrix representing a pose in SE(3)"
         assert (
             xyz_frame in VALID_FRAMES
         ), f"frame {xyz_frame} was not valid; should one one of {VALID_FRAMES}"
@@ -303,7 +381,7 @@ class SparseVoxelMap(object):
                 full_world_xyz = (
                     torch.cat([xyz, torch.ones_like(xyz[..., [0]])], dim=-1)
                     @ camera_pose.T
-                )[:, :, :3]
+                )[..., :3]
             elif xyz_frame == "world":
                 full_world_xyz = xyz
             else:
@@ -341,22 +419,23 @@ class SparseVoxelMap(object):
             valid_depth = (depth > self.min_depth) & (depth < self.max_depth)
 
         # Add instance views to memory
-        instance = instance_image.clone()
+        if self.use_instance_memory:
+            instance = instance_image.clone()
 
-        self.instances.process_instances_for_env(
-            env_id=0,
-            instance_seg=instance,
-            point_cloud=full_world_xyz.reshape(H, W, 3),
-            image=rgb.permute(2, 0, 1),
-            cam_to_world=camera_pose,
-            instance_classes=instance_classes,
-            instance_scores=instance_scores,
-            mask_out_object=False,  # Save the whole image here? Or is this with background?
-            background_instance_label=self.background_instance_label,
-            valid_points=valid_depth,
-            pose=base_pose,
-        )
-        self.instances.associate_instances_to_memory()
+            self.instances.process_instances_for_env(
+                env_id=0,
+                instance_seg=instance,
+                point_cloud=full_world_xyz.reshape(H, W, 3),
+                image=rgb.permute(2, 0, 1),
+                cam_to_world=camera_pose,
+                instance_classes=instance_classes,
+                instance_scores=instance_scores,
+                background_instance_labels=[self.background_instance_label],
+                valid_points=valid_depth,
+                pose=base_pose,
+                encoder=self.encoder,
+            )
+            self.instances.associate_instances_to_memory()
 
         # Add to voxel grid
         if feats is not None:
@@ -367,13 +446,29 @@ class SparseVoxelMap(object):
         # TODO: weights could also be confidence, inv distance from camera, etc
         self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
-        # Visited
         # TODO: just get this from camera_pose?
+        self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))
         if base_pose is not None:
-            self._update_visited(base_pose)
+            self._update_visited(base_pose.to(self.map_2d_device))
 
         # Increment sequence counter
         self._seq += 1
+
+    def mask_from_bounds(self, bounds: np.ndarray, debug: bool = False):
+        """create mask from a set of 3d object bounds"""
+        assert bounds.shape[0] == 3, "bounding boxes in xyz"
+        assert bounds.shape[1] == 2, "min and max"
+        assert (len(bounds.shape)) == 2, "only one bounding box"
+        mins = torch.floor(self.xy_to_grid_coords(bounds[:2, 0])).long()
+        maxs = torch.ceil(self.xy_to_grid_coords(bounds[:2, 1])).long()
+        obstacles, explored = self.get_2d_map()
+        mask = torch.zeros_like(explored)
+        mask[mins[0] : maxs[0] + 1, mins[1] : maxs[1] + 1] = True
+        if debug:
+            import matplotlib.pyplot as plt
+
+            plt.imshow(obstacles.int() + explored.int() + mask.int())
+        return mask
 
     def _update_visited(self, base_pose: Tensor):
         """Update 2d map of where robot has visited"""
@@ -384,11 +479,9 @@ class SparseVoxelMap(object):
         x1 = int(map_xy[0] + self._disk_size + 1)
         y0 = int(map_xy[1] - self._disk_size)
         y1 = int(map_xy[1] + self._disk_size + 1)
+        assert x0 >= 0
+        assert y0 >= 0
         self._visited[x0:x1, y0:y1] += self._visited_disk
-
-    def get_data(self, in_place: bool = True) -> Tuple[np.ndarray, np.ndarray]:
-        """Return the current point cloud and features; optionally copying."""
-        raise NotImplementedError("Should this return pointcloud? Instances?")
 
     def write_to_pickle(self, filename: str):
         """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""
@@ -400,6 +493,41 @@ class SparseVoxelMap(object):
         data["depth"] = []
         data["feats"] = []
         data["obs"] = []
+        for frame in self.observations:
+            # add it to pickle
+            # TODO: switch to using just Obs struct?
+            data["camera_poses"].append(frame.camera_pose)
+            data["base_poses"].append(frame.base_pose)
+            data["xyz"].append(frame.xyz)
+            data["rgb"].append(frame.rgb)
+            data["depth"].append(frame.depth)
+            data["feats"].append(frame.feats)
+            data["obs"].append(frame.obs)
+            for k, v in frame.info.items():
+                if k not in data:
+                    data[k] = []
+                data[k].append(v)
+        (
+            data["combined_xyz"],
+            data["combined_feats"],
+            data["combined_weights"],
+            data["combined_rgb"],
+        ) = self.voxel_pcd.get_pointcloud()
+        with open(filename, "wb") as f:
+            pickle.dump(data, f)
+
+    def write_to_pickle_add_data(self, filename: str, newdata: dict):
+        """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""
+        data = {}
+        data["camera_poses"] = []
+        data["base_poses"] = []
+        data["xyz"] = []
+        data["rgb"] = []
+        data["depth"] = []
+        data["feats"] = []
+        data["obs"] = []
+        for key, value in newdata.items():
+            data[key] = value
         for frame in self.observations:
             # add it to pickle
             # TODO: switch to using just Obs struct?
@@ -502,8 +630,15 @@ class SparseVoxelMap(object):
         # Convert metric measurements to discrete
         # Gets the xyz correctly - for now everything is assumed to be within the correct distance of origin
         xyz, _, counts, _ = self.voxel_pcd.get_pointcloud()
+
         device = xyz.device
         xyz = ((xyz / self.grid_resolution) + self.grid_origin).long()
+        xyz[xyz[:, -1] < 0, -1] = 0
+
+        # from home_robot.utils.point_cloud import show_point_cloud
+        # show_point_cloud(xyz, rgb, orig=np.zeros(3))
+        xyz[xyz[:, -1] < 0, -1] = 0
+        # show_point_cloud(xyz, rgb, orig=np.zeros(3))
 
         # Crop to robot height
         min_height = int(self.obs_min_height / self.grid_resolution)
@@ -523,18 +658,40 @@ class SparseVoxelMap(object):
         obstacle_voxels = voxels[:, :, min_height:]
         obstacles_soft = torch.sum(obstacle_voxels, dim=-1)
         obstacles = obstacles_soft > self.obs_min_density
+        if self.dilate_obstacles_kernel is not None:
+            obstacles = binary_dilation(
+                obstacles.float().unsqueeze(0).unsqueeze(0),
+                self.dilate_obstacles_kernel,
+            )[0, 0].bool()
 
         # Explored area = only floor mass
-        floor_voxels = voxels[:, :, :min_height]
-        explored_soft = torch.sum(floor_voxels, dim=-1)
+        # floor_voxels = voxels[:, :, :min_height]
+        explored_soft = torch.sum(voxels, dim=-1)
 
         # Add explored radius around the robot, up to min depth
         # TODO: make sure lidar is supported here as well; if we do not have lidar assume a certain radius is explored
         explored_soft += self._visited
         explored = explored_soft > 0
 
-        # Frontier consists of floor voxels adjacent to empty voxels
-        # TODO
+        if self.smooth_kernel_size > 0:
+            explored = binary_erosion(
+                binary_dilation(
+                    explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
+                ),
+                self.smooth_kernel,
+            )[0, 0].bool()
+            explored = binary_erosion(
+                binary_dilation(
+                    explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
+                ),
+                self.smooth_kernel,
+            )[0, 0].bool()
+            obstacles = binary_erosion(
+                binary_dilation(
+                    obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
+                ),
+                self.smooth_kernel,
+            )[0, 0].bool()
 
         if debug:
             import matplotlib.pyplot as plt
@@ -548,12 +705,20 @@ class SparseVoxelMap(object):
 
             plt.subplot(2, 2, 1)
             plt.imshow(obstacles_soft.detach().cpu().numpy())
+            plt.title("obstacles soft")
+            plt.axis("off")
             plt.subplot(2, 2, 2)
             plt.imshow(explored_soft.detach().cpu().numpy())
+            plt.title("explored soft")
+            plt.axis("off")
             plt.subplot(2, 2, 3)
             plt.imshow(obstacles.detach().cpu().numpy())
+            plt.title("obstacles")
+            plt.axis("off")
             plt.subplot(2, 2, 4)
             plt.imshow(explored.detach().cpu().numpy())
+            plt.axis("off")
+            plt.title("explored")
             plt.show()
 
         # Update cache
@@ -624,30 +789,52 @@ class SparseVoxelMap(object):
                 f"Uknown backend {backend}, must be 'open3d' or 'pytorch3d"
             )
 
-    def _show_pytorch3d(self, instances: bool = True, **plot_scene_kwargs):
+    def get_xyz_rgb(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Return xyz and rgb of the current map"""
+        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
+        return points, rgb
+
+    def _show_pytorch3d(
+        self, instances: bool = True, mock_plot: bool = False, **plot_scene_kwargs
+    ):
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
 
-        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
+        points, rgb = self.get_xyz_rgb()
 
         traces = {}
 
         # Show points
-        ptc = Pointclouds(points=[points], features=[rgb])
-        traces["Points"] = ptc
+        ptc = None
+        if points is None and mock_plot:
+            ptc = Pointclouds(
+                points=[torch.zeros((2, 3))], features=[torch.zeros((2, 3))]
+            )
+        elif points is not None:
+            ptc = Pointclouds(points=[points], features=[rgb])
+        if ptc is not None:
+            traces["Points"] = ptc
 
         # Show instances
         if instances:
-            bounds, names = zip(
-                *[(v.bounds, v.category_id) for v in self.get_instances()]
-            )
-            detected_boxes = BBoxes3D(
-                bounds=[torch.stack(bounds, dim=0)],
-                # At some point we can color the boxes according to class, but that's not implemented yet
-                # features = [categorcolors],
-                names=[torch.stack(names, dim=0).unsqueeze(-1)],
-            )
+            if len(self.get_instances()) > 0:
+                bounds, names = zip(
+                    *[(v.bounds, v.category_id) for v in self.get_instances()]
+                )
+                detected_boxes = BBoxes3D(
+                    bounds=[torch.stack(bounds, dim=0)],
+                    # At some point we can color the boxes according to class, but that's not implemented yet
+                    # features = [categorcolors],
+                    names=[torch.stack(names, dim=0).unsqueeze(-1)],
+                )
+            else:
+                detected_boxes = BBoxes3D(
+                    bounds=[torch.zeros((2, 3, 2))],
+                    # At some point we can color the boxes according to class, but that's not implemented yet
+                    # features = [categorcolors],
+                    names=[torch.zeros((2, 1), dtype=torch.long)],
+                )
             traces["IB"] = detected_boxes
 
         # Show cameras
@@ -655,9 +842,9 @@ class SparseVoxelMap(object):
         # "cameras": cameras,
 
         _default_plot_args = dict(
-            xaxis={"backgroundcolor": "rgb(200, 200, 230)"},
-            yaxis={"backgroundcolor": "rgb(230, 200, 200)"},
-            zaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            xaxis={"backgroundcolor": "rgb(230, 200, 200)"},
+            yaxis={"backgroundcolor": "rgb(200, 230, 200)"},
+            zaxis={"backgroundcolor": "rgb(200, 200, 230)"},
             axis_args=AxisArgs(showgrid=True),
             pointcloud_marker_size=3,
             pointcloud_max_points=200_000,
@@ -684,7 +871,7 @@ class SparseVoxelMap(object):
         else:
             return None
 
-    def xyt_is_safe(self, xyt: np.ndarray, robot: Optional[Robot] = None) -> bool:
+    def xyt_is_safe(self, xyt: np.ndarray, robot: Optional[RobotModel] = None) -> bool:
         """Check to see if a given xyt position is known to be safe."""
         if robot is not None:
             raise NotImplementedError(
@@ -736,7 +923,7 @@ class SparseVoxelMap(object):
                     instance_view.bounds[:, 1].cpu().numpy(),
                 )
                 if np.any(maxs - mins < 1e-5):
-                    print("Warning: bad box:", mins, maxs)
+                    logger.info(f"Warning: bad box: {mins} {maxs}")
                     continue
                 width, height, depth = maxs - mins
 

@@ -8,6 +8,7 @@ import dataclasses
 import logging
 import os
 import warnings
+from enum import Enum, auto
 from functools import partial
 from numbers import Number
 from pathlib import Path
@@ -35,6 +36,17 @@ from .scanrefer_data import ScanReferDataConfig, load_scanrefer_data
 logger = logging.getLogger(__name__)
 
 
+class ScanNetModalities(Enum):
+    RGB = auto()
+    DEPTH = auto()
+    POSE = auto()
+    INTRINSICS = auto()
+    INSTANCE_2D = auto()
+    BBOX_3D = auto()
+    ALL = auto()
+    # BBOX_3D = auto()
+
+
 class ScanNetDataset(object):
 
     DEPTH_SCALE_FACTOR = 0.001  # to MM
@@ -51,11 +63,13 @@ class ScanNetDataset(object):
         frame_skip: int = 1,
         height: Optional[int] = 480,
         width: Optional[int] = 640,
-        # modalities: Tuple[str] = ("rgb", "depth", "pose", "intrinsics"),
+        modalities: Union[str, Tuple[ScanNetModalities]] = ScanNetModalities.ALL,
         referit3d_config: Optional[ReferIt3dDataConfig] = None,
         scanrefer_config: Optional[ScanReferDataConfig] = None,
         show_load_progress: bool = False,
         n_classes: int = 20,
+        load_only_first_k_frames: Optional[int] = None,
+        skipnan: bool = True,
     ):
         """
 
@@ -117,7 +131,7 @@ class ScanNetDataset(object):
         self.root_dir = Path(root_dir)
         self.posed_dir = self.root_dir / "posed_images"
         self.instance_dir = self.root_dir / "scannet_instance_data"
-        self.instance_2d_dir = self.root_dir / "scannet_instance_data"
+        self.instance_2d_dir = self.root_dir / "scannet_2d_instance_data"
         self.scan_dir = self.root_dir / "scannet_instance_data"
 
         # Metainfo
@@ -158,9 +172,18 @@ class ScanNetDataset(object):
         self.split = split
         self.height = height
         self.width = width
-
         assert (self.height is None) == (self.width is None)  # Neither or both
         self.frame_skip = frame_skip
+
+        # Modalities
+        if modalities == ScanNetModalities.ALL:
+            self.modalities = [
+                getattr(ScanNetModalities, v)
+                for v in ScanNetModalities.__members__
+                if v != "ALL"
+            ]
+        else:
+            self.modalities = modalities
 
         # Create scene list
         with open(self.root_dir / "meta_data" / f"scannetv2_{split}.txt", "rb") as f:
@@ -175,6 +198,9 @@ class ScanNetDataset(object):
             :keep_only_first_k_scenes
         ]
         assert len(self.scene_list) > 0
+
+        self.load_only_first_k_frames = load_only_first_k_frames
+        self.skipnan = skipnan
 
         # Referit3d
         self.referit_data: Optional[pd.DateFrame] = None
@@ -211,12 +237,21 @@ class ScanNetDataset(object):
         # RGBD + pose
         scene_pose_dir = self.posed_dir / scan_name
         scene_posed_files = list([str(s) for s in scene_pose_dir.iterdir()])
-        img_names = list(
-            natsorted([s for s in scene_posed_files if s.endswith(".jpg")])
-        )[:: self.frame_skip]
-        depth_names = list(
-            natsorted([s for s in scene_posed_files if s.endswith(".png")])
-        )[:: self.frame_skip]
+
+        def get_endswith(f_list, endswith):
+            return list(natsorted([s for s in f_list if s.endswith(endswith)]))
+
+        # RGB
+        img_names = get_endswith(scene_posed_files, ".jpg")[:: self.frame_skip]
+        assert len(img_names) > 0, f"Found zero images for scene {scan_name}"
+
+        # Depth
+        depth_names = get_endswith(scene_posed_files, ".png")[:: self.frame_skip]
+        assert len(depth_names) == len(
+            img_names
+        ), f"Unequal number of color and depth images for scene {scan_name} ({len(img_names)} != ({len(depth_names)}))"
+
+        # Pose
         pose_names = list(
             natsorted(
                 [
@@ -226,28 +261,41 @@ class ScanNetDataset(object):
                 ]
             )
         )[:: self.frame_skip]
-        assert len(img_names) > 0, f"Found zero images for scene {scan_name}"
-        assert len(img_names) == len(
-            depth_names
-        ), f"Unequal number of color and depth images for scene {scan_name} ({len(img_names)} != ({len(depth_names)}))"
-        assert len(img_names) == len(
-            pose_names
+        assert len(pose_names) == len(
+            img_names
         ), f"Unequal number of color and poses for scene {scan_name} ({len(img_names)} != ({len(pose_names)}))"
 
-        # 2D instance masks
-        #   Not implemented yet
+        # 2D Instance
+        inst2d_names = self.find_instance_2d(scan_name)[:: self.frame_skip]
+        assert len(inst2d_names) == len(
+            img_names
+        ), f"Unequal number of color and poses for scene {scan_name} ({len(img_names)} != ({len(pose_names)}))"
 
+        # img_names = list(
+        #     natsorted([s for s in scene_posed_files if s.endswith(".jpg")])
+        # )[:: self.frame_skip]
+        # depth_names = list(
+        #     natsorted([s for s in scene_posed_files if s.endswith(".png")])
+        # )[:: self.frame_skip]
+
+        # Camera Intrinsics
         intrinsic_name = self.posed_dir / scan_name / "intrinsic.txt"
+
         return {
             "img_paths": [scene_pose_dir / f for f in img_names],
             "depth_paths": [scene_pose_dir / f for f in depth_names],
             "pose_paths": [scene_pose_dir / f for f in pose_names],
             "intrinsic_path": intrinsic_name,
+            "instance_2d_paths": inst2d_names,
             "bboxs_unaligned_path": self.instance_dir
             / f"{scan_name}_unaligned_bbox.npy",
             "bboxs_aligned_path": self.instance_dir / f"{scan_name}_aligned_bbox.npy",
             "axis_align_path": self.instance_dir / f"{scan_name}_axis_align_matrix.npy",
         }
+
+    def find_instance_2d(self, scan_name: str):
+        file_list = list((self.instance_2d_dir / scan_name / "instance-filt").iterdir())
+        return natsorted(file_list)
 
     def __getitem__(self, idx: Union[str, int], show_progress: bool = False):
         if isinstance(idx, str):
@@ -265,61 +313,95 @@ class ScanNetDataset(object):
         poses, intrinsics, images, depths = [], [], [], []
         boxes_aligned, axis_align_mats = [], []
         image_paths = []
+        instance_2ds = []
 
         # Load all images
-        # for i, (img, depth, pose) in enumerate(zip(data["img_paths"], data["depth_paths"], data["pose_paths"])):
-        for i, (img, depth, pose) in enumerate(
+        for i, (img_path, depth_path, pose_path, instance_2d_path) in enumerate(
             maybe_show_progress(
-                list(zip(data["img_paths"], data["depth_paths"], data["pose_paths"])),
+                list(
+                    zip(
+                        data["img_paths"],
+                        data["depth_paths"],
+                        data["pose_paths"],
+                        data["instance_2d_paths"],
+                    )
+                ),
                 description=f"Loading scene {scan_name}",
                 length=len(data["img_paths"]),
                 show=show_progress,
             )
         ):
-            pose = np.loadtxt(pose)
+            if (
+                self.load_only_first_k_frames is not None
+                and i >= self.load_only_first_k_frames
+            ):
+                continue
+            pose = np.loadtxt(pose_path)
             pose = np.array(pose).reshape(4, 4)
             # pose[:3, 1] *= -1
             # pose[:3, 2] *= -1
             pose = axis_align_mat @ torch.from_numpy(pose.astype(np.float32)).float()
             # We cannot accept files directly, as some of the poses are invalid
-            if torch.any(torch.isnan(pose)):
+            if self.skipnan and torch.any(torch.isnan(pose)):
                 # print(f"Found inf pose in {scan_name}")
                 continue
-
-            image_paths.append(img)
-            img = get_image_from_path(img, height=self.height, width=self.width)
-            depth = get_depth_image_from_path(
-                depth,
-                height=self.height,
-                width=self.width,
-                scale_factor=self.DEPTH_SCALE_FACTOR,
-            )
-
-            axis_align_mats.append(axis_align_mat)
             poses.append(pose)
+            axis_align_mats.append(axis_align_mat)
             intrinsics.append(K)
-            images.append(img)
-            depths.append(depth)
+
+            if ScanNetModalities.RGB in self.modalities:
+                image_paths.append(img_path)
+                img = get_image_from_path(
+                    img_path, height=self.height, width=self.width
+                )
+                images.append(img)
+
+            if ScanNetModalities.DEPTH in self.modalities:
+                depth = get_depth_image_from_path(
+                    depth_path,
+                    height=self.height,
+                    width=self.width,
+                    scale_factor=self.DEPTH_SCALE_FACTOR,
+                )
+                depths.append(depth)
+
+            if ScanNetModalities.INSTANCE_2D in self.modalities:
+                instance_2d = get_instance_image_from_path(
+                    instance_2d_path,
+                    height=self.height,
+                    width=self.width,
+                )
+                instance_2ds.append(instance_2d)
+
         poses = torch.stack(poses).float()
         intrinsics = torch.stack(intrinsics).float()
-        images = torch.stack(images).float()
-        depths = torch.stack(depths).float()
         axis_align_mats = torch.stack(axis_align_mats).float()
+        if ScanNetModalities.RGB in self.modalities:
+            images = torch.stack(images).float()
+
+        if ScanNetModalities.DEPTH in self.modalities:
+            depths = torch.stack(depths).float()
+
+        if ScanNetModalities.INSTANCE_2D in self.modalities:
+            instance_2ds = torch.stack(instance_2ds)
 
         # Load bounding boxes
-        boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(
-            data["bboxs_aligned_path"]
-        )
-        # keep_boxes = (box_classes.unsqueeze(1) == self.class_ids_ten.unsqueeze(0)).any(
-        #     dim=1
-        # )
-        keep_boxes = self.class_ids_lookup[box_classes] != self.DROP_CLASS_VAL
-        boxes_aligned = boxes_aligned[keep_boxes]
-        box_classes = box_classes[keep_boxes]
-        box_obj_ids = box_obj_ids[keep_boxes]
+        if ScanNetModalities.BBOX_3D in self.modalities:
+            boxes_aligned, box_classes, box_obj_ids = load_3d_bboxes(
+                data["bboxs_aligned_path"]
+            )
+            # keep_boxes = (box_classes.unsqueeze(1) == self.class_ids_ten.unsqueeze(0)).any(
+            #     dim=1
+            # )
+            keep_boxes = (
+                self.class_ids_lookup[box_classes.long()] != self.DROP_CLASS_VAL
+            )
+            boxes_aligned = boxes_aligned[keep_boxes]
+            box_classes = box_classes[keep_boxes]
+            box_obj_ids = box_obj_ids[keep_boxes]
 
-        if len(boxes_aligned) == 0:
-            raise RuntimeError(f"No GT boxes for scene {scan_name}")
+            if len(boxes_aligned) == 0:
+                raise RuntimeError(f"No GT boxes for scene {scan_name}")
 
         # Referring expressions
         column_names = [
@@ -359,6 +441,7 @@ class ScanNetDataset(object):
             # Frames
             images=images,
             depths=depths,
+            instance_2ds=instance_2ds,
             image_paths=image_paths,
             # 3d boxes
             boxes_aligned=boxes_aligned,
@@ -394,11 +477,16 @@ def load_semantic_masks(path):
     raise NotImplementedError
 
 
+def load_instance_masks(path):
+    raise NotImplementedError
+
+
 def get_image_from_path(
     image_path: Union[str, Path],
     height: Optional[int] = None,
     width: Optional[int] = None,
     keep_alpha: bool = False,
+    resample=Image.BILINEAR,
 ) -> torch.Tensor:
     """Returns a 3 channel image.
     # Adapted from https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/data/dataparsers/scannet_dataparser.py
@@ -409,17 +497,40 @@ def get_image_from_path(
 
     assert (height is None) == (width is None)  # Neither or both
     if height is not None:
-        pil_image = pil_image.resize((width, height), resample=Image.BILINEAR)
+        pil_image = pil_image.resize((width, height), resample=resample)
     image = np.array(pil_image, dtype="uint8")  # shape is (h, w) or (h, w, 3 or 4)
     if len(image.shape) == 2:
         image = image[:, :, None].repeat(3, axis=2)
     assert len(image.shape) == 3
     assert image.dtype == np.uint8
-    assert image.shape[2] in [3, 4], f"Image shape of {image.shape} is in correct."
+    assert image.shape[2] in [3, 4], f"Image shape of {image.shape} is incorrect."
     image = torch.from_numpy(image.astype("float32") / 255.0)
     if not keep_alpha and image.shape[-1] == 4:
         image = image[:, :, :3]
         # image = image[:, :, :3] * image[:, :, -1:] + self._dataparser_outputs.alpha_color * (1.0 - image[:, :, -1:])
+    return image
+
+
+def get_instance_image_from_path(
+    image_path: Union[str, Path],
+    height: Optional[int] = None,
+    width: Optional[int] = None,
+    resample=Image.NEAREST,
+) -> torch.Tensor:
+    """Returns a 1 channel image.
+    # Adapted from https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/data/dataparsers/scannet_dataparser.py
+    Args:
+        image_idx: The image index in the dataset.
+    """
+    pil_image = Image.open(image_path)
+
+    assert (height is None) == (width is None)  # Neither or both
+    if height is not None:
+        pil_image = pil_image.resize((width, height), resample=resample)
+    image = np.array(pil_image, dtype="uint8")  # shape is (h, w) or (h, w, 3 or 4)
+    assert image.dtype == np.uint8
+    image = torch.from_numpy(image)  # .byte()
+    # image = image[:, :, :3] * image[:, :, -1:] + self._dataparser_outputs.alpha_color * (1.0 - image[:, :, -1:])
     return image
 
 

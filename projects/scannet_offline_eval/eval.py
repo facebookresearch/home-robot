@@ -9,13 +9,14 @@ import gc
 from enum import IntEnum, auto
 from typing import Callable, Sequence
 
-import build_sparse_voxel_map
+# import build_sparse_voxel_map
 import evaluation
 import torch
 from hydra_zen import builds, store, zen
 from torch import Tensor
 from tqdm import tqdm
 
+import home_robot
 from home_robot.core.interfaces import Observations
 
 

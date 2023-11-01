@@ -9,6 +9,7 @@ install_requires = [
     "empy",
     "catkin_pkg",
     "rospkg",
+    "rosnumpy",
 ]
 
 setup(

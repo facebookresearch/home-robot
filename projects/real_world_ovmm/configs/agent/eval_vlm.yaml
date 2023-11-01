@@ -1,15 +1,17 @@
 NO_GPU: 0                 # 1: ignore IDs above and run on CPU, 0: run on GPUs with IDs above
 NUM_ENVIRONMENTS: 1       # number of environments (per agent process)
 DUMP_LOCATION: datadump   # path to dump models and log
-EXP_NAME: eval_floorplanner       # experiment name
+EXP_NAME: real_world_eval # experiment name
 VISUALIZE: 0              # 1: render observation and predicted semantic map, 0: no visualization
 PRINT_IMAGES: 1           # 1: save visualization as images, 0: no image saving
-GROUND_TRUTH_SEMANTICS: 1 # 1: use ground-truth semantics (for debugging / ablations)
+GROUND_TRUTH_SEMANTICS: 0 # 1: use ground-truth semantics (for debugging / ablations)
 seed: 0                   # seed
+SHOW_RL_OBS: True         # whether to show the observations passed to RL policices, for debugging
+
 
 ENVIRONMENT:
   forward: 0.25           # forward motion (in meters)
-  turn_angle: 10.0        # agent turn angle (in degrees)
+  turn_angle: 30.0        # agent turn angle (in degrees)
   frame_height: 640       # first-person frame height (in pixels)
   frame_width: 480        # first-person frame width (in pixels)
   camera_height: 1.31     # camera sensor height (in metres)
@@ -17,19 +19,23 @@ ENVIRONMENT:
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 21
+  # category_map_file: data/datasets/floorplanner/rearrange/v3/val/cat_map.json
   category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
-  use_detic_viz: False
+  use_detic_viz: True
 
 AGENT:
   max_steps: 10000         # maximum number of steps before stopping an episode; a lower value set for habitat episode termination 
   panorama_start: 1       # 1: turn around 360 degrees when starting an episode, 0: don't
   exploration_strategy: seen_frontier  # exploration strategy ("seen_frontier", "been_close_to_frontier")
   radius: 0.05            # robot radius (in meters)
-  fall_wait_steps: 200    # number of steps to wait after the object has been dropped
+  fall_wait_steps: 0      # number of steps to wait after the object has been dropped
+  clip_embeddings_file: data/objects/clip_embeddings.pickle
+  store_all_categories: True
+  detection_module: detic
 
   SEMANTIC_MAP:
     semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor", "rearrange")
-    num_sem_categories: 5    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
+    num_sem_categories: 151    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
     map_size_cm: 4800        # global map size (in centimeters)
     map_resolution: 5        # size of map bins (in centimeters)
     vision_range: 100        # diameter of local map region visible by the agent (in cells)
@@ -37,21 +43,22 @@ AGENT:
     du_scale: 4              # frame downscaling before projecting to point cloud
     cat_pred_threshold: 1.0  # number of depth points to be in bin to classify it as a certain semantic category
     exp_pred_threshold: 1.0  # number of depth points to be in bin to consider it as explored
-    map_pred_threshold: 1.0  # number of depth points to be in bin to consider it as obstacle
+    map_pred_threshold: 100.0  # number of depth points to be in bin to consider it as obstacle
     been_close_to_radius: 100  # radius (in centimeters) of been close to region
-    explored_radius: 150       # radius (in centimeters) of visually explored region
+    explored_radius: 50       # radius (in centimeters) of visually explored region
     must_explore_close: False
     min_obs_height_cm: 10    # minimum height (in centimeters) of obstacle
     # erosion and filtering to reduce the number of spurious artifacts
-    dilate_obstacles: False
+    dilate_obstacles: True
     dilate_size: 3
     dilate_iter: 1
+    record_instance_ids: True
 
   SKILLS:
     GAZE_OBJ:
       type: rl #end_to_end #heuristic #hardcoded
-      checkpoint_path: data/checkpoints/ovmm/May31/cat_gaze_recep_sensor_200m_may31.pth
-      rl_config: projects/habitat_ovmm/configs/agent/skills/gaze_rl.yaml # with continuous actions
+      checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/gaze_at_obj.pth
+      rl_config: projects/habitat_ovmm/configs/agent/gaze_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
         - object_embedding
@@ -72,16 +79,18 @@ AGENT:
       nav_goal_seg_channels: 1
       terminate_condition: grip
       grip_threshold: 0.8
-      max_joint_delta: 0.0125
-      min_joint_delta: 0.0
+      max_joint_delta: 0.1
+      min_joint_delta: 0.02
 
     PICK:
-      type: oracle
+      # oracle pick: just close the gripper and assume it worked
+      # hw pick: use a ROS grasp server to try to pick up the object.
+      type: hw  # oracle or hw
 
     NAV_TO_OBJ:
       type: heuristic # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/May31/nav_to_obj_100m_may31_gps_fix.pth
-      rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
+      checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_obj.pth
+      rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
         - object_embedding
@@ -92,12 +101,12 @@ AGENT:
         - robot_start_compass
         - joint
       allowed_actions:
-        - base_velocity
-        - rearrange_stop
-        # - move_forward
-        # - turn_left
-        # - turn_right
-        # - stop
+        # - base_velocity
+        # - rearrange_stop
+        - stop
+        - move_forward
+        - turn_left
+        - turn_right
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25                # used when training the policy; could be different from the eval values
       max_turn_degrees: 30.0
@@ -105,13 +114,13 @@ AGENT:
       min_displacement: 0.1
       sensor_height: 160
       sensor_width: 120
-      terminate_condition: continuous_stop
+      terminate_condition: discrete_stop
       nav_goal_seg_channels: 2
 
     NAV_TO_REC:
       type: heuristic # heuristic (default) or rl
-      checkpoint_path: data/checkpoints/ovmm/May31/nav_to_rec_100m_may31_gps_fix.pth
-      rl_config: projects/habitat_ovmm/configs/agent/skills/nav_to_obj_rl.yaml
+      checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/nav_to_rec.pth
+      rl_config: projects/habitat_ovmm/configs/agent/nav_to_obj_rl.yaml
       gym_obs_keys:
         - robot_head_depth
         - ovmm_nav_goal_segmentation
@@ -121,12 +130,12 @@ AGENT:
         - robot_start_compass
         - joint
       allowed_actions:
-        - base_velocity
-        - rearrange_stop
-        # - move_forward
-        # - turn_left
-        # - turn_right
-        # - stop
+        # - base_velocity
+        # - rearrange_stop
+        - stop
+        - move_forward
+        - turn_left
+        - turn_right
       arm_joint_mask: [0, 0, 0, 0, 0, 0, 0] # the arm joints that the policy can control
       max_displacement: 0.25                # used when training the policy; could be different from the eval values
       max_turn_degrees: 30.0
@@ -134,19 +143,19 @@ AGENT:
       min_displacement: 0.1
       sensor_height: 160
       sensor_width: 120
-      terminate_condition: continuous_stop
+      terminate_condition: discrete_stop
       nav_goal_seg_channels: 1
 
 
     PLACE:
       type: heuristic # "rl" or "heuristic" or "hardcoded"
-      checkpoint_path: data/checkpoints/ovmm/May31/cat_place_kill__before_20_785_tilt_200m_may31.pth
-      rl_config: projects/habitat_ovmm/configs/agent/skills/place_rl.yaml # with continuous actions
+      checkpoint_path: data/checkpoints/ovmm_baseline_home_robot_challenge_2023/place.pth
+      rl_config: projects/habitat_ovmm/configs/agent/place_rl.yaml # with continuous actions
       gym_obs_keys:
         - robot_head_depth
         - goal_receptacle
         - joint
-        - ovmm_nav_goal_segmentation
+        - goal_recep_segmentation
         - is_holding
         - object_embedding
       allowed_actions:
@@ -164,6 +173,7 @@ AGENT:
       terminate_condition: ungrip
       grip_threshold: -0.8
       manip_mode_threshold: 0.8
+      constraint_base_in_manip_mode: True
       max_joint_delta: 0.1
       min_joint_delta: 0.02
 
@@ -177,22 +187,22 @@ AGENT:
 
   PLANNER:
     collision_threshold: 0.20       # forward move distance under which we consider there's a collision (in meters)
-    obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
+    obs_dilation_selem_radius: 5    # radius (in cells) of obstacle dilation structuring element
     goal_dilation_selem_radius: 10  # radius (in cells) of goal dilation structuring element
     step_size: 5                    # maximum distance of the short-term goal selected by the planner
     use_dilation_for_stg: False
-    min_obs_dilation_selem_radius: 1    # radius (in cells) of obstacle dilation structuring element
+    min_obs_dilation_selem_radius: 3    # radius (in cells) of obstacle dilation structuring element
     map_downsample_factor: 1            # optional downsampling of traversible and goal map before fmm distance call (1 for no downsampling, 2 for halving resolution)
     map_update_frequency: 1             # compute fmm distance map every n steps 
-    discrete_actions: True         # discrete motion planner output space or not
-    verbose: False                 # display debug information during planning
+    discrete_actions: False          # discrete motion planner output space or not
+    verbose: True                    # display debug information during planning
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments
   specific_episodes: 0      # 1: eval on specific episodes (for debugging), 0: eval on split normally
   goal_on_same_floor: 0     # 1: restrict to episodes with a goal on the same floor as the starting position
   split: val                # eval split
-  num_episodes_per_env: 1 # number of eval episodes per environment
+  num_episodes_per_env: 100 # number of eval episodes per environment
   record_videos: 0          # 1: record videos from printed images, 0: don't
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
-  metrics_save_freq: 1      # save metrics after every n episodes
+  metrics_save_freq: 5      # save metrics after every n episodes

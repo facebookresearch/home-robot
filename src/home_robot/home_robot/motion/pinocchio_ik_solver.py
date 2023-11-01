@@ -8,8 +8,8 @@ import numpy as np
 import pinocchio
 from scipy.spatial.transform import Rotation as R
 
+from home_robot.motion.bullet import PybulletIKSolver
 from home_robot.motion.ik_solver_base import IKSolverBase
-from home_robot.utils.bullet import PybulletIKSolver
 
 # --DEFAULTS--
 # Error tolerances

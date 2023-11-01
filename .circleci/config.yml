@@ -31,7 +31,12 @@ commands:
       - run:
           name: Setup env
           command: |
-            [ -d ~/env_home_robot ] || mamba env create -f src/home_robot/environment.yml -p ~/env_home_robot
+            [ -d ~/env_home_robot ] || conda env create -f src/home_robot/environment.yml -p ~/env_home_robot
+      - run:
+          name: Add pinocchio IK dependency
+          command: |
+            conda activate ~/env_home_robot
+            conda install pinocchio>=2.6.17 -c conda-forge  -y
       - save_cache:
           key: deps1-{{ .Branch }}-{{ checksum "src/home_robot/environment.yml" }}
           paths:
@@ -67,6 +72,9 @@ jobs:
                 curl \
                 vim \
                 ca-certificates \
+                g++ \
+                python-dev autotools-dev libicu-dev libbz2-dev \
+                libboost-all-dev \
                 unzip || true
       - conda_env_setup
       - run:

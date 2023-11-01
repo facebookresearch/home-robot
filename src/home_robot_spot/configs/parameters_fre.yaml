@@ -1,0 +1,72 @@
+# Perception parameters
+encoder: "clip"
+clip: "ViT-B/32"
+category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
+
+# Planner parameters
+step_size: 1  # (originally .1, we can make it all the way to 2 maybe actually)
+rotation_step_size: 1
+visualize: False
+exploration_steps: 100
+shortcut_iter: 500
+# extend_mode: "joint"  # joint = rotate and move at the same time
+# This is what it was during testing in Fremont
+exetnd_mode: "separate"
+
+# Frontier search parameters
+frontier_step_dist: 1
+frontier_min_dist: 0.5
+
+# Voxel map
+min_depth: 0.1
+max_depth: 4.0
+obs_min_height: 0.3  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+obs_max_height: 1.5  # Originally 1.8, spot is shorter than stretch tho
+obs_min_density: 12  # Originally 10, making it bigger because theres a bunch on noise
+voxel_size: 0.05
+local_radius: 1.5  # Can probably be bigger than original (.15)
+
+# 2d parameters
+explore_methodical: True
+max_explore_failures: 3
+dilate_frontier_size: 22
+dilate_obstacle_size: 2  # Value used in pittsburgh lab
+# "dilate_obstacle_size": 5, # value from fremont
+smooth_kernel_size: 5
+# Frontier
+min_size: 20  # Can probably be bigger than original (10)
+max_size: 40  # Can probably be bigger than original (10)
+
+# Grasping parameters
+plan_to_instance: False
+verify_before_grasp: False
+nbr_dist: 0.2  # 0.15
+residual_thresh: 0.03
+# Chris added these 2 parameters:
+pick_place_radius: 2.0
+place_offset: 0.75  # after orienting to the place location, move until within this offset
+force_place_at_center: True
+gripper_offset_x: 0
+place_height: 0.3
+
+# Trajectory execution
+trajectory_pos_err_threshold: 0.5
+trajectory_rot_err_threshold: 0.5
+trajectory_per_step_timeout: 1.0
+
+# Data collection and sensors
+use_async_subscriber: False
+write_data: True
+use_zero_depth: False
+use_midas: False
+
+# Task setup
+pick_categories: ["bottle", "cup", "toy_animal", "soft toys", "food"]
+place_categories: ["chair", "sofa"]
+use_get_close: False
+best_view_metric: "area"
+confirm_plan: True
+
+# User interface
+chat: False
+context_length: 20

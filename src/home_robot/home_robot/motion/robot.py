@@ -9,8 +9,6 @@ import numpy as np
 import torch
 import torchvision.transforms.functional as TF
 
-import home_robot.utils.bullet as hrb
-
 
 class Footprint:
     """contains information about robot footprint"""
@@ -74,21 +72,22 @@ class Footprint:
         return mask.squeeze(0).squeeze(0).bool()
 
 
-class Robot(abc.ABC):
+class RobotModel(abc.ABC):
     """placeholder"""
 
-    def __init__(self, name="robot", urdf_path=None, visualize=False, assets_path=None):
-        # Load and create planner
-        self.backend = hrb.PbClient(visualize=visualize)
-        # Create object reference
-        self.ref = self.backend.add_articulated_object(
-            name, urdf_path, assets_path=assets_path
-        )
+    def __init__(
+        self,
+        name="robot",
+        urdf_path: Optional[str] = None,
+        visualize=False,
+        assets_path=None,
+    ):
+        self.name = name
+        self.urdf_path = urdf_path
+        self.visualize = visualize
+        self.assets_apth = assets_path
 
-    def get_backend(self) -> hrb.PbClient:
-        """Return model of the robot in bullet - environment for 3d collision checks"""
-        return self.backend
-
+    @abc.abstractmethod
     def get_dof(self) -> int:
         """return degrees of freedom of the robot"""
         return self.dof

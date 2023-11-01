@@ -12,14 +12,14 @@ import numpy as np
 import torch
 
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
-from home_robot.agent.ovmm_agent.ovmm_perception import (
+from home_robot.core.interfaces import DiscreteNavigationAction, Observations
+from home_robot.manipulation import HeuristicPickPolicy, HeuristicPlacePolicy
+from home_robot.perception.constants import RearrangeBasicCategories
+from home_robot.perception.wrapper import (
     OvmmPerception,
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-from home_robot.manipulation import HeuristicPickPolicy, HeuristicPlacePolicy
-from home_robot.perception.constants import RearrangeBasicCategories
 
 
 class Skill(IntEnum):
@@ -29,6 +29,8 @@ class Skill(IntEnum):
     NAV_TO_REC = auto()
     GAZE_AT_REC = auto()
     PLACE = auto()
+    EXPLORE = auto()
+    NAV_TO_INSTANCE = auto()
     FALL_WAIT = auto()
 
 
@@ -315,6 +317,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """
         Set active vocabulary for semantic sensor to use to the given ID.
         """
+        # import pdb; pdb.set_trace()
         if self.config.GROUND_TRUTH_SEMANTICS == 0 and (
             force_set or self.semantic_sensor.current_vocabulary_id != vocab_id
         ):
@@ -466,9 +469,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     action = DiscreteNavigationAction.PICK_OBJECT
                 else:
                     action = None
-            else:
-                # We have tried too many times and we're going to quit
-                action = None
         else:
             raise NotImplementedError(
                 f"pick type not supported: {self.config.AGENT.SKILLS.PICK.type}"

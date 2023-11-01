@@ -177,20 +177,29 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self, obs: home_robot.core.interfaces.Observations, habitat_obs
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
-            semantic = torch.from_numpy(
-                habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
-            )
+            if "all_object_segmentation" in habitat_obs:
+                semantic = torch.from_numpy(
+                    habitat_obs["all_object_segmentation"].squeeze(-1).astype(np.int64)
+                )
+                obj_categories_in_seg = len(self._obj_id_to_name_mapping)
+            else:
+                semantic = torch.from_numpy(
+                    habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
+                )
+                obj_categories_in_seg = 1
             recep_seg = (
                 habitat_obs["receptacle_segmentation"].squeeze(-1).astype(np.int64)
             )
-            recep_seg[recep_seg != 0] += 1
+            recep_seg[recep_seg != 0] += obj_categories_in_seg
             recep_seg = torch.from_numpy(recep_seg)
             semantic = semantic + recep_seg
-            semantic[semantic == 0] = len(self._rec_id_to_name_mapping) + 2
+            semantic[semantic == 0] = (
+                len(self._rec_id_to_name_mapping) + obj_categories_in_seg + 1
+            )
             obs.semantic = semantic.numpy()
-            obs.task_observations["recep_idx"] = 2
+            obs.task_observations["recep_idx"] = 1 + obj_categories_in_seg
             obs.task_observations["semantic_max_val"] = (
-                len(self._rec_id_to_name_mapping) + 2
+                len(self._rec_id_to_name_mapping) + obj_categories_in_seg + 1
             )
         return obs
 
@@ -217,15 +226,28 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         goal_name = (
             "Move " + obj_name + " from " + start_receptacle + " to " + goal_receptacle
         )
-
-        obj_goal_id = 1  # semantic sensor returns binary mask for goal object
         if self.ground_truth_semantics:
-            start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + 2
-            end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + 2
+            if "all_object_segmentation" in habitat_obs:
+                obj_goal_id = 1 + habitat_obs["object_category"]
+                obj_categories_in_seg = len(self._obj_id_to_name_mapping)
+            else:
+                obj_goal_id = 1
+                obj_categories_in_seg = 1
+            start_rec_goal_id = (
+                self._rec_name_to_id_mapping[start_receptacle]
+                + 1
+                + obj_categories_in_seg
+            )
+            end_rec_goal_id = (
+                self._rec_name_to_id_mapping[goal_receptacle]
+                + 1
+                + obj_categories_in_seg
+            )
         else:
             # To be populated by the agent
             start_rec_goal_id = -1
             end_rec_goal_id = -1
+            obj_goal_id = 1
 
         obs.task_observations["goal_name"] = goal_name
         obs.task_observations["object_name"] = obj_name

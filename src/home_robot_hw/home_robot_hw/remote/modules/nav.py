@@ -9,7 +9,7 @@ import rospy
 from geometry_msgs.msg import Twist
 from std_srvs.srv import SetBoolRequest, TriggerRequest
 
-from home_robot.motion.robot import Robot
+from home_robot.motion.robot import RobotModel
 from home_robot.utils.geometry import (
     angle_difference,
     sophus2xyt,
@@ -25,7 +25,7 @@ from .abstract import AbstractControlModule, enforce_enabled
 class StretchNavigationClient(AbstractControlModule):
     block_spin_rate = 10
 
-    def __init__(self, ros_client, robot_model: Robot):
+    def __init__(self, ros_client, robot_model: RobotModel):
         super().__init__()
 
         self._ros_client = ros_client
@@ -113,8 +113,9 @@ class StretchNavigationClient(AbstractControlModule):
         self,
         trajectory: List[np.ndarray],
         pos_err_threshold: float = 0.2,
+        rot_err_threshold: float = 0.75,
         spin_rate: int = 10,
-        verbose: bool = True,
+        verbose: bool = False,
         per_waypoint_timeout: float = 10.0,
         relative: bool = False,
     ):
@@ -128,6 +129,7 @@ class StretchNavigationClient(AbstractControlModule):
             self.wait_for_waypoint(
                 pt,
                 pos_err_threshold=pos_err_threshold,
+                rot_err_threshold=rot_err_threshold,
                 rate=spin_rate,
                 verbose=verbose,
                 timeout=per_waypoint_timeout,

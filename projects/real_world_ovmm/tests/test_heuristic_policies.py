@@ -12,8 +12,8 @@ import rospy
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
+from home_robot.utils.config import load_config
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
-from home_robot_hw.utils.config import load_config
 
 
 @click.command()
@@ -50,7 +50,11 @@ def main(
     rospy.init_node("eval_episode_stretch_objectnav")
 
     print("- Loading configuration")
-    config = load_config(visualize=visualize_maps, **kwargs)
+    config = load_config(
+        visualize=visualize_maps,
+        config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
+        **kwargs
+    )
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
