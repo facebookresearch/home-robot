@@ -248,10 +248,6 @@ class ObjectNavFrontierExplorationPolicy(nn.Module):
             binary_dilation(frontier_map, self.select_border_kernel) - frontier_map
         )
 
-        # Remove obstacles from the frontier
-        obstacle_map = map_features[:, [MC.OBSTACLE_MAP], :, :]
-        frontier_map[obstacle_map > 0] = 0.0
-
         return frontier_map
 
     def explore_otherwise(self, map_features, goal_map, found_goal):

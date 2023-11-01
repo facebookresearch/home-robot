@@ -500,6 +500,7 @@ class GraspPlanner(GraspClient):
             return False
 
         for i, (name, waypoint, should_grasp) in enumerate(trajectory):
+            print(name, waypoint, should_grasp)
             self.robot_client.manip.goto_joint_positions(waypoint)
             # TODO: remove this delay - it's to make sure we don't start moving again too early
             rospy.sleep(0.1)
