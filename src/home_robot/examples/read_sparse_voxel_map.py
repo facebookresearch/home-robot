@@ -7,9 +7,6 @@
 from pathlib import Path
 
 import click
-import open3d
-import rospy
-import torch
 
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 
