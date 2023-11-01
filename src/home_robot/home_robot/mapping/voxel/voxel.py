@@ -49,6 +49,7 @@ Frame = namedtuple(
         "base_pose",
         "info",
         "obs",
+        "full_world_xyz",
         "xyz_frame",
     ],
 )
@@ -409,6 +410,7 @@ class SparseVoxelMap(object):
                 base_pose,
                 info,
                 obs,
+                full_world_xyz,
                 xyz_frame=xyz_frame,
             )
         )
