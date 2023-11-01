@@ -28,7 +28,7 @@ case $yn in
 esac
 
 echo "We currently recommend installing simulation from source."
-# conda env update -f $HOME_ROBOT_ROOT/src/home_robot_sim/environment.yml
+conda env update -f $HOME_ROBOT_ROOT/src/home_robot_sim/environment.yml
 
 cd $HOME_ROBOT_ROOT
 pip install -e $HOME_ROBOT_ROOT/src/home_robot_sim
