@@ -797,7 +797,7 @@ class Categorical2DSemanticMapModule(nn.Module):
             # Set a disk around the agent to explored
             # This is around the current agent - we just sort of assume we know where we are
             try:
-                radius = self.explored_radius
+                radius = self.explored_radius // self.resolution
                 explored_disk = torch.from_numpy(skimage.morphology.disk(radius))
                 current_map[
                     e,
