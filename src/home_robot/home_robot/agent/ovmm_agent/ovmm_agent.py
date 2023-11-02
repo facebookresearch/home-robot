@@ -145,7 +145,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             semantic_frame = np.concatenate(
                 [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
             ).astype(np.uint8)
-
+        obs.task_observations["goal_name"] = "chair"
         info = {
             "semantic_frame": semantic_frame,
             "semantic_category_mapping": semantic_category_mapping,
@@ -283,6 +283,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
         :update_full_vocabulary: if False, only updates simple vocabulary
         True by default
         """
+        obs.task_observations["object_name"] = "cup"
+        obs.task_observations["start_recep_name"] = "chair"
+        obs.task_observations["place_recep_name"] = "table"
         obj_id_to_name = {
             0: obs.task_observations["object_name"],
         }
