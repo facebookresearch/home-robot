@@ -32,6 +32,10 @@ class SimpleSpotKinematics(RobotModel):
         if q is not None:
             self.set_head_config(q)
         raise NotImplementedError("Bullet planning not yet supported for this robot")
+    
+    def get_dof(self) -> int:
+        """return the number of degrees of freedom of the robot"""
+        return self.dof
 
     def get_footprint(self) -> np.ndarray:
         """return a footprint mask that we can check 2d collisions against"""
