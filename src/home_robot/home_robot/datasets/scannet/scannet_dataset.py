@@ -48,6 +48,12 @@ class ScanNetModalities(Enum):
 
 
 class ScanNetDataset(object):
+    """
+    This class loads scannet scenes through the __getitem__ function.
+    Which modalities are loaded (RGB, depth, bounding boxes, etc) can be set through
+    the constructor using the ScanNetModalities enum.
+    """
+
     DEPTH_SCALE_FACTOR = 0.001  # to MM
     DEFAULT_HEIGHT = 968.0
     DEFAULT_WIDTH = 1296.0

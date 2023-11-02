@@ -16,7 +16,7 @@ from torchvision import transforms
 from tqdm import trange
 
 import home_robot.utils.image as im
-from home_robot.mapping.semantic.instance_tracking_modules import Instance, InstanceView
+from home_robot.mapping.instance import Instance, InstanceView
 from home_robot.perception.encoders import BaseImageTextEncoder
 from home_robot.utils.bboxes_3d import box3d_volume_from_bounds
 from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
