@@ -140,10 +140,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         correction_pose = tra.euler_matrix(2.064, 1.472, 2.170) @ tra.euler_matrix(
             0, 0, -np.pi / 2
         )
-        print("from hab ", tra.euler_from_matrix(habitat_camera_pose))
-        print("fake pose", tra.euler_from_matrix(correction_pose))
+        # TODO: remove debugging code
+        # print("from hab ", tra.euler_from_matrix(habitat_camera_pose))
+        # print("fake pose", tra.euler_from_matrix(correction_pose))
         r2, p2, y2 = tra.euler_from_matrix(correction_pose)
-        print("rotate by", p)
+        # TODO: remove debugging code - P is the pitch of the head camera
+        # print("rotate by", p)
         correction_pose2 = correction_pose @ tra.euler_matrix(p, 0, 0)
         pose = pose @ correction_pose2
 
@@ -387,7 +389,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             )
         else:
             raise ValueError(
-                "Action needs to be of one of the following types: DiscreteNavigationAction, ContinuousNavigationAction or ContinuousFullBodyAction"
+                f"Action needs to be of one of the following types: DiscreteNavigationAction, ContinuousNavigationAction or ContinuousFullBodyAction, was: {type(action)}"
             )
         return np.array(cont_action, dtype=np.float32)
 

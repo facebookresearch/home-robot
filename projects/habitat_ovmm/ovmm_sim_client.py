@@ -61,6 +61,8 @@ class OvmmSimClient(RobotClient):
 
         if type(xyt) == np.ndarray:
             xyt = ContinuousNavigationAction(xyt)
+        elif type(xyt) == list:
+            xyt = ContinuousNavigationAction(np.array(xyt))
 
         self.apply_action(xyt)
 
