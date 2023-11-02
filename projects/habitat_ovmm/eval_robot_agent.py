@@ -134,7 +134,6 @@ if __name__ == "__main__":
 
     matches = demo.get_found_instances_by_class(object_to_find)
 
-    """
     demo.run_exploration(
         args.rate,
         args.manual_wait,
@@ -142,7 +141,6 @@ if __name__ == "__main__":
         task_goal=object_to_find,
         go_home_at_end=args.navigate_home,
     )
-    """
 
     print("Done collecting data (exploration).")
     matches = demo.get_found_instances_by_class(object_to_find)
