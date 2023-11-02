@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import imageio
 import numpy as np
 import torch
+
 from home_robot.core.interfaces import (
     ContinuousNavigationAction,
     DiscreteNavigationAction,
@@ -51,12 +52,6 @@ class OvmmSimClient(RobotClient):
                 manip_mode_controlled_joints=None,
             )
 
-            self.camera = Camera.from_width_height_fov(
-                width=480,
-                height=640,
-                fov_degrees=42,
-            )
-
     def navigate_to(
         self, xyt: ContinuousNavigationAction, relative=False, blocking=False
     ):
@@ -94,7 +89,6 @@ class OvmmSimClient(RobotClient):
 
     def get_observation(self):
         """Return obs from last apply action"""
-        self.obs.camera_K = self.camera.K
         return self.obs
 
     def get_task_obs(self) -> Tuple[str, str]:

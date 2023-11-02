@@ -9,12 +9,8 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from home_robot.agent.multitask import get_parameters
-from home_robot.agent.multitask.robot_agent import RobotAgent
-from home_robot.perception import create_semantic_sensor
 from loguru import logger
 from ovmm_sim_client import OvmmSimClient, SimGraspPlanner
-
 from utils.config_utils import (
     create_agent_config,
     create_env_config,
@@ -22,6 +18,10 @@ from utils.config_utils import (
     get_omega_config,
 )
 from utils.env_utils import create_ovmm_env_fn
+
+from home_robot.agent.multitask import get_parameters
+from home_robot.agent.multitask.robot_agent import RobotAgent
+from home_robot.perception import create_semantic_sensor
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -134,6 +134,7 @@ if __name__ == "__main__":
 
     matches = demo.get_found_instances_by_class(object_to_find)
 
+    """
     demo.run_exploration(
         args.rate,
         args.manual_wait,
@@ -141,6 +142,7 @@ if __name__ == "__main__":
         task_goal=object_to_find,
         go_home_at_end=args.navigate_home,
     )
+    """
 
     print("Done collecting data (exploration).")
     matches = demo.get_found_instances_by_class(object_to_find)
@@ -181,6 +183,7 @@ if __name__ == "__main__":
                 # )
                 pass
 
+    demo.voxel_map.write_to_pickle("test.pkl")
     breakpoint()
 
     # # merge env config and baseline config to create agent config
