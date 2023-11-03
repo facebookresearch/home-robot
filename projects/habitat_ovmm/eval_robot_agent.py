@@ -131,8 +131,6 @@ if __name__ == "__main__":
 
     matches = demo.get_found_instances_by_class(object_to_find)
 
-    # print("rotate in place for a bit")
-    # demo.rotate_in_place(steps=12)
     demo.robot.navigate_to([-0.1, 0, 0], relative=True)
     demo.update()
     import numpy as np
@@ -141,6 +139,9 @@ if __name__ == "__main__":
     demo.update()
     demo.robot.navigate_to([0, 0, np.pi / 4], relative=True)
     demo.update()
+
+    print("rotate in place for a bit")
+    demo.rotate_in_place(steps=12)
 
     demo.run_exploration(
         args.rate,
