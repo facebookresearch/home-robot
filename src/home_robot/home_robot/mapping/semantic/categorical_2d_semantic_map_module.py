@@ -702,13 +702,8 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
         st_pose[:, 2] = 90.0 - (st_pose[:, 2])
 
-        # st_pose is current pose, last term in degrees
-        # account for camera yaw here by rotating the new map based on camera yaw
-        st_pose_adjusted = st_pose.clone()
-        # yaw has to be inverted here, below rotates the map clockwise
-        st_pose_adjusted[:, 2] -= yaw.to(st_pose_adjusted.device) * 180 / np.pi
 
-        rot_mat, trans_mat = ru.get_grid(st_pose_adjusted, agent_view.size(), dtype)
+        rot_mat, trans_mat = ru.get_grid(st_pose, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
         plt.imshow(rotated[0, 0].cpu())
@@ -722,21 +717,6 @@ class Categorical2DSemanticMapModule(nn.Module):
                 translated, num_instance_channels
             )
 
-        # Remove people from the last map if people are detected
-        # TODO Handle people more cleanly
-        if translated[:, MC.NON_SEM_CHANNELS + 11, :, :].sum() > 0.99:
-            print("Detected a person, removing previous people from the map")
-            prev_map[:, MC.NON_SEM_CHANNELS + 11, :, :] = 0
-
-        # Update obstacles in current map
-        # TODO Implement this properly for num_environments > 1
-        if obstacle_locations is not None:
-            translated[
-                0, 0, obstacle_locations[0, :, 0], obstacle_locations[0, :, 1]
-            ] = 1
-        if free_locations is not None:
-            translated[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
-            prev_map[0, 0, free_locations[0, :, 0], free_locations[0, :, 1]] = 0
 
         # Aggregate by taking the max of the previous map and current map — this is robust
         # to false negatives in one frame but makes it impossible to remove false positives
