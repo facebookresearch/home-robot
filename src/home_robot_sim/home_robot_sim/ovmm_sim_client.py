@@ -132,7 +132,13 @@ class OvmmSimClient(RobotClient):
         xyt1 = self.get_base_pose()
 
         # if these are the same within some tolerance, the motion failed
-        self._last_motion_failed = np.linalg.norm(xyt0 - xyt1) < self._success_tolerance
+        if isinstance(action, ContinuousNavigationAction):
+            large_action = np.linalg.norm(action.xyt) > self._success_tolerance
+            self._last_motion_failed = (
+                large_action and np.linalg.norm(xyt0 - xyt1) < self._success_tolerance
+            )
+        else:
+            self._last_motion_failed = True
         self.video_frames.append(self.obs.third_person_image)
 
     def last_motion_failed(self):
