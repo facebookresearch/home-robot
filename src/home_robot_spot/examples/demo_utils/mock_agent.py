@@ -21,9 +21,9 @@ from atomicwrites import atomic_write
 from loguru import logger
 from PIL import Image
 
-import home_robot_spot.nav_client as nc
+import home_robot.utils.planar as nc
 from home_robot.agent.multitask import Parameters
-from home_robot.agent.ovmm_agent import (
+from home_robot.perception.wrapper import (
     OvmmPerception,
     build_vocab_from_category_map,
     read_category_map_file,

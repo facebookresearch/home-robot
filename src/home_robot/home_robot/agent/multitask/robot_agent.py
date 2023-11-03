@@ -41,7 +41,7 @@ def publish_obs(
 ):
     """publish observation for use by the UI"""
     # NOTE: this requires 'pip install atomicwrites'
-    with atomic_write(f"{path}/viz_data/{timestep}.pkl", mode="wb") as f:
+    with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
         instances = model.voxel_map.get_instances()
         model_obs = model.voxel_map.observations[-1]
         if len(instances) > 0:
