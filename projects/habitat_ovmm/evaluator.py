@@ -29,13 +29,15 @@ if TYPE_CHECKING:
 
 
 class EvaluationType(Enum):
+    """Whether we run local or remote evaluation."""
+
     LOCAL = "local"
     LOCAL_VECTORIZED = "local_vectorized"
     REMOTE = "remote"
 
 
 class OVMMEvaluator(PPOTrainer):
-    """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics"""
+    """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics."""
 
     def __init__(self, eval_config: DictConfig) -> None:
         self.metrics_save_freq = eval_config.EVAL_VECTORIZED.metrics_save_freq
@@ -326,10 +328,10 @@ class OVMMEvaluator(PPOTrainer):
         # These modules are not part of the home-robot repository.
         import pickle
         import time
-        
-        from home_robot_hw.utils.eval_ai import evaluation_pb2
-        from home_robot_hw.utils.eval_ai import evaluation_pb2_grpc
+
         import grpc
+
+        from home_robot_hw.utils.eval_ai import evaluation_pb2, evaluation_pb2_grpc
 
         # Wait for the remote environment to be up and running
         time.sleep(1)
