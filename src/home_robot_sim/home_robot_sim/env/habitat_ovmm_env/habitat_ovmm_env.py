@@ -145,6 +145,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         tform_base_to_head = tra.euler_matrix(
             3 * np.pi / 4, np.pi / 2, 3 * np.pi / 4
         ) @ tra.euler_matrix(0, 0, -np.pi / 2)
+        # tform_base_to_head[:3, 3] = np.array([0.6, 0.015, 1.310])
         tform_base_to_head[:3, 3] = np.array([0.59, 0.015, 1.310])
 
         # Undo the tilt
