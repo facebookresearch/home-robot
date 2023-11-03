@@ -27,6 +27,8 @@ class OvmmSimClient(RobotClient):
     """Defines the ovmm simulation robot as a RobotClient child
     class so the sim can be used with the cortex demo code"""
 
+    _success_tolerance = 1e-4
+
     def __init__(
         self,
         sim_env: HabitatOpenVocabManipEnv,
@@ -36,6 +38,7 @@ class OvmmSimClient(RobotClient):
 
         self.env = sim_env
         self.obs = self.env.reset()
+        self._last_motion_failed = False
 
         self.done = False
         self.hab_info = None
@@ -57,7 +60,7 @@ class OvmmSimClient(RobotClient):
         xyt: ContinuousNavigationAction,
         relative: bool = False,
         blocking: bool = False,
-        verbose: bool = False,
+        verbose: bool = True,
     ):
         """Move to xyt in global coordinates or relative coordinates."""
         if not relative:
@@ -120,13 +123,20 @@ class OvmmSimClient(RobotClient):
 
     def apply_action(self, action, verbose: bool = False):
         """Actually send the action to the simulator."""
+        xyt0 = self.get_base_pose()
         if verbose:
-            print("STARTED AT:", self.get_base_pose())
+            print("STARTED AT:", xyt0)
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
         if verbose:
             print("MOVED TO:", self.get_base_pose())
+        xyt1 = self.get_base_pose()
 
+        # if these are the same within some tolerance, the motion failed
+        self._last_motion_failed = np.linalg.norm(xyt0 - xyt1) < self._success_tolerance
         self.video_frames.append(self.obs.third_person_image)
+
+    def last_motion_failed(self):
+        return self._last_motion_failed
 
     def make_video(self):
         """Save a video for this sim client"""

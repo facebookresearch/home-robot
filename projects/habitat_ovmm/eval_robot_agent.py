@@ -131,8 +131,16 @@ if __name__ == "__main__":
 
     matches = demo.get_found_instances_by_class(object_to_find)
 
-    print("rotate in place for a bit")
-    demo.rotate_in_place(steps=12)
+    # print("rotate in place for a bit")
+    # demo.rotate_in_place(steps=12)
+    demo.robot.navigate_to([-0.1, 0, 0], relative=True)
+    demo.update()
+    import numpy as np
+
+    demo.robot.navigate_to([0, 0, np.pi / 4], relative=True)
+    demo.update()
+    demo.robot.navigate_to([0, 0, np.pi / 4], relative=True)
+    demo.update()
 
     demo.run_exploration(
         args.rate,
@@ -186,7 +194,7 @@ if __name__ == "__main__":
     finally:
         demo.voxel_map.write_to_pickle("test.pkl")
 
-    breakpoint()
+    # breakpoint()
 
     # # create evaluator
     # evaluator = OVMMEvaluator(env_config)

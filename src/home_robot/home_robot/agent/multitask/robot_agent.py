@@ -215,11 +215,18 @@ class RobotAgent:
     def rotate_in_place(self, steps: int = 12):
         """Simple helper to rotate in place"""
         step_size = 2 * np.pi / steps
-        for i in range(steps):
+        i = 0
+        while i < steps:
             self.robot.navigate_to([0, 0, step_size], relative=True, blocking=True)
             # TODO remove debug code
             # print(i, self.robot.get_base_pose())
             self.update()
+            if self.robot.last_motion_failed():
+                # We have a problem!
+                self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
+                i = 0
+            else:
+                i += 1
 
     def get_plan_from_vlm(self):
         """This is a connection to a remote thing for getting language commands"""
