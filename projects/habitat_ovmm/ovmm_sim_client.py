@@ -64,6 +64,7 @@ class OvmmSimClient(RobotClient):
         elif type(xyt) == list:
             xyt = ContinuousNavigationAction(np.array(xyt))
 
+        print("NAVIGATE TO", xyt.xyt, relative, blocking)
         self.apply_action(xyt)
 
     def reset(self):
@@ -114,6 +115,7 @@ class OvmmSimClient(RobotClient):
 
     def apply_action(self, action):
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
+        print("MOVED TO:", self.get_base_pose())
 
         self.video_frames.append(self.obs.third_person_image)
 

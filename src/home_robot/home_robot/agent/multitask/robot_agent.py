@@ -11,6 +11,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from atomicwrites import atomic_write
+from loguru import logger
+from PIL import Image
+
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
@@ -27,8 +30,6 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
-from loguru import logger
-from PIL import Image
 
 
 def publish_obs(
@@ -210,6 +211,15 @@ class RobotAgent:
             logger.warn("Tried to grasp without providing a grasp client.")
             return False
         return self.grasp_client.try_grasping(object_goal=object_goal, **kwargs)
+
+    def rotate_in_place(self, steps: int = 12):
+        """Simple helper to rotate in place"""
+        step_size = 2 * np.pi / steps
+        for i in range(steps):
+            self.robot.navigate_to([0, 0, step_size], relative=True, blocking=True)
+            # TODO remove debug code
+            # print(i, self.robot.get_base_pose())
+            self.update()
 
     def get_plan_from_vlm(self):
         """This is a connection to a remote thing for getting language commands"""

@@ -136,18 +136,22 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         r, p, y = tra.euler_from_matrix(habitat_camera_pose)
 
         compass = habitat_obs["robot_start_compass"]
-        pose = tra.euler_matrix(0, 0, compass)
+        pose = tra.euler_matrix(0, 0, -compass)
         correction_pose = tra.euler_matrix(2.064, 1.472, 2.170) @ tra.euler_matrix(
             0, 0, -np.pi / 2
         )
+        # TODO: remove debug code
+        # pan, tilt = habitat_obs["joint"][-2], habitat_obs["joint"][-1]
+        # print(f"{pan=}, {tilt=}")
         # TODO: remove debugging code
-        # print("from hab ", tra.euler_from_matrix(habitat_camera_pose))
-        # print("fake pose", tra.euler_from_matrix(correction_pose))
+        # print("from hab ", r, p, y)
         r2, p2, y2 = tra.euler_from_matrix(correction_pose)
+        # print("fake pose", tra.euler_from_matrix(correction_pose))
         # TODO: remove debugging code - P is the pitch of the head camera
         # print("rotate by", p)
         correction_pose2 = correction_pose @ tra.euler_matrix(p, 0, 0)
         pose = pose @ correction_pose2
+        # print("final est", tra.euler_from_matrix(pose))
 
         pose[:2, 3] = self._preprocess_xy(habitat_obs["robot_start_gps"])
         pose[2, 3] = habitat_camera_pose[2, 3]

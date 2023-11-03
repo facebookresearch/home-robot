@@ -134,6 +134,9 @@ if __name__ == "__main__":
 
     matches = demo.get_found_instances_by_class(object_to_find)
 
+    print("rotate in place for a bit")
+    demo.rotate_in_place(steps=12)
+
     demo.run_exploration(
         args.rate,
         args.manual_wait,
