@@ -13,9 +13,7 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
-import matplotlib.pyplot as plt
 import numpy as np
-import open3d
 import torch
 from atomicwrites import atomic_write
 from loguru import logger
