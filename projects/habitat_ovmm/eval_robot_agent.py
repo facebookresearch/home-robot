@@ -10,7 +10,6 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
-from ovmm_sim_client import OvmmSimClient, SimGraspPlanner
 from utils.config_utils import (
     create_agent_config,
     create_env_config,
@@ -22,6 +21,7 @@ from utils.env_utils import create_ovmm_env_fn
 from home_robot.agent.multitask import get_parameters
 from home_robot.agent.multitask.robot_agent import RobotAgent
 from home_robot.perception import create_semantic_sensor
+from home_robot_sim.ovmm_sim_client import OvmmSimClient, SimGraspPlanner
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -38,16 +38,16 @@ if __name__ == "__main__":
         help="Path to config yaml",
     )
     parser.add_argument(
-        "--baseline_config_path",
+        "--env_config_path",
         type=str,
-        default="projects/habitat_ovmm/configs/agent/heuristic_agent.yaml",
+        default="projects/habitat_ovmm/configs/env/hssd_demo.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
-        "--env_config_path",
+        "--agent_parameters",
         type=str,
-        default="projects/habitat_ovmm/configs/env/hssd_eval.yaml",
-        help="Path to config yaml",
+        default="src/home_robot_sim/configs/default.yaml",
+        help="path to parameters file for agent",
     )
     parser.add_argument(
         "--device_id",
@@ -100,9 +100,6 @@ if __name__ == "__main__":
         args.habitat_config_path, overrides=args.overrides
     )
 
-    # get baseline config
-    baseline_config = get_omega_config(args.baseline_config_path)
-
     # get env config
     env_config = get_omega_config(args.env_config_path)
 
@@ -121,7 +118,7 @@ if __name__ == "__main__":
 
     grasp_client = SimGraspPlanner(robot)
 
-    parameters = get_parameters("src/home_robot_hw/configs/default.yaml")
+    parameters = get_parameters(args.agent_parameters)
     print(parameters)
     object_to_find, location_to_place = robot.get_task_obs()
 
@@ -190,17 +187,6 @@ if __name__ == "__main__":
         demo.voxel_map.write_to_pickle("test.pkl")
 
     breakpoint()
-
-    # # merge env config and baseline config to create agent config
-    # agent_config = create_agent_config(env_config, baseline_config)
-
-    # device_id = env_config.habitat.simulator.habitat_sim_v0.gpu_device_id
-
-    # # create agent
-    # if args.agent_type == "random":
-    #     agent = RandomAgent(agent_config, device_id=device_id)
-    # else:
-    #     agent = OpenVocabManipAgent(agent_config, device_id=device_id)
 
     # # create evaluator
     # evaluator = OVMMEvaluator(env_config)

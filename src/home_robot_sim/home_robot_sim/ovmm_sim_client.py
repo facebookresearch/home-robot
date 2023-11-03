@@ -53,7 +53,11 @@ class OvmmSimClient(RobotClient):
             )
 
     def navigate_to(
-        self, xyt: ContinuousNavigationAction, relative=False, blocking=False
+        self,
+        xyt: ContinuousNavigationAction,
+        relative: bool = False,
+        blocking: bool = False,
+        verbose: bool = False,
     ):
         """Move to xyt in global coordinates or relative coordinates."""
         if not relative:
@@ -64,8 +68,9 @@ class OvmmSimClient(RobotClient):
         elif type(xyt) == list:
             xyt = ContinuousNavigationAction(np.array(xyt))
 
-        print("NAVIGATE TO", xyt.xyt, relative, blocking)
-        self.apply_action(xyt)
+        if verbose:
+            print("NAVIGATE TO", xyt.xyt, relative, blocking)
+        self.apply_action(xyt, verbose=verbose)
 
     def reset(self):
         """Reset everything in the robot's internal state"""
@@ -113,14 +118,19 @@ class OvmmSimClient(RobotClient):
         """xyt position of robot"""
         return np.array([self.obs.gps[0], self.obs.gps[1], self.obs.compass[0]])
 
-    def apply_action(self, action):
+    def apply_action(self, action, verbose: bool = False):
+        """Actually send the action to the simulator."""
+        if verbose:
+            print("STARTED AT:", self.get_base_pose())
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
-        print("MOVED TO:", self.get_base_pose())
+        if verbose:
+            print("MOVED TO:", self.get_base_pose())
 
         self.video_frames.append(self.obs.third_person_image)
 
     def make_video(self):
-        imageio.mimsave(f"debug.mp4", self.video_frames, fps=30)
+        """Save a video for this sim client"""
+        imageio.mimsave("debug.mp4", self.video_frames, fps=30)
 
     def execute_trajectory(
         self,
@@ -137,8 +147,6 @@ class OvmmSimClient(RobotClient):
             assert (
                 len(pt) == 3 or len(pt) == 2
             ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
-            just_xy = len(pt) == 2
-
             self.navigate_to(pt, relative)
 
 
