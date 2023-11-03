@@ -158,6 +158,9 @@ class OvmmSimClient(RobotClient):
                 len(pt) == 3 or len(pt) == 2
             ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
             self.navigate_to(pt, relative)
+            if self.last_motion_failed():
+                return False
+        return True
 
 
 class SimGraspPlanner(GraspClient):

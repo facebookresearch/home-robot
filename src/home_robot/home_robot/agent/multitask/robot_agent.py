@@ -633,6 +633,22 @@ class RobotAgent:
                         pos_err_threshold=self.pos_err_threshold,
                         rot_err_threshold=self.rot_err_threshold,
                     )
+                if self.robot.last_motion_failed():
+                    print("!!!!!!!!!!!!!!!!!!!!!!")
+                    print("ROBOT IS STUCK! Move back!")
+                    r = np.random.randint(3)
+                    if r == 0:
+                        self.robot.navigate_to(
+                            [-0.1, 0, 0], relative=True, blocking=True
+                        )
+                    elif r == 1:
+                        self.robot.navigate_to(
+                            [0, 0, np.pi / 4], relative=True, blocking=True
+                        )
+                    elif r == 2:
+                        self.robot.navigate_to(
+                            [0, 0, -np.pi / 4], relative=True, blocking=True
+                        )
 
             # Append latest observations
             self.update()

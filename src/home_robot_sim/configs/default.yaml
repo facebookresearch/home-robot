@@ -8,12 +8,11 @@ voxel_size: 0.05
 obs_min_height: 0.1  # Ignore things less than this high
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
 obs_min_density: 5  # This many points makes it an obstacle
-pad_obstacles: 1  # Add this many units (voxel_size) to the area around obstacles
 local_radius: 0.5  # Area around the robot to mark as explored (kind of a hack)
 smooth_kernel_size: 1
-pad_obstacles: 4
-min_depth: 0.1
-max_depth: 3.5
+pad_obstacles: 5
+min_depth: 0.0
+max_depth: 5.0
 
 # TAMP parameters
 guarantee_instance_is_reachable: True
