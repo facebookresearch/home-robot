@@ -23,11 +23,6 @@ from PIL import Image
 
 import home_robot.utils.planar as nc
 from home_robot.agent.multitask import Parameters
-from home_robot.perception.wrapper import (
-    OvmmPerception,
-    build_vocab_from_category_map,
-    read_category_map_file,
-)
 from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
 from home_robot.mapping.voxel import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
@@ -39,6 +34,11 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
     SimpleSpotKinematics,
 )
 from home_robot.perception.encoders import ClipEncoder
+from home_robot.perception.wrapper import (
+    OvmmPerception,
+    build_vocab_from_category_map,
+    read_category_map_file,
+)
 from home_robot.utils.config import Config, get_config, load_config
 from home_robot.utils.demo_chat import DemoChat
 from home_robot.utils.geometry import xyt_global_to_base
@@ -57,7 +57,7 @@ from home_robot_spot.grasp_env import GraspController
 
 
 class MockSpotDemoAgent:
-    """Mock agent for offline testing"""
+    """Mock agent for offline testing."""
 
     def __init__(
         self,

@@ -25,7 +25,6 @@ from examples.demo_utils.mock_agent import MockSpotDemoAgent
 
 # Simple IO tool for robot agents
 from home_robot.agent.multitask.robot_agent import publish_obs
-from home_robot.perception.wrapper import create_semantic_sensor
 from home_robot.mapping.voxel import SparseVoxelMap  # Aggregate 3d information
 from home_robot.mapping.voxel import (  # Sample positions in free space for our robot to move to
     SparseVoxelMapNavigationSpace,
@@ -37,6 +36,7 @@ from home_robot.motion.spot import (  # Just saves the Spot robot footprint for 
     SimpleSpotKinematics,
 )
 from home_robot.perception.encoders import ClipEncoder
+from home_robot.perception.wrapper import create_semantic_sensor
 from home_robot.utils.config import Config, get_config, load_config
 from home_robot.utils.demo_chat import (
     DemoChat,
@@ -60,6 +60,12 @@ from home_robot_spot.spot_demo_agent import SpotDemoAgent
 
 # def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None, args=None):
+    """Runs the demo.
+
+    Args:
+        dock(int): id of dock to return to at the end.
+        args: arguments from argparser
+    """
     level = logger.level("DEMO", no=38, color="<yellow>", icon="🤖")
     print(f"{level=}")
     data: Dict[str, List[str]] = {}
@@ -102,7 +108,7 @@ def main(dock: Optional[int] = None, args=None):
     navigation_space = demo.navigation_space
     start = None
     goal = None
-    # TODO add desktop password here maybe via config 
+    # TODO add desktop password here maybe via config
     os.system("echo 'batman1234' | sudo -S  kill -9 $(lsof -t -i:8901)")
     logger.info("killed old UI port")
     try:
