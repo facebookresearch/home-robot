@@ -1,3 +1,7 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 import logging
 import os
 import warnings
@@ -12,6 +16,7 @@ from omegaconf import DictConfig
 from PIL import Image
 from segment_anything import SamAutomaticMaskGenerator, SamPredictor, sam_model_registry
 from sklearn.cluster import DBSCAN
+from torch import Tensor
 from torchvision import transforms
 from tqdm import trange
 
@@ -22,14 +27,40 @@ from home_robot.utils.bboxes_3d import box3d_volume_from_bounds
 from home_robot.utils.point_cloud_torch import unproject_masked_depth_to_xyz_coordinates
 from home_robot.utils.voxel import VoxelizedPointcloud
 
-from .utils import COLOR_LIST, adjust_intrinsics_matrix
+COLOR_LIST = [
+    [0.0, 0.0, 1.0],
+    [0.0, 1.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 1.0],
+    [1.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0],
+    [0.0, 0.5, 0.0],
+    [0.5, 0.0, 0.0],
+    [0.0, 0.5, 0.5],
+    [0.5, 0.0, 0.5],
+    [0.5, 0.5, 0.0],
+    [0.0, 0.0, 0.5],
+    [0.0, 0.5, 1.0],
+]
+
 
 custom_palette = sns.color_palette("viridis", 24)
 
 logger = logging.getLogger(__name__)
 
 
-def get_bounding_boxes(clusterer, data):
+def get_bounding_boxes(clusterer: DBSCAN, data: Tensor):
+    """
+    Clusters points into instances and returns bounding box around each cluster
+
+    Args:
+        clusterer: calls clusterer.fit(data) and returns db.labels_
+        data: [N, D]
+
+    Returns:
+        box_bounds: [K, D, 2] (mins and maxes)
+        data_labels: [N] (cluster idx)
+    """
     # db = DBSCAN(eps=args.epsilon, min_samples=args.min_samples).fit(data.cpu().numpy())
     db = clusterer.fit(data.cpu().numpy())
     labels = db.labels_
@@ -59,10 +90,6 @@ class ConceptFusion:
         image_text_encoder: BaseImageTextEncoder,
         voxel_ptc: VoxelizedPointcloud,
         clusterer: DBSCAN,
-        # sam_params: DictConfig,
-        # open_clip_params: DictConfig,
-        # data_params: DictConfig,
-        # dbscan_params: DictConfig,
         similarity_params: DictConfig,
         file_params: DictConfig,
         device: Optional[str] = None,
@@ -88,56 +115,14 @@ class ConceptFusion:
         if clusterer is None:
             clusterer = DBSCAN()
         self.clusterer = clusterer
-
-        # self.sam_params = sam_params
-        # self.data_params = data_params
-        # self.open_clip_params = open_clip_params
-        # self.dbscan_params = dbscan_params
-        self.similarity_params = similarity_params
-        self.file_params = file_params
-
         self.min_depth = min_depth
         self.max_depth = max_depth
-
-        # sam = sam_model_registry[self.sam_params.model_type](checkpoint=Path(self.sam_params.SAM_checkpoint_path))
-        # sam.to(device=self.device)
-        # self.mask_generator = SamAutomaticMaskGenerator(
-        #     model=sam,
-        #     points_per_side=self.sam_params.points_per_side,
-        #     pred_iou_thresh=0.92,
-        #     crop_n_layers=1,
-        #     crop_n_points_downscale_factor=2,
-        # )
-
-        # logger.info("Initializing OpenCLIP model: {} pre-trained on {}...".format(
-        #     self.open_clip_params.open_clip_model,
-        #     self.open_clip_params.open_clip_pretrained_dataset
-        # ))
-
-        # self.CLIP_model, _, self.CLIP_preprocess = open_clip.create_model_and_transforms(
-        #     self.open_clip_params.open_clip_model, self.open_clip_params.open_clip_pretrained_dataset
-        # )
-        # self.CLIP_model.to(device=self.device)
-        # self.CLIP_model.eval()
-
-        # self.tokenizer = open_clip.get_tokenizer(self.open_clip_params.open_clip_model)
+        self.similarity_params = similarity_params
+        self.file_params = file_params
 
         self.cosine_similarity = torch.nn.CosineSimilarity(dim=-1)
 
         self.feat_dim = None
-
-        # self.camera = TorchCamera(
-        #     width=self.data_params.desired_width,
-        #     height=self.data_params.desired_height,
-        #     fov_degrees=self.data_params.camera_fov_degrees,
-        # )
-
-        # self.voxel_map = VoxelizedPointcloud(
-        #     voxel_size=self.data_params.voxel_size,
-        # )
-
-        # self.transform = transforms.Resize((self.data_params.desired_height, self.data_params.desired_width), interpolation=Image.Resampling.NEAREST)
-
         self.class_id_to_class_names = None
         self.class_names_to_class_id = None
 
@@ -145,7 +130,7 @@ class ConceptFusion:
         self.voxel_map.reset()
         self.feat_dim = None
 
-    def generate_mask(self, img):
+    def generate_mask(self, img: np.ndarray):
         masks = self.mask_generator.generate(img)
 
         # remove masks with zero area
@@ -153,27 +138,15 @@ class ConceptFusion:
 
         return masks
 
-    def set_vocabulary(self, class_id_to_class_names):
+    def set_vocabulary(self, class_id_to_class_names: Dict[int, str]):
         self.class_id_to_class_names = class_id_to_class_names
         self.class_names_to_class_id = {
             v: k for k, v in class_id_to_class_names.items()
         }
 
-    def resize_images(self, rgb, depth):
-        """Resize images using torch."""
-        # RGB images have the weird requirement that they need to be in numpy format for input to concept fusion
-        rgb = Image.fromarray(rgb)
-
-        rgb = self.transform(rgb)
-        depth = self.transform(depth)
-
-        rgb = np.array(rgb)
-
-        return rgb, depth
-
     def generate_global_features(
         self,
-        img: Image,
+        img: np.ndarray,
     ):
         # CLIP features global
         global_feat = None
@@ -193,7 +166,7 @@ class ConceptFusion:
 
     def generate_local_features(
         self,
-        img: Image,
+        img: np.ndarray,
         masks: List[dict],
         global_feat: torch.Tensor,
     ) -> torch.Tensor:
@@ -233,8 +206,6 @@ class ConceptFusion:
             # Note: Image is (H, W, 3). In SAM output, y coords are along height, x along width
             img_roi = img[_y : _y + _h, _x : _x + _w, :]
 
-            # img_roi = Image.fromarray(img_roi)
-            # img_roi = self.CLIP_preprocess(img_roi).unsqueeze(0).to(self.device)
             roifeat = self.image_text_encoder.encode_image(img_roi)
             roifeat = torch.nn.functional.normalize(roifeat, dim=-1)
             feat_per_roi.append(roifeat)
@@ -298,12 +269,9 @@ class ConceptFusion:
             similarity.max() - similarity.min() + 1e-12
         )
 
-        # map_colors = np.zeros((similarity.shape[1], 3))
-
         if self.similarity_params.viz_type == "topk":
             # Viz topk points
             _, topk_ind = torch.topk(similarity, self.similarity_params.topk)
-            # map_colors[topk_ind.detach().cpu().numpy()] = np.array([1.0, 0.0, 0.0])
             selected_inds = topk_ind
 
         elif self.similarity_params.viz_type == "thresh":
@@ -311,20 +279,21 @@ class ConceptFusion:
             similarity[similarity < self.similarity_params.similarity_thresh] = 0.0
             selected_inds = torch.nonzero(similarity.squeeze()).squeeze(1)
 
-            # cmap = matplotlib.colormaps["jet"]
-            # similarity_colormap = cmap(similarity[0].detach().cpu().numpy())[:, :3]
-
-            # map_colors = 0.5 * map_colors + 0.5 * similarity_colormap
-
         return selected_inds, similarity.squeeze()
 
     def text_queries(
         self,
         queries: Sequence[str],
     ):
+        """
+        Args:
+            queries: List of string queries
+
+        Returns:
+            Dict[query, List[Instances]]
+        """
         pc_xyz, pc_feat, _, pc_rgb = self.voxel_map.get_pointcloud()
 
-        # text = self.tokenizer(queries)
         textfeat = self.image_text_encoder.encode_text(queries)
         textfeat = torch.nn.functional.normalize(textfeat, dim=-1)
 
@@ -452,6 +421,14 @@ class ConceptFusion:
         return self.voxel_map.get_pointcloud()
 
     def get_instances_for_queries(self, queries: Sequence[str]):
+        """
+        Args:
+            queries: List of string queries
+
+        Returns:
+            Dict[query, List[Instances]]
+        """
+
         pc_xyz, pc_feat, _, pc_rgb = self.voxel_map.get_pointcloud()
         instances_dict = {}
         for class_name in queries:
@@ -660,3 +637,21 @@ class ConceptFusion:
         mask = Image.fromarray(segmentation_image.numpy().astype("uint8"))
         file_path = os.path.join(save_path, "mask_" + str(idx) + ".png")
         mask.save(file_path)
+
+
+def write_pointcloud(filename, xyz_points, rgb_points=None):
+    """creates a .pkl file of the point clouds generated"""
+    import pytorch3d
+
+    assert xyz_points.shape[1] == 3, "Input XYZ points should be Nx3 float array"
+    if rgb_points is None:
+        rgb_points = np.ones(xyz_points.shape).astype(np.uint8) * 255
+    assert (
+        xyz_points.shape == rgb_points.shape
+    ), "Input RGB colors should be Nx3 float array and have same size as input XYZ points"
+
+    rgb_points = [rgb_points] if rgb_points is not None else []
+    pointcloud = pytorch3d.structures.Pointclouds(
+        points=[xyz_points], features=rgb_points
+    )
+    pytorch3d.io.IO().save_pointcloud(pointcloud)

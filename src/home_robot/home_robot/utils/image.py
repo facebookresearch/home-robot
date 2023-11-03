@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import copy
 import functools
 from typing import List
 
@@ -394,3 +395,34 @@ def interpolate_image(image: Tensor, scale_factor: float = 1.0, mode: str = "nea
         .bool()
     )
     return image_downsampled
+
+
+def adjust_intrinsics_matrix(K, old_size, new_size):
+    """
+    Adjusts the camera intrinsics matrix after resizing an image.
+
+    Args:
+        K (np.ndarray): the original 3x3 intrinsics matrix.
+        old_size (list[int]): the original size of the image in (width, height).
+        new_size (list[int]): the new size of the image in (width, height).
+    Returns:
+        np.ndarray: the adjusted 3x3 intrinsics matrix.
+
+    :example:
+    >>> K = np.array([[500, 0, 320], [0, 500, 240], [0, 0, 1]])
+    >>> old_size = (640, 480)
+    >>> new_size = (320, 240)
+    >>> K_new = adjust_intrinsics_matrix(K, old_size, new_size)
+    """
+    # Calculate the scale factors for width and height
+    scale_x = new_size[0] / old_size[0]
+    scale_y = new_size[1] / old_size[1]
+
+    # Adjust the intrinsics matrix
+    K_new = copy.deepcopy(K)
+    K_new[0, 0] *= scale_x  # Adjust f_x
+    K_new[1, 1] *= scale_y  # Adjust f_y
+    K_new[0, 2] *= scale_x  # Adjust c_x
+    K_new[1, 2] *= scale_y  # Adjust c_y
+
+    return K_new
