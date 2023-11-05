@@ -65,7 +65,7 @@ if __name__ == "__main__":
         scene_start = args.scene_idx * 5
         config.habitat.dataset.content_scenes = all_scenes[scene_start:scene_start+5]
 
-    # config.habitat.dataset.content_scenes = ["5cdEh9F2hJL"] # TODO: for debugging. REMOVE later.
+    # config.habitat.dataset.content_scenes = ["TEEsavR23oF"] # TODO: for debugging. REMOVE later.
 
     config.NUM_ENVIRONMENTS = 1
     config.PRINT_IMAGES = 1
@@ -85,36 +85,27 @@ if __name__ == "__main__":
         env.reset()
         agent.reset()
 
+        old_distance_to_goal = None
+        ctr = 0
+
         t = 0
 
         scene_id = env.habitat_env.current_episode.scene_id.split("/")[-1].split(".")[0]
         episode = env.habitat_env.current_episode
         episode_id = episode.episode_id
 
-        # if episode_id in ["7", "15", "19", "0"]:
-        #     continue
+        if os.path.exists(os.path.join(results_dir, "per_episode_metrics.json")):
+            with open(os.path.join(results_dir, "per_episode_metrics.json"), "r") as fp:
+                metrics = json.load(fp)
 
-        # if i < 48:
+        scene_ep_pairs = list(metrics.keys())
+        if f"{scene_id}_{episode_id}" in scene_ep_pairs:
+            continue
+
+        # if episode_id != '1':
         #     continue
 
         # if scene_id != "HkseAnWCgqk":
-        #     continue
-        # else:
-        # if episode_id != "0":
-        #     continue
-
-        # if scene_id != 'XYyR54sxe6b':
-        #     continue
-
-
-        # vlp ->
-        # if episode_id != "15":
-        #     continue
-
-        # if scene_id != 'oEPjPNSPmzL': 
-        # if scene_id != 'qk9eeNeR4vw': 
-        # if scene_id != 'HkseAnWCgqk': 
-        # if scene_id != 'vLpv2VX547B': 
         #     continue
 
         agent.planner.set_vis_dir(scene_id, f"{episode_id}_{env.habitat_env.task.current_task_idx}")
@@ -149,7 +140,18 @@ if __name__ == "__main__":
                 f"{scene_id}_{episode_id}_{current_task_idx}"
             )
             pbar.update(1)
-            # print(env.get_episode_metrics()["goat_distance_to_sub-goal"])
+
+            if env.get_episode_metrics()["goat_distance_to_sub-goal"] == old_distance_to_goal:
+                ctr += 1
+
+                if ctr > 20:
+                    print("Agent was stuck. Stopping episode.")
+                    action = DiscreteNavigationAction.STOP
+                    ctr = 0
+            else:
+                ctr = 0
+            
+            old_distance_to_goal = env.get_episode_metrics()["goat_distance_to_sub-goal"]
 
             if action == DiscreteNavigationAction.STOP:
                 ep_metrics = env.get_episode_metrics()
