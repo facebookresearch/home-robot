@@ -147,6 +147,10 @@ class Categorical2DSemanticMapModule(nn.Module):
         self.min_mapped_height = int(
             self.min_obs_height_cm / self.z_resolution - self.min_voxel_height
         )
+
+        # self.old_x = None
+        # self.old_y = None
+
         self.max_mapped_height = int(
             (self.agent_height + 1) / self.z_resolution - self.min_voxel_height
         )
@@ -388,6 +392,42 @@ class Categorical2DSemanticMapModule(nn.Module):
         )
 
         return curr_map
+
+    def draw_line(self, matrix, x1, y1, x2, y2, padding=1):
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        
+        if x1 < x2:
+            sx = 1
+        else:
+            sx = -1
+        if y1 < y2:
+            sy = 1
+        else:
+            sy = -1
+        
+        err = dx - dy
+        
+        while True:
+            for i in range(-padding, padding + 1):
+                for j in range(-padding, padding + 1):
+                    x = x1 + i
+                    y = y1 + j
+                    if 0 <= x < matrix.shape[2] and 0 <= y < matrix.shape[1]:
+                        matrix[0, y, x] = 1  # Set x-value to 1
+                        matrix[1, y, x] = 1  # Set y-value to 1
+            
+            if x1 == x2 and y1 == y2:
+                break
+            
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x1 += sx
+            if e2 < dx:
+                err += dx
+                y1 += sy
+
 
     def _update_local_map_and_pose(  # noqa: C901
         self,
@@ -788,6 +828,13 @@ class Categorical2DSemanticMapModule(nn.Module):
                 y - 2 : y + 3,
                 x - 2 : x + 3,
             ].fill_(1.0)
+
+            # if self.old_x and self.old_y:
+            #     # Draw a line from the previous location to the current location
+            #     self.draw_line(current_map[e, MC.CURRENT_LOCATION : MC.CURRENT_LOCATION + 2], x, y, self.old_x, self.old_y)
+
+            # self.old_x = x
+            # self.old_y = y
 
             # Set a disk around the agent to explored
             # This is around the current agent - we just sort of assume we know where we are
