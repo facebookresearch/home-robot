@@ -34,7 +34,7 @@ git lfs install
 # Install robotics IK dependency
 echo ""
 echo "Install pinocchio IK dependency"
-conda install pinocchio -c conda-forge
+mamba install pinocchio -c conda-forge
 
 echo ""
 echo "Install home_robot core..."
