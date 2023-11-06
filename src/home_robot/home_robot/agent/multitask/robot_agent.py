@@ -11,6 +11,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from atomicwrites import atomic_write
+from loguru import logger
+from PIL import Image
+
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
@@ -27,8 +30,6 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
-from loguru import logger
-from PIL import Image
 
 
 def publish_obs(
@@ -38,7 +39,7 @@ def publish_obs(
     timestep: int,
     target_id: Dict[str, int] = None,
 ):
-    """publish observation for use by the UI"""
+    """publish observation for use by the UI. For now this works by writing files to disk."""
     # NOTE: this requires 'pip install atomicwrites'
     with atomic_write(f"{path}/{timestep}.pkl", mode="wb") as f:
         instances = model.voxel_map.get_instances()
