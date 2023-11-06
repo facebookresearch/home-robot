@@ -49,6 +49,7 @@ Frame = namedtuple(
         "base_pose",
         "info",
         "obs",
+        "full_world_xyz",
         "xyz_frame",
     ],
 )
@@ -409,6 +410,7 @@ class SparseVoxelMap(object):
                 base_pose,
                 info,
                 obs,
+                full_world_xyz,
                 xyz_frame=xyz_frame,
             )
         )
@@ -487,8 +489,10 @@ class SparseVoxelMap(object):
         """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""
         data = {}
         data["camera_poses"] = []
+        data["camera_K"] = []
         data["base_poses"] = []
         data["xyz"] = []
+        data["world_xyz"] = []
         data["rgb"] = []
         data["depth"] = []
         data["feats"] = []
@@ -498,7 +502,9 @@ class SparseVoxelMap(object):
             # TODO: switch to using just Obs struct?
             data["camera_poses"].append(frame.camera_pose)
             data["base_poses"].append(frame.base_pose)
+            data["camera_K"].append(frame.camera_K)
             data["xyz"].append(frame.xyz)
+            data["world_xyz"].append(frame.full_world_xyz)
             data["rgb"].append(frame.rgb)
             data["depth"].append(frame.depth)
             data["feats"].append(frame.feats)
@@ -553,6 +559,9 @@ class SparseVoxelMap(object):
 
     def fix_data_type(self, tensor) -> torch.Tensor:
         """make sure tensors are in the right format for this model"""
+        # If its empty just hope we're handling that somewhere else
+        if tensor is None:
+            return None
         # Conversions
         if isinstance(tensor, np.ndarray):
             tensor = torch.from_numpy(tensor)
@@ -570,7 +579,7 @@ class SparseVoxelMap(object):
         assert filename.exists(), f"No file found at {filename}"
         with filename.open("rb") as f:
             data = pickle.load(f)
-        for camera_pose, xyz, rgb, feats, depth, base_pose, obs in zip(
+        for camera_pose, xyz, rgb, feats, depth, base_pose, obs, K, world_xyz in zip(
             data["camera_poses"],
             data["xyz"],
             data["rgb"],
@@ -578,6 +587,8 @@ class SparseVoxelMap(object):
             data["depth"],
             data["base_poses"],
             data["obs"],
+            data["camera_K"],
+            data["world_xyz"],
         ):
             camera_pose = self.fix_data_type(camera_pose)
             xyz = self.fix_data_type(xyz)
@@ -596,6 +607,7 @@ class SparseVoxelMap(object):
                 base_pose=base_pose,
                 instance_image=instance,
                 obs=obs,
+                camera_K=K,
             )
 
     def recompute_map(self):

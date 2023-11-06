@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, Union
 import habitat
 import numpy as np
 import torch
+import trimesh.transformations as tra
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
 
@@ -31,6 +32,7 @@ from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
 )
+from home_robot.utils.image import Camera
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 
@@ -60,6 +62,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
         self._dataset = dataset
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
+        self.camera = None
         if self.visualize:
             self.visualizer = Visualizer(config, dataset)
 
@@ -123,7 +126,48 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         """Update axis convention of habitat pose to match the real-world axis convention"""
         hab_pose[[0, 1, 2]] = hab_pose[[2, 0, 1]]
         hab_pose[:, [0, 1, 2]] = hab_pose[:, [2, 0, 1]]
+        hab_pose[:2, 3] = self._preprocess_xy(hab_pose[:2, 3])
         return hab_pose
+
+    def get_real_world_camera_pose(self, habitat_obs):
+        habitat_camera_pose = self.convert_pose_to_real_world_axis(
+            np.asarray(habitat_obs["camera_pose"])
+        )
+        habitat_camera_pose = np.asarray(habitat_obs["camera_pose"])
+        r, p, y = tra.euler_from_matrix(habitat_camera_pose)
+
+        compass = habitat_obs["robot_start_compass"]
+        tform_world_to_base = tra.euler_matrix(0, 0, compass)
+        # tform_world_to_base[:2, 3] = self._preprocess_xy(habitat_obs["robot_start_gps"])
+        # tform_world_to_base[2, 3] = 0 # habitat_camera_pose[2, 3]
+
+        # Apply transform to head, and a 90 degree rotation for Stretch
+        tform_base_to_head = tra.euler_matrix(
+            3 * np.pi / 4, np.pi / 2, 3 * np.pi / 4
+        ) @ tra.euler_matrix(0, 0, -np.pi / 2)
+        # tform_base_to_head[:3, 3] = np.array([0.6, 0.015, 1.310])
+        # tform_base_to_head[:3, 3] = np.array([0.59, 0.015, 1.310])
+        tform_base_to_head[:3, 3] = np.array([0.0146517, 0.156567, 1.310])
+
+        # Undo the tilt
+        pan, tilt = habitat_obs["joint"][-2], habitat_obs["joint"][-1]
+        # TODO: remove debug code
+        # print(f"{pan=}, {tilt=}")
+        tform_tilt_head = tra.euler_matrix(tilt, pan, 0)
+
+        # print("fake pose", tra.euler_from_matrix(correction_pose))
+        # TODO: remove debugging code - P is the pitch of the head camera
+        # print("rotate by", p)
+        # correction_pose2 = correction_pose @ tra.euler_matrix(p, 0, 0)
+        pose = tform_world_to_base @ tform_base_to_head @ tform_tilt_head
+        print("hab camera xyz", habitat_camera_pose[:3, 3])
+        print("final est", tra.euler_from_matrix(pose))
+        print("final xyz", pose[:3, 3])
+
+        # pose[:2, 3] = np.array([habitat_camera_pose[1, 3], habitat_camera_pose[0, 3]])
+        # breakpoint()
+
+        return pose
 
     def _preprocess_xy(self, xy: np.array) -> np.array:
         """Translate Habitat navigation (x, y) (i.e., GPS sensor) into robot (x, y)."""
@@ -139,6 +183,14 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         else:
             third_person_image = None
 
+        if self.camera is None:
+            height, width = habitat_obs["head_rgb"].shape[:2]
+            self.camera = Camera.from_width_height_fov(
+                width=480,
+                height=640,
+                fov_degrees=42,
+            )
+
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["head_rgb"],
             depth=depth,
@@ -153,9 +205,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             joint=habitat_obs["joint"],
             relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=third_person_image,
-            camera_pose=self.convert_pose_to_real_world_axis(
-                np.asarray(habitat_obs["camera_pose"])
-            ),
+            camera_pose=self.get_real_world_camera_pose(habitat_obs),
+            camera_K=self.camera.K,
         )
         obs = self._preprocess_goal(obs, habitat_obs)
         obs = self._preprocess_semantic(obs, habitat_obs)
@@ -353,7 +404,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             )
         else:
             raise ValueError(
-                "Action needs to be of one of the following types: DiscreteNavigationAction, ContinuousNavigationAction or ContinuousFullBodyAction"
+                f"Action needs to be of one of the following types: DiscreteNavigationAction, ContinuousNavigationAction or ContinuousFullBodyAction, was: {type(action)}"
             )
         return np.array(cont_action, dtype=np.float32)
 

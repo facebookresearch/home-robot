@@ -45,6 +45,7 @@ dependencies:
     # Command line tools
     - click
     # data tools
+    - pillow<10.0.0
     - atomicwrites
     - loguru
     - yacs

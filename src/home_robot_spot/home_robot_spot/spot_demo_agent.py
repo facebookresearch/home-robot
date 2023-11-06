@@ -58,7 +58,7 @@ from home_robot_spot.grasp_env import GraspController
 
 
 class SpotDemoAgent(RobotAgent):
-    """Demo agent for use in Spot experiments. Should extend the base robot demo agent."""
+    """Demo agent for use in Spot experiments. Extends the base robot demo agent."""
 
     def __init__(
         self,
@@ -111,7 +111,7 @@ class SpotDemoAgent(RobotAgent):
         config = load_config(visualize=False)
 
         logger.info("- Create and load vocabulary and perception model")
-        _ , self.semantic_sensor = create_semantic_sensor(
+        _, self.semantic_sensor = create_semantic_sensor(
             device=0,
             verbose=True,
             module="detic",

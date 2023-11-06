@@ -11,9 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from atomicwrites import atomic_write
-from loguru import logger
-from PIL import Image
-
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
@@ -30,6 +27,8 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
+from loguru import logger
+from PIL import Image
 
 
 def publish_obs(
@@ -212,6 +211,22 @@ class RobotAgent:
             return False
         return self.grasp_client.try_grasping(object_goal=object_goal, **kwargs)
 
+    def rotate_in_place(self, steps: int = 12):
+        """Simple helper to rotate in place"""
+        step_size = 2 * np.pi / steps
+        i = 0
+        while i < steps:
+            self.robot.navigate_to([0, 0, step_size], relative=True, blocking=True)
+            # TODO remove debug code
+            # print(i, self.robot.get_base_pose())
+            self.update()
+            if self.robot.last_motion_failed():
+                # We have a problem!
+                self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
+                i = 0
+            else:
+                i += 1
+
     def get_plan_from_vlm(self):
         """This is a connection to a remote thing for getting language commands"""
         assert self.rpc_stub is not None, "must have RPC stub to connect to remote VLM"
@@ -230,6 +245,65 @@ class RobotAgent:
             self.rpc_stub, world_representation, self.get_command()
         )
         return output
+
+    def execute_vlm_plan(self):
+        """Get plan from vlm and execute it"""
+        assert self.rpc_stub is not None, "must have RPC stub to connect to remote VLM"
+        # This is not a very stable import
+        # So we guard it under this part where it's necessary
+        from home_robot.utils.rpc import (
+            get_obj_centric_world_representation,
+            get_output_from_world_representation,
+            parse_pick_and_place_plan,
+        )
+
+        instances = self.voxel_map.get_instances()
+        world_representation = get_obj_centric_world_representation(
+            instances, self.parameters["vlm_context_length"]
+        )
+        output = get_output_from_world_representation(
+            self.rpc_stub, world_representation, self.get_command()
+        )
+
+        plan = output.action
+
+        def confirm_plan():
+            return True  # might need to merge demo_refactor to find this function
+
+        logger.info(f"Received plan: {plan}")
+        if not confirm_plan(plan):
+            logger.warn("Plan was not confirmed")
+            return
+
+        pick_instance_id, place_instance_id = parse_pick_and_place_plan(
+            world_representation, plan
+        )
+
+        if not pick_instance_id:
+            # Navigating to a cup or bottle
+            for i, each_instance in enumerate(instances):
+                if (
+                    self.vocab.goal_id_to_goal_name[
+                        int(each_instance.category_id.item())
+                    ]
+                    in self.parameters["pick_categories"]
+                ):
+                    pick_instance_id = i
+                    break
+
+        if not place_instance_id:
+            for i, each_instance in enumerate(instances):
+                if (
+                    self.vocab.goal_id_to_goal_name[
+                        int(each_instance.category_id.item())
+                    ]
+                    in self.parameters["place_categories"]
+                ):
+                    place_instance_id = i
+                    break
+        if pick_instance_id is None or place_instance_id is None:
+            logger.warn("No instances found")
+            return
 
     def say(self, msg: str):
         """Provide input either on the command line or via chat client"""
@@ -394,7 +468,7 @@ class RobotAgent:
             print("Full plan to object:")
             for i, pt in enumerate(res.trajectory):
                 print("-", i, pt.state)
-            self.robot.nav.execute_trajectory(
+            self.robot.execute_trajectory(
                 [pt.state for pt in res.trajectory],
                 pos_err_threshold=self.pos_err_threshold,
                 rot_err_threshold=self.rot_err_threshold,
@@ -425,7 +499,7 @@ class RobotAgent:
         self.robot.switch_to_manipulation_mode()
 
         self.robot.move_to_nav_posture()
-        self.robot.head.look_close(blocking=False)
+        # self.robot.head.look_close(blocking=False)
         print("... done.")
 
         # Move the robot into navigation mode
@@ -513,7 +587,7 @@ class RobotAgent:
         print("- change posture and switch to navigation mode")
         self.current_state = "NAV_TO_HOME"
         # self.robot.move_to_nav_posture()
-        self.robot.head.look_close(blocking=False)
+        # self.robot.head.look_close(blocking=False)
         self.robot.switch_to_navigation_mode()
 
         print("- try to motion plan there")
@@ -612,10 +686,24 @@ class RobotAgent:
             if res.success:
                 print("Plan successful!")
                 if not dry_run:
-                    self.robot.nav.execute_trajectory(
+                    self.robot.execute_trajectory(
                         [pt.state for pt in res.trajectory],
                         pos_err_threshold=self.pos_err_threshold,
                         rot_err_threshold=self.rot_err_threshold,
+                    )
+            if self.robot.last_motion_failed():
+                print("!!!!!!!!!!!!!!!!!!!!!!")
+                print("ROBOT IS STUCK! Move back!")
+                r = np.random.randint(3)
+                if r == 0:
+                    self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
+                elif r == 1:
+                    self.robot.navigate_to(
+                        [0, 0, np.pi / 4], relative=True, blocking=True
+                    )
+                elif r == 2:
+                    self.robot.navigate_to(
+                        [0, 0, -np.pi / 4], relative=True, blocking=True
                     )
 
             # Append latest observations
@@ -642,9 +730,7 @@ class RobotAgent:
                 for i, pt in enumerate(res.trajectory):
                     print("-", i, pt.state)
                 if not dry_run:
-                    self.robot.nav.execute_trajectory(
-                        [pt.state for pt in res.trajectory]
-                    )
+                    self.robot.execute_trajectory([pt.state for pt in res.trajectory])
             else:
                 print("WARNING: planning to home failed!")
         return matches

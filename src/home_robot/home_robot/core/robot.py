@@ -51,6 +51,10 @@ class RobotClient(ABC):
         """Is the robot to move around"""
         return self._base_control_mode == ControlMode.NAVIGATION
 
+    def last_motion_failed(self) -> bool:
+        """Override this if you want to check to see if a particular motion failed, e.g. it was not reachable and we don't know why."""
+        return False
+
     @abstractmethod
     def get_robot_model() -> RobotModel:
         """return a model of the robot for planning"""
