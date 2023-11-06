@@ -102,55 +102,6 @@ class SAMPerception(PerceptionModule):
     def generate(self, image):
         return self.mask_generator.generate(image)
 
-    def predict(
-        self,
-        obs: Observations,
-        depth_threshold: Optional = None,
-        draw_instance_predictions: bool = False,
-    ):
-        """
-        Arguments:
-            obs.rgb: image of shape (H, W, 3) (in RGB order)
-            obs.depth: depth frame of shape (H, W), used for depth filtering
-            depth_threshold: if specified, the depth threshold per instance
-
-        Returns:
-            obs.semantic: segmentation predictions of shape (H, W) with
-             indices in [0, num_sem_categories - 1]
-            obs.task_observations["semantic_frame"]: segmentation visualization
-             image of shape (H, W, 3)
-        """
-
-        if draw_instance_predictions:
-            raise NotImplementedError
-        # Predict classes and hyper-param for GroundingDINO
-        # CLASSES = self.custom_vocabulary
-        height, width, _ = obs.rgb.shape
-
-        # convert to uint8 instead of silently failing by returning no instances
-        image = obs.rgb
-        if not image.dtype == np.uint8:
-            if image.max() <= 1.0:
-                image = image * 255.0
-            image = image.astype(np.uint8)
-
-        self.mask_generator.generate(image)
-
-        # semantic_map, instance_map = overlay_masks(
-        #     detections.mask, detections.class_id, (height, width)
-        # )
-
-        # obs.semantic = semantic_map.astype(int)
-        # obs.instance = instance_map.astype(int)
-        # if obs.task_observations is None:
-        #     obs.task_observations = dict()
-        # obs.task_observations["instance_map"] = instance_map
-        # obs.task_observations["instance_classes"] = detections.class_id
-        # obs.task_observations["instance_scores"] = detections.confidence
-        # obs.task_observations["semantic_frame"] = None
-        # return obs
-        raise NotImplementedError
-
     # Prompting SAM with detected boxes
     def segment(self, image: np.ndarray, xyxy: np.ndarray) -> np.ndarray:
         """
