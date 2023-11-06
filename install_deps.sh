@@ -34,7 +34,7 @@ git lfs install
 # Install robotics IK dependency
 echo ""
 echo "Install pinocchio IK dependency"
-conda install pinocchio -c conda-forge
+mamba install pinocchio -c conda-forge
 
 echo ""
 echo "Install home_robot core..."
@@ -113,5 +113,5 @@ cd $HOME_ROBOT_ROOT
 echo ""
 echo "Install pre-commit hooks"
 pip install pre-commit
-pre-commit install
-pre-commit install-hooks
+python -m pre_commit install
+python -m pre_commit install-hooks
