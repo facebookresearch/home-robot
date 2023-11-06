@@ -11,9 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from atomicwrites import atomic_write
-from loguru import logger
-from PIL import Image
-
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
@@ -30,6 +27,8 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
+from loguru import logger
+from PIL import Image
 
 
 def publish_obs(
@@ -246,6 +245,65 @@ class RobotAgent:
             self.rpc_stub, world_representation, self.get_command()
         )
         return output
+
+    def execute_vlm_plan(self):
+        """Get plan from vlm and execute it"""
+        assert self.rpc_stub is not None, "must have RPC stub to connect to remote VLM"
+        # This is not a very stable import
+        # So we guard it under this part where it's necessary
+        from home_robot.utils.rpc import (
+            get_obj_centric_world_representation,
+            get_output_from_world_representation,
+            parse_pick_and_place_plan,
+        )
+
+        instances = self.voxel_map.get_instances()
+        world_representation = get_obj_centric_world_representation(
+            instances, self.parameters["vlm_context_length"]
+        )
+        output = get_output_from_world_representation(
+            self.rpc_stub, world_representation, self.get_command()
+        )
+
+        plan = output.action
+
+        def confirm_plan():
+            return True  # might need to merge demo_refactor to find this function
+
+        logger.info(f"Received plan: {plan}")
+        if not confirm_plan(plan):
+            logger.warn("Plan was not confirmed")
+            return
+
+        pick_instance_id, place_instance_id = parse_pick_and_place_plan(
+            world_representation, plan
+        )
+
+        if not pick_instance_id:
+            # Navigating to a cup or bottle
+            for i, each_instance in enumerate(instances):
+                if (
+                    self.vocab.goal_id_to_goal_name[
+                        int(each_instance.category_id.item())
+                    ]
+                    in self.parameters["pick_categories"]
+                ):
+                    pick_instance_id = i
+                    break
+
+        if not place_instance_id:
+            for i, each_instance in enumerate(instances):
+                if (
+                    self.vocab.goal_id_to_goal_name[
+                        int(each_instance.category_id.item())
+                    ]
+                    in self.parameters["place_categories"]
+                ):
+                    place_instance_id = i
+                    break
+        if pick_instance_id is None or place_instance_id is None:
+            logger.warn("No instances found")
+            return
 
     def say(self, msg: str):
         """Provide input either on the command line or via chat client"""
