@@ -63,6 +63,7 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
     docker build . \
         -f docker/ovmm_baseline.Dockerfile \
         -t ovmm_baseline_submission
+        --network host
     ```
     *Note 1:* Please, make sure that you keep your local version of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023` image up to date with the image we have hosted on [dockerhub](https://hub.docker.com/r/fairembodied/habitat-challenge/tags). This can be done by pruning all cached images, using:
     ```
@@ -76,6 +77,7 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
     docker build . \
         -f docker/ovmm_random_agent.Dockerfile \
         -t ovmm_random_agent_submission
+        --network host
     ```
 
 1. Download all the required data into the `home-robot/data` directory (see [Habitat OVMM readme](../projects/habitat_ovmm/README.md)). Then in your `docker run` command mount `home-robot/data` data folder to the `home-robot/data` folder in the Docker image (see `./scripts/test_local.sh` for reference).
