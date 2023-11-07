@@ -862,6 +862,7 @@ class SparseVoxelMap(object):
             pointcloud_max_points=200_000,
             boxes_plot_together=True,
             boxes_wireframe_width=3,
+            aspectmode="cube",
         )
         fig = plot_scene_with_bboxes(
             plots={"Global scene": traces},

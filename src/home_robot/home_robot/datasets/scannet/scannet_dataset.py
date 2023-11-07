@@ -48,6 +48,11 @@ class ScanNetModalities(Enum):
 
 
 class ScanNetDataset(object):
+    """
+    This class loads scannet scenes through the __getitem__ function.
+    Which modalities are loaded (RGB, depth, bounding boxes, etc) can be set through
+    the constructor using the ScanNetModalities enum.
+    """
 
     DEPTH_SCALE_FACTOR = 0.001  # to MM
     DEFAULT_HEIGHT = 968.0
@@ -403,6 +408,9 @@ class ScanNetDataset(object):
             if len(boxes_aligned) == 0:
                 raise RuntimeError(f"No GT boxes for scene {scan_name}")
 
+        if len(boxes_aligned) == 0:
+            raise RuntimeError(f"No GT boxes for scene {scan_name}")
+
         # Referring expressions
         column_names = [
             "utterance",
@@ -579,7 +587,7 @@ def load_3d_bboxes(path) -> Tuple[torch.Tensor, torch.Tensor]:
         obj_id: IntTensor of object IDs
     """
     bboxes = np.load(path)
-    bbox_coords = torch.from_numpy(bboxes[:, :6])
+    bbox_coords = torch.from_numpy(bboxes[:, :6]).float()
     labels = torch.from_numpy(bboxes[:, -2]).int()
     obj_ids = torch.from_numpy(bboxes[:, -1]).int()
     centers, lengths = bbox_coords[:, :3], bbox_coords[:, 3:6]
