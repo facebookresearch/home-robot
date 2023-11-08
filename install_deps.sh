@@ -4,6 +4,21 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+data_only=false
+
+# Check command-line arguments
+for arg in "$@"; do
+  case "$arg" in
+    --data-only|-d)
+      data_only=true
+      shift
+      ;;
+    *)
+      # Handle other arguments here, if needed
+      ;;
+  esac
+done
+
 echo ""
 echo ""
 echo "=============================================="
@@ -17,6 +32,7 @@ echo "Currently:"
 echo " - CUDA_HOME=$CUDA_HOME"
 echo " - HOME_ROBOT_ROOT=$HOME_ROBOT_ROOT"
 echo " - python=`which python`"
+echo " - data_only=$data_only"
 echo ""
 read -p "Does all this look correct? (y/n) " yn
 case $yn in
@@ -27,24 +43,37 @@ case $yn in
 		exit 1;;
 esac
 
+
+if [ "$data_only" = true ]; then
+	echo "You set the data_only flag. We'll try to avoid making major changes to the conda/python environment."
+fi
+
 echo ""
 echo "Ensure Git LFS is installed"
 git lfs install
 
 # Install robotics IK dependency
 echo ""
-echo "Install pinocchio IK dependency"
-mamba install pinocchio -c conda-forge
+if [ "$data_only" = false ]; then
+	echo "Install pinocchio IK dependency"
+	mamba install pinocchio -c conda-forge
+else
+	echo "Skipping pinocchio IK dependency because data_only=$data_only"
+fi
 
 echo ""
-echo "Install home_robot core..."
-python -m pip install -e src/home_robot
-echo "Install home_robot ROS..."
-python -m pip install -e src/home_robot_hw
+if [ "$data_only" = false ]; then
+	echo "Install home_robot core..."
+	python -m pip install -e src/home_robot
+	echo "Install home_robot ROS..."
+	python -m pip install -e src/home_robot_hw
+else
+	echo "Skipping home_robot installs because data_only=$data_only"
+fi
 
 echo ""
 echo "Submodule checks"
-git submodule update -f src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
+git submodule update --init --recursive -f src/home_robot/home_robot/perception/detection/detic/Detic src/third_party/detectron2 src/third_party/contact_graspnet  src/third_party/habitat-lab src/third_party/spot-sim2real src/third_party/MiDaS src/home_robot/home_robot/agent/imagenav_agent/SuperGluePretrainedNetwork
 
 echo ""
 echo "Install habitat dependencies..."
