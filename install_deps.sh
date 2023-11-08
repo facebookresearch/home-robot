@@ -82,6 +82,14 @@ pip install -e src/third_party/habitat-lab/habitat-lab
 pip install -e src/third_party/habitat-lab/habitat-baselines
 
 echo ""
+echo "Download the robot model Habitat uses..."
+mkdir -p $HOME_ROBOT_ROOT/data/robots/hab_stretch
+cd $HOME_ROBOT_ROOT/data/robots/hab_stretch
+wget --no-check-certificate http://dl.fbaipublicfiles.com/habitat/robots/hab_stretch_v1.0.zip
+unzip -o hab_stretch_v1.0.zip
+cd $HOME_ROBOT_ROOT
+
+echo ""
 echo "Install detectron2..."
 git submodule update --init --recursive src/third_party/detectron2
 cd $HOME_ROBOT_ROOT
