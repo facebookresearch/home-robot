@@ -126,7 +126,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         """Update axis convention of habitat pose to match the real-world axis convention"""
         hab_pose[[0, 1, 2]] = hab_pose[[2, 0, 1]]
         hab_pose[:, [0, 1, 2]] = hab_pose[:, [2, 0, 1]]
-        hab_pose[:2, 3] = self._preprocess_xy(hab_pose[:2, 3])
+        # hab_pose[:2, 3] = self._preprocess_xy(hab_pose[:2, 3])
         return hab_pose
 
     def get_real_world_camera_pose(self, habitat_obs):
@@ -137,7 +137,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         r, p, y = tra.euler_from_matrix(habitat_camera_pose)
 
         compass = habitat_obs["robot_start_compass"]
+        world_x, world_y = habitat_obs["robot_start_gps"]
         tform_world_to_base = tra.euler_matrix(0, 0, compass)
+        tform_world_to_base[0, 3] = world_x
+        tform_world_to_base[1, 3] = world_y
+
         # tform_world_to_base[:2, 3] = self._preprocess_xy(habitat_obs["robot_start_gps"])
         # tform_world_to_base[2, 3] = 0 # habitat_camera_pose[2, 3]
 
@@ -147,7 +151,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         ) @ tra.euler_matrix(0, 0, -np.pi / 2)
         # tform_base_to_head[:3, 3] = np.array([0.6, 0.015, 1.310])
         # tform_base_to_head[:3, 3] = np.array([0.59, 0.015, 1.310])
-        tform_base_to_head[:3, 3] = np.array([0.0146517, 0.156567, 1.310])
+        # tform_base_to_head[:3, 3] = np.array([0.0146517, 0.156567, 1.310])
+        tform_base_to_head[:3, 3] = np.array([0.25, 0.0, 1.23935])
 
         # Undo the tilt
         pan, tilt = habitat_obs["joint"][-2], habitat_obs["joint"][-1]
@@ -160,13 +165,12 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         # print("rotate by", p)
         # correction_pose2 = correction_pose @ tra.euler_matrix(p, 0, 0)
         pose = tform_world_to_base @ tform_base_to_head @ tform_tilt_head
-        print("hab camera xyz", habitat_camera_pose[:3, 3])
-        print("final est", tra.euler_from_matrix(pose))
-        print("final xyz", pose[:3, 3])
+        # print("hab camera xyz", habitat_camera_pose[:3, 3])
+        # print("final est", tra.euler_from_matrix(pose))
+        # print("final xyz", pose[:3, 3])
 
         # pose[:2, 3] = np.array([habitat_camera_pose[1, 3], habitat_camera_pose[0, 3]])
         # breakpoint()
-
         return pose
 
     def _preprocess_xy(self, xy: np.array) -> np.array:

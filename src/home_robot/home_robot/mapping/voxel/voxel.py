@@ -915,7 +915,11 @@ class SparseVoxelMap(object):
         self.instances.global_box_compression_and_nms(env_id=0)
 
     def _show_open3d(
-        self, instances: bool, orig: Optional[np.ndarray] = None, **backend_kwargs
+        self,
+        instances: bool,
+        orig: Optional[np.ndarray] = None,
+        norm: float = 255.0,
+        **backend_kwargs,
     ):
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
@@ -924,7 +928,7 @@ class SparseVoxelMap(object):
         # pc_xyz, pc_rgb, pc_feats = self.get_data()
         points, _, _, rgb = self.voxel_pcd.get_pointcloud()
         pcd = numpy_to_pcd(
-            points.detach().cpu().numpy(), (rgb / 255.0).detach().cpu().numpy()
+            points.detach().cpu().numpy(), (rgb / norm).detach().cpu().numpy()
         )
         if orig is None:
             orig = np.zeros(3)
