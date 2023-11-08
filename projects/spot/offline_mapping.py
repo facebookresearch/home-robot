@@ -21,12 +21,16 @@ import skimage.morphology
 import torch
 from habitat_sim.utils.common import d3_40_colors_rgb
 from PIL import Image, ImageDraw, ImageFont
+import os
+import itertools
+import datetime
 
 # TODO Install home_robot and remove this
 sys.path.insert(
     0,
     str(Path(__file__).resolve().parent.parent.parent / "src/home_robot"),
 )
+import hashlib
 
 from collections import defaultdict
 
@@ -345,27 +349,59 @@ def text_to_image(
     height,
     font_path="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
 ):
+    text = text.strip()
+    if text[-1] == '.':
+        text = text[:-1]
     # Create a blank image with the specified dimensions
     image = Image.new(
         "RGB", (width, height), color=(73, 109, 137)
     )  # RGB color can be any combination you like
     # Set up the drawing context
-    d = ImageDraw.Draw(image)
+    import textwrap
+    lines = textwrap.wrap(text, width=25)
     # Set the font and size. Font path might be different in your system. Install a font if necessary.
-    font = ImageFont.truetype(font_path, 15)
-    # Calculate width and height of the text to center it
-    text_width, text_height = d.textsize(text, font=font)
-    position = ((width - text_width) / 2, (height - text_height) / 2)
-    # Add the text to the image
-    d.text(position, text, fill=(255, 255, 255), font=font)
+    font = ImageFont.truetype(font_path, 45)
+    total_height = 0
+    for line in lines:
+        total_height += font.getsize(line)[1]
+    curr_height = (height - total_height) / 2
+    d = ImageDraw.Draw(image)
+
+
+
+    for line in lines:
+        text_width, text_height = font.getsize(line)
+
+        # Calculate width and height of the text to center it
+        position = ((width - text_width) / 2, curr_height)
+        curr_height += text_height
+        # Add the text to the image
+        d.text(position, line, fill=(255, 255, 255), font=font)
     # Convert the PIL image to a NumPy array
     image_array = np.array(image)
     return image_array
 
 
 record_instance_ids = True
-save_map_and_instances = True
-load_map_and_instances = False
+save_map_and_instances = False
+load_map_and_instances = True
+
+
+def get_filename(experiment_set, goal_index_min, goal_index_max):
+    if experiment_set is None:
+        experiment_set = ''
+    else:
+        experiment_set = f'{experiment_set}_'
+    return experiment_set + f'{goal_index_min}_{goal_index_max}_' + datetime.datetime.now().strftime("%Y%m%d%H%M%S%f") + '_' + str(hashlib.sha256(os.urandom(16)).hexdigest() )
+
+def add_choices_as_columns(metrics, full_image, category_wise, agg_fn, method, threshold=None):
+    metrics['full_image'] = full_image
+    metrics['category_wise'] = category_wise
+    metrics['agg_fn'] = agg_fn
+    metrics['method'] = method
+    if threshold is not None:
+        metrics['threshold'] = threshold
+    return metrics
 
 
 def print_metrics(
@@ -389,6 +425,8 @@ def print_metrics(
             metrics_df["category"] == goal_category
         ]
 
+    metrics_df['count'] = 1
+
     print(
         f"total: {len(metrics_df)}, "
         f"matched correctly: {metrics_df['success'].sum()}, "
@@ -400,6 +438,13 @@ def print_metrics(
         f"matching accuracy: {metrics_df['success'].sum() / metrics_df['instance_detected'].sum() * 100.0:.1f}%, "
         f"at least mapped: {metrics_df['instance_detected'].sum() / len(metrics_df) * 100.0:.1f}%"
     )
+    if len(metrics_df) == 0:
+        return None
+    # drop columns: 'category', 'type' and 'name'
+    metrics_df = metrics_df.drop(columns=["category", "type", "name"])
+    # aggregate metrics by computing sum
+    metrics_df = metrics_df.sum().reset_index()
+    return metrics_df
 
 
 @click.command()
@@ -411,8 +456,27 @@ def print_metrics(
     "--legend_path",
     default=f"{str(Path(__file__).resolve().parent)}/coco_categories_legend.png",
 )
-def main(base_dir: str, legend_path: str):
-
+@click.option(
+    "--eval_goal_type",
+    default="all",
+    type=click.Choice(["language", "image", "all"]),
+)
+@click.option(
+    "--experiment_set",
+    default=None,
+    type=str,
+)
+@click.option(
+    "--goal_index_min",
+    default=0,
+    type=int,
+)
+@click.option(
+    "--goal_index_max",
+    default=10000,
+    type=int,
+)
+def main(base_dir: str, legend_path: str, eval_goal_type: str, experiment_set:str, goal_index_min:int, goal_index_max:int):
     obs_dir = f"{base_dir}/obs/"
     map_vis_dir = f"{base_dir}/map_vis/"
     goal_grounding_vis_dir = f"{base_dir}/goal_grounding_vis/"
@@ -421,7 +485,7 @@ def main(base_dir: str, legend_path: str):
     else:
         legend = None
 
-    device = torch.device("cuda:1")
+    device = torch.device("cuda:0")
 
     categories = list(coco_categories.keys())
     num_sem_categories = len(coco_categories)
@@ -702,148 +766,316 @@ def main(base_dir: str, legend_path: str):
         print("No goals specified: goals.json does not exist")
         sys.exit()
 
-    metrics = []
-    for i, goal in enumerate(goals):
-        categories = goal["categories"]
-        goal_type = goal["type"]
-        name = goal["name"]
-        print()
-        print(f"Goal {i}")
-        print(f"Type: {goal_type}")
-        category_ids = None
-        if categories is not None:
-            category_ids = [coco_categories.get(c) for c in categories]
-        if goal_type == "image":
-            image_goal = cv2.imread(str(Path(base_dir) / "image_goals" / name))
-            goal_vis_image = image_goal[:, :, ::-1]
-            image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(
-                image_goal
-            )
-            language_goal = None
-            matching_fn = matching.match_image_to_image
-            score_thresh = config.AGENT.SUPERGLUE.score_thresh_image
-            agg_fn = config.AGENT.SUPERGLUE.agg_fn_image
-            feat_agg_fn = config.AGENT.SUPERGLUE.feat_agg_fn_image
-            aggregate_feats = config.AGENT.SUPERGLUE.aggregate_feats_image
-        elif goal_type == "language":
-            language_goal = name
-            goal_vis_image = text_to_image(language_goal, 640, 480)
-            image_goal, goal_image_keypoints = None, None
-            matching_fn = matching.match_language_to_image
-            score_thresh = config.AGENT.SUPERGLUE.score_thresh_lang
-            agg_fn = config.AGENT.SUPERGLUE.agg_fn_lang
-            feat_agg_fn = config.AGENT.SUPERGLUE.feat_agg_fn_lang
-            aggregate_feats = config.AGENT.SUPERGLUE.aggregate_feats_lang
+    if experiment_set is None:
+        category_wise_choices = [True]
+        full_image_choices = [ 'full']
+        threshold_choices = [ 'no'] #, 'explore'] #, 'no'] # explore
+        agg_fn_choices = ['max'] 
+        method_choices = ['clip', 'superglue']
+        if eval_goal_type == 'all':
+            eval_goal_types = ["language", "image"]
         else:
-            raise ValueError(
-                "Invalid goal type. Only image and language goals supported currently"
-            )
+            eval_goal_types = [eval_goal_type]
+    else:
+        from offline_experiments import experiments
+        choices = experiments[experiment_set]
+        category_wise_choices = choices['category_wise_choices']
+        full_image_choices = choices['full_image_choices']
+        threshold_choices = choices['threshold_choices']
+        agg_fn_choices = choices['agg_fn_choices']
+        method_choices = choices['method_choices']
+        eval_goal_types = choices['eval_goal_types']
 
-        (
-            all_matches,
-            all_confidences,
-            instance_ids,
-        ) = matching.get_matches_against_memory(
-            matching_fn,
-            0,
-            language_goal=language_goal,
-            image_goal=image_goal,
-            use_full_image=True,
-            categories=category_ids,
-            goal_image_keypoints=goal_image_keypoints,
-            aggregate_feats=aggregate_feats,
-            feat_agg_fn=feat_agg_fn,
-        )
-        stats = {
-            i: {
-                "mean": float(scores.mean()),
-                "median": float(np.median(scores)),
-                "max": float(scores.max()),
-                "min": float(scores.min()),
-                "all": scores.flatten().tolist(),
+    df_lang = pd.DataFrame()
+    df_image = pd.DataFrame()
+    df_all = pd.DataFrame()
+
+    global_logfile = get_filename(experiment_set, goal_index_min, goal_index_max)
+
+    ## Added for ablations
+    # choices = [True, 'padded_bbox_200', 'no', 'max', 'clip']
+    choices = [True, 'padded_bbox_200', 'no', 'max', 'superglue']
+    ab0 = choices.copy(); ab0[1] = 'full'
+    ab1 = choices.copy(); ab1[0] = False
+    ab2 = choices.copy(); ab2[3] = 'top_2_mean'
+    ab3 = choices.copy(); ab3[2] = 'explore'
+    ab4 = choices.copy(); ab4[1] = 'bbox'
+    ab5 = choices.copy(); ab5[4] = 'clip'
+    suffixes = ['_base', '_full', '_all', '_top_2_mean', '_explore_thresh', '_bbox', '_clip']
+    # goal_ids = [11, 15, 5, 10, 4, 7, 0]
+    # goal_ids = [9]
+    # goal_ids = [18, 28, 27, 29, 17]
+    # goal_ids = [20, 34]
+    # goal_ids = [27, 30, 29, 41, 43, 33]
+    # goal_ids = [17, 18, 23, 24, 27, 28, 29] 
+    # goal_ids = [21, 27, 29, 32, 34, 37]
+    # goal_ids = [9,11,15,6,14,8,3]
+    # goal_ids = [3, 8, 19, 22]
+    # goal_ids = [0,1,2,3,4,5,7,9,10,11,15]
+    # goal_ids = [0, 1, 6, 7, 8, 9, 11, 12, 13, 16]
+    # goal_ids = [0]
+    goal_ids = [27]
+    for exp_id, (category_wise, full_image, threshold, agg_fn, method) in enumerate([choices, ab0, ab1, ab2, ab3, ab4, ab5]):
+
+   # # cross product of different choices
+    # for category_wise, full_image, threshold, agg_fn, method in itertools.product(category_wise_choices, full_image_choices, 
+    ##
+
+    # # cross product of different choices
+    # for category_wise, full_image, threshold, agg_fn, method in itertools.product(category_wise_choices, full_image_choices, threshold_choices, agg_fn_choices, method_choices):
+        metrics = []
+        image_threshold_value = 0
+        if threshold == 'explore':
+            image_threshold_value = config.AGENT.SUPERGLUE.score_thresh_image
+        elif 'threshold' in threshold:
+            image_threshold_value = float(threshold.split('_')[-1])
+        else:
+            assert threshold == 'no'
+        lang_threshold_value = 0
+        if threshold == 'explore':
+            lang_threshold_value = config.AGENT.SUPERGLUE.score_thresh_lang
+        elif 'threshold' in threshold:
+            lang_threshold_value = float(threshold.split('_')[-1])
+        else:
+            assert threshold == 'no'
+        goal_index = 0
+        for i, goal in enumerate(goals):
+            categories = goal["categories"]
+            goal_type = goal["type"]
+            if goal_type not in eval_goal_types:
+                continue
+            if goal_ids is not None and i not in goal_ids:
+                continue
+            goal_index += 1
+            if goal_index < goal_index_min + 1 or goal_index >= goal_index_max + 1:
+                continue
+            name = goal["name"]
+            print()
+            print(f"Goal {i}")
+            print(f"Type: {goal_type}")
+            category_ids = None
+            if method == 'superglue' and goal_type == 'language':
+                continue
+            if categories is not None:
+                category_ids = [coco_categories.get(c) for c in categories]
+            if goal_type == "image":
+                image_goal = cv2.imread(str(Path(base_dir) / "image_goals" / name))
+                goal_vis_image = image_goal[:, :, ::-1]
+                goal_image_keypoints = None
+                if method == 'superglue':
+                    image_goal, goal_image_keypoints = matching.get_goal_image_keypoints(
+                        image_goal
+                    )
+                language_goal = None
+                matching_fn = matching.match_image_to_image
+                score_thresh = image_threshold_value
+                feat_agg_fn = config.AGENT.SUPERGLUE.feat_agg_fn_image
+                aggregate_feats = config.AGENT.SUPERGLUE.aggregate_feats_image
+            elif goal_type == "language":
+                language_goal = name
+                goal_vis_image = text_to_image(language_goal, 640, 480)
+                image_goal, goal_image_keypoints = None, None
+                matching_fn = matching.match_language_to_image
+                score_thresh = lang_threshold_value
+                feat_agg_fn = config.AGENT.SUPERGLUE.feat_agg_fn_lang
+                aggregate_feats = config.AGENT.SUPERGLUE.aggregate_feats_lang
+            else:
+                raise ValueError(
+                    "Invalid goal type. Only image and language goals supported currently"
+                )
+            (
+                all_matches,
+                all_confidences,
+                instance_ids,
+            ) = matching.get_matches_against_memory(
+                matching_fn,
+                0,
+                language_goal=language_goal,
+                image_goal=image_goal,
+                cropping_mode=full_image,
+                categories=category_ids if category_wise else None,
+                goal_image_keypoints=goal_image_keypoints,
+                matching_method=method,
+                aggregate_feats=aggregate_feats,
+                feat_agg_fn=feat_agg_fn,
+            )
+            stats = {
+                i: {
+                    "mean": float(scores.mean()),
+                    "median": float(np.median(scores)),
+                    "max": float(scores.max()),
+                    "min": float(scores.min()),
+                    "all": scores.flatten().tolist(),
+                }
+                for i, scores in zip(instance_ids, all_confidences)
             }
-            for i, scores in zip(instance_ids, all_confidences)
-        }
-        with open(
-            Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_stats.json", "w"
-        ) as f:
-            json.dump(stats, f, indent=4)
-        (
-            goal_map,
-            _,
-            _,
-            instance_goal_found,
-            goal_inst,
-        ) = matching.select_and_localize_instance(
-            goal_map=None,
-            found_goal=torch.Tensor([False]),
-            local_map=semantic_map.local_map,
-            lmb=semantic_map.lmb,
-            matches=None,
-            confidence=None,
-            local_instance_ids=None,
-            local_id_to_global_id_map=None,
-            instance_goal_found=False,
-            goal_inst=None,
-            all_matches=all_matches,
-            all_confidences=all_confidences,
-            instance_ids=instance_ids,
-            score_thresh=score_thresh,
-            agg_fn=agg_fn,
-        )
-        if instance_goal_found:
-            semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
-
-            vis_image = get_semantic_map_vis(
-                semantic_map,
-                goal_image=goal_vis_image,
-                # Visualize the first cropped view of the instance
-                instance_image=instance_memory.instance_views[0][goal_inst]
-                .instance_views[0]
-                .cropped_image[:, :, ::-1],
-                legend=None,
-                instance_memory=instance_memory,
-                visualize_instances=True,
+            os.makedirs(goal_grounding_vis_dir, exist_ok=True)
+            with open(
+                Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_stats.json", "w"
+            ) as f:
+                json.dump(stats, f, indent=4)
+            (
+                goal_map,
+                _,
+                _,
+                instance_goal_found,
+                goal_inst,
+            ) = matching.select_and_localize_instance(
+                goal_map=None,
+                found_goal=torch.Tensor([False]),
+                local_map=semantic_map.local_map,
+                lmb=semantic_map.lmb,
+                matches=None,
+                confidence=None,
+                local_instance_ids=None,
+                local_id_to_global_id_map=None,
+                instance_goal_found=False,
+                goal_inst=None,
+                all_matches=all_matches,
+                all_confidences=all_confidences,
+                instance_ids=instance_ids,
+                score_thresh=-1 if score_thresh == 0 else score_thresh,
+                agg_fn=agg_fn,
             )
-            plt.imsave(
-                Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}.png", vis_image
-            )
+            if instance_goal_found:
+                semantic_map.update_global_goal_for_env(0, goal_map.cpu().numpy())
 
-            print("Found goal:", instance_goal_found)
-            print("Goal instance ID:", goal_inst)
+                vis_image = get_semantic_map_vis(
+                    semantic_map,
+                    goal_image=goal_vis_image,
+                    # Visualize the first cropped view of the instance
+                    instance_image=instance_memory.instance_views[0][goal_inst]
+                    .instance_views[0]
+                    .cropped_image[:, :, ::-1],
+                    legend=None,
+                    instance_memory=instance_memory,
+                    visualize_instances=True,
+                )
+                plt.imsave(
+                    Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_{suffixes[exp_id]}_selected.png", vis_image
+                )
 
-        correct_instances = [
-            instance["id"] for instance in goal["ground_truth_instances"]
-        ]
 
-        print(f"Correct instances were {correct_instances}")
-        metrics_per_goal = {
-            "type": goal_type,
-            "category": categories[0] if categories is not None else "None",
-            "name": name,
-            "success": int(goal_inst in correct_instances),
-            "false_positive": int(
-                goal_inst is not None and goal_inst not in correct_instances
-            ),
-            "false_negative": int(goal_inst is None),
-            "instance_detected": np.any(
-                [
-                    inst in instance_memory.instance_views[0]
-                    for inst in correct_instances
+                if 'plant6' in name and 'abnb2' in base_dir:
+                    best_view = 0
+                else:
+                    # first select view with max iou
+                    best_view = np.argmax([ins.object_coverage for ins in instance_memory.instance_views[0][goal_inst]
+                        .instance_views])
+                dilation_selem = skimage.morphology.disk(
+                    3
+                )
+                selected_view = instance_memory.instance_views[0][goal_inst].instance_views[best_view]
+                timestep = selected_view.timestep
+                full_image_np = instance_memory.images[0][timestep]
+                mask = selected_view.mask
+
+                # draw a border around the region specified by the mask in the full image
+                mask = mask.astype(np.uint8)
+                mask = cv2.dilate(mask, dilation_selem, iterations=1)
+                mask = cv2.erode(mask, dilation_selem, iterations=1)
+                contours, hierarchy = cv2.findContours(
+                    mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+                )
+                full_image_np = full_image_np[[2, 1, 0]]
+                full_image_np = full_image_np.cpu().numpy().astype(np.uint8).transpose(1, 2, 0).copy()
+                areas = [cv2.contourArea(c) for c in contours]
+                max_index = np.argmax(areas)
+
+                correct_instances = [
+                    instance["id"] for instance in goal["ground_truth_instances"]
                 ]
-            ),
-        }
-        metrics.append(metrics_per_goal)
-    print()
-    print_metrics(metrics)
-    print("-" * 50)
-    print_metrics(metrics, goal_type="image")
-    print("-" * 50)
-    print_metrics(metrics, goal_type="language")
-    for category in np.unique([m["category"] for m in metrics]):
+
+                cnt=contours[max_index]
+                if goal_inst in correct_instances:
+                    cv2.drawContours(full_image_np, [cnt], -1, (0, 255, 0), 4)
+                else:
+                    cv2.drawContours(full_image_np, [cnt], -1, (255, 0, 0), 4)
+
+                # save the full image with the border at the below path
+
+                
+                plt.imsave(
+                    Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_{suffixes[exp_id]}.png", full_image_np.astype(np.uint8)
+                )
+
+                # save goal_vis_image
+                plt.imsave(
+                    Path(goal_grounding_vis_dir) / f"{goal_type}_goal{i}_goal.png", goal_vis_image
+                )
+
+                print("Found goal:", instance_goal_found)
+                print("Goal instance ID:", goal_inst)
+
+            correct_instances = [
+                instance["id"] for instance in goal["ground_truth_instances"]
+            ]
+
+            print(f"Correct instances were {correct_instances}")
+            metrics_per_goal = {
+                "id": i,
+                "type": goal_type,
+                "category": categories[0] if categories is not None else "None",
+                "name": name,
+                "success": int(goal_inst in correct_instances),
+                "false_positive": int(
+                    goal_inst is not None and goal_inst not in correct_instances
+                ),
+                "threshold": score_thresh,
+                "false_negative": int(goal_inst is None),
+                "instance_detected": np.any(
+                    [
+                        inst in instance_memory.instance_views[0]
+                        for inst in correct_instances
+                    ]
+                ),
+            }
+            metrics.append(metrics_per_goal)
+        # All goals 
+        print()
+        print_metrics(metrics)
         print("-" * 50)
-        print_metrics(metrics, goal_category=category)
+
+        metrics_df = pd.DataFrame.from_records(metrics)
+        if len(metrics_df) > 0:
+            metrics_df = add_choices_as_columns(metrics_df, full_image, category_wise, agg_fn, method)
+
+            df_all = pd.concat([df_all, pd.DataFrame(metrics_df)], ignore_index=True)
+
+        
+        metrics_image = print_metrics(metrics, goal_type="image")
+        if metrics_image is not None:
+            metrics_image = metrics_image.set_index('index').transpose()
+            # add metrics_image to df_image with choices as additional columns
+            metrics_image = add_choices_as_columns(metrics_image, full_image, category_wise, agg_fn, method, threshold=threshold)
+
+            df_image = pd.concat([df_image, pd.DataFrame(metrics_image)], ignore_index=True)
+
+        print("-" * 50)
+        metrics_lang = print_metrics(metrics, goal_type="language")
+        if metrics_lang is not None:
+            metrics_lang = metrics_lang.set_index('index').transpose()
+            # add metrics_lang to df_lang with choices as additional columns
+            metrics_lang = add_choices_as_columns(metrics_lang, full_image, category_wise,  agg_fn, method, threshold=threshold)
+
+            df_lang = pd.concat([df_lang, pd.DataFrame(metrics_lang)], ignore_index=True)
+
+        # AttributeError: 'DataFrame' object has no attribute 'append'
+
+        for category in np.unique([m["category"] for m in metrics]):
+            print("-" * 50)
+            print_metrics(metrics, goal_category=category)
 
 
+        image_agg_dir = Path(base_dir) / "agg_image"
+        lang_agg_dir = Path(base_dir) / "agg_lang"
+        all_goals_dir = Path(base_dir) / "all_goals"
+        all_goals_dir.mkdir(parents=True, exist_ok=True)
+        image_agg_dir.mkdir(parents=True, exist_ok=True)
+        lang_agg_dir.mkdir(parents=True, exist_ok=True)
+        # write df_image and df_lang to csv inside base_dir
+        if len(df_image) > 0: df_image.to_csv(image_agg_dir / f'{global_logfile}.csv')
+        if len(df_lang) > 0: df_lang.to_csv(lang_agg_dir / f'{global_logfile}.csv')
+        if len(df_all) > 0: df_all.to_csv(all_goals_dir / f'{global_logfile}.csv')
 if __name__ == "__main__":
     main()

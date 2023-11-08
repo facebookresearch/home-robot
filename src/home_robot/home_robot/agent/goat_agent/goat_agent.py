@@ -683,7 +683,7 @@ class GoatAgent(Agent):
                     image_goal=self.goal_image,
                     goal_image_keypoints=self.goal_image_keypoints,
                     categories=[current_task["semantic_id"]],
-                    use_full_image=False,
+                    cropping_mode='full',
                 )
 
                 print(local_instance_ids, len(matches[0]))
@@ -698,7 +698,7 @@ class GoatAgent(Agent):
                     self.total_timesteps[0],
                     language_goal=current_task["instruction"],
                     categories=[current_task["semantic_id"]],
-                    use_full_image=False,
+                    cropping_mode='full',
                 )
         semantic = self.one_hot_encoding[torch.from_numpy(semantic).to(self.device)]
 
@@ -780,7 +780,7 @@ class GoatAgent(Agent):
                 self.matching.match_language_to_image,
                 self.total_timesteps[0],
                 language_goal=current_task["instruction"],
-                use_full_image=True,
+                cropping_mode='full',
                 categories=[current_task["semantic_id"]],
             )
             stats = {
@@ -809,7 +809,7 @@ class GoatAgent(Agent):
                 self.sub_task_timesteps[0][self.current_task_idx],
                 image_goal=self.goal_image,
                 goal_image_keypoints=self.goal_image_keypoints,
-                use_full_image=True,
+                cropping_mode="full",
                 categories=[current_task["semantic_id"]],
             )
             stats = {

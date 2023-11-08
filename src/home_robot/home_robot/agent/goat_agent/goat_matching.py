@@ -50,7 +50,7 @@ class GoatMatching(Matching):
         step,
         image_goal=None,
         language_goal=None,
-        use_full_image=False,
+        cropping_mode='full', # full, bbox, padded_bbox_%d
         categories=None,
         **kwargs,
     ):
@@ -74,10 +74,7 @@ class GoatMatching(Matching):
                 or (np.array(inst_view.cropped_image.shape[0:2]) < MIN_EDGE).any()
             ):
                 continue
-            if use_full_image:
-                img = instance_memory.images[0][-1].cpu().numpy()
-            else:
-                img = inst_view.cropped_image
+            img = self.get_cropped_image(inst_view, cropping_mode=cropping_mode)
             detections.append(img)
             instance_ids.append(local_instance_id)
 
@@ -87,7 +84,7 @@ class GoatMatching(Matching):
                 detections,
                 matching_fn,
                 step,
-                use_full_image=use_full_image,
+                use_full_image=cropping_mode == 'full',
                 image_goal=image_goal,
                 language_goal=language_goal,
                 **kwargs,
@@ -102,15 +99,17 @@ class GoatMatching(Matching):
         use_full_image=False,
         image_goal=None,
         language_goal=None,
+        matching_method='superglue',
         **kwargs,
     ):
         all_matches, all_confidences = [], []
         if image_goal is not None:
-            _, _, all_matches, all_confidences = matching_fn(
+            all_matches, all_confidences = matching_fn(
                 all_views,
                 goal_image=image_goal,
                 use_full_image=use_full_image,
                 step=1000 * step,
+                matching_method=matching_method,
                 **kwargs,
             )
         elif language_goal is not None:
@@ -119,13 +118,35 @@ class GoatMatching(Matching):
             )
         return all_matches, all_confidences
 
+    def get_cropped_image(self, inst_view, cropping_mode='full'):
+        instance_memory = self.instance_memory
+        full_img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
+        full_img = np.transpose(full_img, (1, 2, 0))
+        if cropping_mode == 'full':
+            return full_img
+        elif 'bbox' in cropping_mode:
+            p = 0
+            if 'padded' in cropping_mode:
+                p = int(cropping_mode.split('_')[-1])
+            else: assert cropping_mode == 'bbox'
+            bbox = inst_view.bbox
+            # get bounding box
+            h, w = full_img.shape[:2]
+            cropped_image = full_img[
+                max(bbox[0, 0] - p, 0) : min(bbox[1, 0] + p, h),
+                max(bbox[0, 1] - p, 0) : min(bbox[1, 1] + p, w),
+            ]
+            return cropped_image
+        else:
+            raise ValueError(f"Invalid cropping mode: {cropping_mode}")
+
     def get_matches_against_memory(
         self,
         matching_fn,
         step,
         image_goal=None,
         language_goal=None,
-        use_full_image=False,
+        cropping_mode='full', # full, bbox, padded_bbox_%d
         categories=None,
         aggregate_feats=False,
         **kwargs,
@@ -153,13 +174,8 @@ class GoatMatching(Matching):
                     or (np.array(inst_view.cropped_image.shape[0:2]) < MIN_EDGE).any()
                 ):
                     continue
-                if use_full_image:
-                    img = instance_memory.images[0][inst_view.timestep].cpu().numpy()
-                    img = np.transpose(img, (1, 2, 0))
-                else:
-                    img = inst_view.cropped_image
-
-                all_views.append(img)
+                cropped_image = self.get_cropped_image(inst_view, cropping_mode=cropping_mode)
+                all_views.append(cropped_image)
                 views_added += 1
                 steps_per_view.append(1000 * step + 10 * inst_key + view_idx)
             if views_added > 0:
@@ -171,7 +187,7 @@ class GoatMatching(Matching):
                 all_views,
                 matching_fn,
                 step,
-                use_full_image=use_full_image,
+                use_full_image=cropping_mode == 'full',
                 image_goal=image_goal,
                 language_goal=language_goal,
                 instance_view_counts=instance_view_counts,
@@ -192,8 +208,51 @@ class GoatMatching(Matching):
             return all_matches, all_confidences, instance_ids
         return [], [], []
 
-    @torch.no_grad()
+
     def match_image_to_image(
+        self,
+        rgb_image: Union[np.ndarray, List[np.ndarray]],
+        goal_image: Union[np.ndarray, torch.Tensor],
+        rgb_image_keypoints: Optional[Dict[str, Any]] = None,
+        goal_image_keypoints: Optional[Dict[str, Any]] = None,
+        use_full_image: bool = False,
+        step: Optional[int] = None,
+        matching_method: str = "clip",
+        **kwargs,
+        
+    ):
+        if matching_method == "superglue":
+            return self.match_image_to_image_superglue(rgb_image, goal_image, rgb_image_keypoints, goal_image_keypoints, use_full_image, step, **kwargs)
+        elif matching_method == "clip":
+            return self.match_image_to_image_clip(rgb_image, goal_image, **kwargs)
+        else:
+            raise NotImplementedError
+
+    @torch.no_grad()
+    def match_image_to_image_clip(
+        self,
+        rgb_image: Union[np.ndarray, List[np.ndarray]],
+        goal_image: Union[np.ndarray, torch.Tensor],
+        **kwargs,
+    ):
+
+        if isinstance(goal_image, torch.Tensor):
+            goal_image = goal_image.detach().cpu().numpy()
+
+        if len(goal_image.shape) == 3:
+            goal_image = np.expand_dims(goal_image, 0)
+
+        view_embeddings = self.get_image_embeddings(rgb_image, **kwargs)
+        goal_embeddings = self.get_image_embeddings(goal_image)
+
+        # compute cosines similarity
+        similarity = (goal_embeddings @ view_embeddings.T).squeeze(0)
+        return [[[1]]] * similarity.shape[0], similarity.detach().cpu().numpy().reshape(
+            -1, 1, 1
+        )
+
+    @torch.no_grad()
+    def match_image_to_image_superglue(
         self,
         rgb_image: Union[np.ndarray, List[np.ndarray]],
         goal_image: Union[np.ndarray, torch.Tensor],
@@ -275,7 +334,7 @@ class GoatMatching(Matching):
             all_rgb_keypoints.append(rgb_keypoints)
             all_matches.append(matches)
             all_confidences.append(confidence)
-        return all_goal_keypoints, all_rgb_keypoints, all_matches, all_confidences
+        return all_matches, all_confidences
 
     @torch.no_grad()
     def match_image_batch_to_image(
@@ -380,23 +439,16 @@ class GoatMatching(Matching):
 
         return goal_keypoints, rgb_keypoints, matches.tolist(), confidence.tolist()
 
-    @torch.no_grad()
-    def match_language_to_image(
-        self,
-        views_orig,
-        language_goal,
-        aggregate_feats=True,
+
+    def get_image_embeddings(
+        self, 
+        views_orig, 
+        aggregate_feats=False,
         feat_agg_fn="mean",
         instance_view_counts=None,
         **kwargs,
     ):
-        """Compute matching scores from a language goal to images."""
         batch_size = 64
-        language_goal = language_goal.replace("Instruction: ", "")
-        language_goal = clip.tokenize(language_goal).to(self.device)
-        language_goal = self.clip_model.encode_text(language_goal)
-        # get clip embedding for views with a batch size of batch_size
-
         views = views_orig
         views = torch.stack(
             [self.clip_preprocess(ToPILImage()(v.astype(np.uint8))) for v in views],
@@ -422,8 +474,20 @@ class GoatMatching(Matching):
                     [torch.mean(views, dim=0) for views in view_embeddings_grouped],
                     dim=0,
                 )
+            else:
+                raise NotImplementedError
+        return view_embeddings
+
+    @torch.no_grad()
+    def match_language_to_image(self, views_orig, language_goal, **kwargs):
+        """Compute matching scores from a language goal to images."""
+        language_goal = language_goal.replace("Instruction: ", "")
+        language_goal = clip.tokenize(language_goal).to(self.device)
+        language_goal = self.clip_model.encode_text(language_goal)
+        # get clip embedding for views with a batch size of batch_size
 
         language_goal = language_goal / language_goal.norm(dim=-1, keepdim=True)
+        view_embeddings = self.get_image_embeddings(views_orig, **kwargs)
         # compute cosines similarity
         similarity = (language_goal @ view_embeddings.T).squeeze(0)
         return [[[1]]] * similarity.shape[0], similarity.detach().cpu().numpy().reshape(
@@ -479,7 +543,6 @@ class GoatMatching(Matching):
                 for view_idx, match_view in enumerate(match_inst):
                     view_score = confidences[inst_idx][view_idx][match_view != -1].sum()
                     inst_view_scores.append(view_score)
-
                 if agg_fn == "max":
                     agg_scores.append(max(inst_view_scores))
                 elif agg_fn == "mean":
@@ -487,7 +550,7 @@ class GoatMatching(Matching):
                 elif agg_fn == "median":
                     agg_scores.append(np.median(inst_view_scores))
                 elif "top" in agg_fn:
-                    np_agg_fn, top_k = agg_fn.split("_")[-2:]
+                    top_k, np_agg_fn = agg_fn.split("_")[-2:]
                     assert np_agg_fn in ["mean", "median"]
                     top_k = int(top_k)
                     inst_view_scores.sort(reverse=True)
@@ -523,7 +586,6 @@ class GoatMatching(Matching):
                 inst_map_idx = instance_map == goal_inst
                 inst_map_idx = torch.argmax(torch.sum(inst_map_idx, axis=(1, 2)))
                 goal_map = (instance_map[inst_map_idx] == goal_inst).to(torch.float)
-
         return goal_map, found_goal, goal_pose
 
     def select_and_localize_instance(
