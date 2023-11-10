@@ -183,7 +183,8 @@ docker login
 ```
 Build the Docker image
 ```
-docker build . --network="host" -f $HOME_ROBOT_ROOT/projects/habitat_ovmm/docker/ovmm_baseline.Dockerfile -t ovmm_baseline_submission
+cd $HOME_ROBOT_ROOT/projects/habitat_ovmm/
+docker build . --network="host" -f docker/ovmm_baseline.Dockerfile -t ovmm_baseline_submission
 ```
 Once the image is built, run the RPC server
 ```
