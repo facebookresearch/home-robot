@@ -9,7 +9,13 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+from home_robot.agent.multitask import get_parameters
+from home_robot.agent.multitask.robot_agent import RobotAgent
+from home_robot.perception import create_semantic_sensor
+from home_robot.utils.rpc import get_vlm_rpc_stub
+from home_robot_sim.ovmm_sim_client import OvmmSimClient, SimGraspPlanner
 from loguru import logger
+
 from utils.config_utils import (
     create_agent_config,
     create_env_config,
@@ -17,11 +23,6 @@ from utils.config_utils import (
     get_omega_config,
 )
 from utils.env_utils import create_ovmm_env_fn
-
-from home_robot.agent.multitask import get_parameters
-from home_robot.agent.multitask.robot_agent import RobotAgent
-from home_robot.perception import create_semantic_sensor
-from home_robot_sim.ovmm_sim_client import OvmmSimClient, SimGraspPlanner
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -60,6 +61,16 @@ if __name__ == "__main__":
         type=int,
         default=5,
         help="rate?",
+    )
+    parser.add_argument(
+        "--vlm_server_addr",
+        default="cortex-robot-elb-57c549656770fe85.elb.us-east-1.amazonaws.com",
+        help="ip address or domain name of vlm server.",
+    )
+    parser.add_argument(
+        "--vlm_server_port",
+        default="50054",
+        help="port of vlm server.",
     )
     parser.add_argument(
         "--manual_wait",
@@ -122,7 +133,9 @@ if __name__ == "__main__":
     print(parameters)
     object_to_find, location_to_place = robot.get_task_obs()
 
-    stub = None
+    stub = get_vlm_rpc_stub(
+        vlm_server_addr=args.vlm_server_addr, vlm_server_port=args.vlm_server_port
+    )
 
     demo = RobotAgent(
         robot, semantic_sensor, parameters, rpc_stub=stub, grasp_client=grasp_client
@@ -131,14 +144,14 @@ if __name__ == "__main__":
 
     matches = demo.get_found_instances_by_class(object_to_find)
 
-    demo.robot.navigate_to([-0.1, 0, 0], relative=True)
-    demo.update()
-    import numpy as np
+    # demo.robot.navigate_to([-0.1, 0, 0], relative=True)
+    # demo.update()
+    # import numpy as np
 
-    demo.robot.navigate_to([0, 0, np.pi / 4], relative=True)
-    demo.update()
-    demo.robot.navigate_to([0, 0, np.pi / 4], relative=True)
-    demo.update()
+    # demo.robot.navigate_to([0, 0, np.pi / 4], relative=True)
+    # demo.update()
+    # demo.robot.navigate_to([0, 0, np.pi / 4], relative=True)
+    # demo.update()
 
     print("rotate in place for a bit")
     demo.rotate_in_place(steps=12)
@@ -155,6 +168,7 @@ if __name__ == "__main__":
     matches = demo.get_found_instances_by_class(object_to_find)
     print("-> Found", len(matches), f"instances of class {object_to_find}.")
 
+    demo.execute_vlm_plan()
     print(f"- Move to any instance of {object_to_find}")
     try:
         smtai = demo.move_to_any_instance(matches)

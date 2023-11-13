@@ -267,8 +267,9 @@ class RobotAgent:
         )
 
         plan = output.action
+        breakpoint()
 
-        def confirm_plan():
+        def confirm_plan(p):
             return True  # might need to merge demo_refactor to find this function
 
         logger.info(f"Received plan: {plan}")
@@ -306,6 +307,15 @@ class RobotAgent:
             logger.warn("No instances found")
             return
 
+        self.say("Navigating to instance ")
+        self.say(f"Instance id: {pick_instance_id}")
+        success = self.navigate_to_an_instance(
+            pick_instance_id,
+            visualize=self.should_visualize(),
+            should_plan=self.parameters["plan_to_instance"],
+        )
+        self.say(f"Success: {success}")
+
     def say(self, msg: str):
         """Provide input either on the command line or via chat client"""
         if self.chat is not None:
@@ -321,7 +331,9 @@ class RobotAgent:
             return input(msg)
 
     def get_command(self):
-        if "command" in self.parameters:
+        if (
+            "command" in self.parameters.data.keys()
+        ):  # TODO: this was breaking. Should this be a class method
             return self.parameters["command"]
         else:
             return self.ask("please type any task you want the robot to do: ")

@@ -7,7 +7,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import imageio
 import numpy as np
 import torch
-
 from home_robot.core.interfaces import (
     ContinuousNavigationAction,
     DiscreteNavigationAction,
@@ -38,6 +37,10 @@ class OvmmSimClient(RobotClient):
 
         self.env = sim_env
         self.obs = self.env.reset()
+        self.obs = self.env.reset()
+        self.obs = self.env.reset()
+        self.obs = self.env.reset()
+
         self._last_motion_failed = False
 
         self.done = False
