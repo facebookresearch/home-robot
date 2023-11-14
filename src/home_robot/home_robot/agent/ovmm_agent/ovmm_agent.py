@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import torch
-
+from trimesh import transformations as tra
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPickPolicy, HeuristicPlacePolicy
@@ -72,7 +72,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             raise NotImplementedError
 
         self.skip_skills = config.AGENT.skip_skills
-        self.max_pick_attempts = 10
+        self.max_pick_attempts = 100
         if config.GROUND_TRUTH_SEMANTICS == 0:
             self.semantic_sensor = OvmmPerception(config, device_id, self.verbose)
             self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
@@ -442,6 +442,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.skip_skills.pick:
             action = None
         elif self.config.AGENT.SKILLS.PICK.type == "oracle":
+            print("oracle pick")
             pick_step = self.timesteps[0] - self.pick_start_step[0]
             if pick_step == 0:
                 action = DiscreteNavigationAction.MANIPULATION_MODE
@@ -454,13 +455,16 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     "Still in oracle pick. Should've transitioned to next skill."
                 )
         elif self.config.AGENT.SKILLS.PICK.type == "heuristic":
+            print("heuristic pick")
             action, info = self.pick_policy(obs, info)
         elif self.config.AGENT.SKILLS.PICK.type == "hw":
             # use the hardware pick skill
+            print("hw pick")
             pick_step = self.timesteps[0] - self.pick_start_step[0]
             if pick_step == 0:
                 action = DiscreteNavigationAction.MANIPULATION_MODE
             elif pick_step < self.max_pick_attempts:
+                print("pick attempt", pick_step)
                 # If we have not seen an object mask to try to grasp...
                 if not obs.task_observations["prev_grasp_success"]:
                     action = DiscreteNavigationAction.PICK_OBJECT
@@ -552,22 +556,31 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info = self._get_info(obs)
 
         self.timesteps[0] += 1
-
+        print("no rwyz", obs.camera_pose[:3, :3])
+        roll, pitch, yaw = tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")
+        print(f"Roll: {roll}, Pitch: {pitch}, Yaw: {yaw}")
         action = None
         while action is None:
             if self.states[0] == Skill.NAV_TO_OBJ:
+                print("nav to obj")
                 action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
+                print("gaze at obj")
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
+                print("pick")
                 action, info, new_state = self._pick(obs, info)
             elif self.states[0] == Skill.NAV_TO_REC:
+                print("nav to rec")
                 action, info, new_state = self._nav_to_rec(obs, info)
             elif self.states[0] == Skill.GAZE_AT_REC:
+                print("gaze at rec")
                 action, info, new_state = self._gaze_at_rec(obs, info)
             elif self.states[0] == Skill.PLACE:
+                print("place")
                 action, info, new_state = self._place(obs, info)
             elif self.states[0] == Skill.FALL_WAIT:
+                print("fall wait")
                 action, info, new_state = self._fall_wait(obs, info)
             else:
                 raise ValueError

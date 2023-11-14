@@ -13,6 +13,7 @@ import clip
 import numpy as np
 import rospy
 import torch
+import trimesh.transformations as tra
 
 import home_robot
 from home_robot.core.interfaces import (
@@ -234,9 +235,10 @@ class StretchPickandPlaceEnv(StretchEnv):
                 continuous_action = None
                 # Dummy out robot execution code for perception tests
                 if not self.dry_run:
+                    breakpoint()
                     ok = self.grasp_planner.try_grasping(
                         wait_for_input=self.debug,
-                        visualize=(self.test_grasping or self.visualize_grasping),
+                        visualize=True, # (self.test_grasping or self.visualize_grasping),
                         max_tries=1,
                     )
                     self.prev_grasp_success = ok
@@ -400,6 +402,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             joint=self.robot.model.config_to_hab(joint_positions),
             relative_resting_position=relative_resting_position,
         )
+        print("no rwyz", obs.camera_pose[:3, :3])
+        roll, pitch, yaw = tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")
+        print(f"Roll: {roll}, Pitch: {pitch}, Yaw: {yaw}")
         obs.task_observations["prev_grasp_success"] = np.array(
             [self.prev_grasp_success], np.float32
         )

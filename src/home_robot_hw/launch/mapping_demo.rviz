@@ -415,7 +415,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /rotated_color
+      Image Topic: /camera/color/image_raw
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -427,7 +427,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /rotated_depth
+      Image Topic: /camera/aligned_depth_to_color/image_raw
       Max Value: 1
       Median window: 5
       Min Value: 0

@@ -403,17 +403,18 @@ class OVMMEvaluator(PPOTrainer):
                 )
 
                 # record metrics if the current skill finishes
-                if "skill_done" in info and info["skill_done"] != "":
-                    metrics = extract_scalars_from_info(hab_info)
-                    metrics_at_skill_end = {
-                        f"{info['skill_done']}." + k: v for k, v in metrics.items()
-                    }
-                    current_episode_metrics = {
-                        **metrics_at_skill_end,
-                        **current_episode_metrics,
-                    }
-                    if "goal_name" in info:
-                        current_episode_metrics["goal_name"] = info["goal_name"]
+                if hab_info is not None:
+                    if "skill_done" in info and info["skill_done"] != "":
+                        metrics = extract_scalars_from_info(hab_info)
+                        metrics_at_skill_end = {
+                            f"{info['skill_done']}." + k: v for k, v in metrics.items()
+                        }
+                        current_episode_metrics = {
+                            **metrics_at_skill_end,
+                            **current_episode_metrics,
+                        }
+                        if "goal_name" in info:
+                            current_episode_metrics["goal_name"] = info["goal_name"]
 
             metrics = extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
