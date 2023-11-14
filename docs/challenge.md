@@ -172,4 +172,26 @@ evalai push <image>:<tag> --phase neurips-ovmm-test-challenge-2023-2100 --privat
 ### DD-PPO Training Starter Code
 Please refer to the Training DD-PPO skills section of the [Habitat OVMM readme](../projects/habitat_ovmm/README.md#training-dd-ppo-skills) for more details.
 
+### Instructions (Temporary)
+Install Docker via 
+```
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+Login to Docker 
+```
+docker login
+```
+Build the Docker image
+```
+cd $HOME_ROBOT_ROOT/projects/habitat_ovmm/
+docker build . --network="host" -f docker/ovmm_baseline.Dockerfile -t ovmm_baseline_submission
+```
+Once the image is built, run the RPC server
+```
+python src/home_robot_hw/home_robot_hw/utils/eval.py
+```
+Run the Docker image via sudo
+```
+sudo docker run --runtime=nvidia --gpus all  --network="host" -e OPENBLAS_NUM_THREADS=1 -e NUMEXPR_NUM_THREADS=1 -e MKL_NUM_THREADS=1 --privileged  ovmm_baseline_submission
+```
 

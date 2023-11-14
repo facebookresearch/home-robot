@@ -146,11 +146,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
             semantic_frame = np.concatenate(
                 [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
             ).astype(np.uint8)
-        obs.task_observations["goal_name"] = "chair"
         info = {
             "semantic_frame": semantic_frame,
             "semantic_category_mapping": semantic_category_mapping,
-            "goal_name": obs.task_observations["goal_name"],
+            "goal_name": self.config.pick_object,
             "third_person_image": obs.third_person_image,
             "timestep": self.timesteps[0],
             "curr_skill": Skill(self.states[0].item()).name,
@@ -285,11 +284,11 @@ class OpenVocabManipAgent(ObjectNavAgent):
         True by default
         """
         obj_id_to_name = {
-            0: obs.task_observations["object_name"],
+            0: self.config.pick_object,
         }
         simple_rec_id_to_name = {
-            0: obs.task_observations["start_recep_name"],
-            1: obs.task_observations["place_recep_name"],
+            0: self.config.start_recep,
+            1: self.config.goal_recep,
         }
 
         # Simple vocabulary contains only object and necessary receptacles
