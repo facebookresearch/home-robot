@@ -238,7 +238,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                     breakpoint()
                     ok = self.grasp_planner.try_grasping(
                         wait_for_input=self.debug,
-                        visualize=True, # (self.test_grasping or self.visualize_grasping),
+                        visualize=True,  # (self.test_grasping or self.visualize_grasping),
                         max_tries=1,
                     )
                     self.prev_grasp_success = ok
