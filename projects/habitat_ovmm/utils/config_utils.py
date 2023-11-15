@@ -26,7 +26,12 @@ def get_habitat_config(
 
 def get_omega_config(config_path: str) -> DictConfig:
     """Returns the baseline configuration."""
-    config = OmegaConf.load(config_path)
+    if os.environ["HOME_ROBOT_ROOT"]:
+        config = OmegaConf.load(
+            os.path.join(os.environ["HOME_ROBOT_ROOT"], config_path)
+        )
+    else:
+        config = OmegaConf.load(config_path)
     OmegaConf.set_readonly(config, True)
     return config
 

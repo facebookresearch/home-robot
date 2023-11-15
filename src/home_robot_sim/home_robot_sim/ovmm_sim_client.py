@@ -36,17 +36,14 @@ class OvmmSimClient(RobotClient):
         super().__init__()
 
         self.env = sim_env
-        self.obs = self.env.reset()
-        self.obs = self.env.reset()
-        self.obs = self.env.reset()
-        self.obs = self.env.reset()
+        # self.obs = self.env.reset() if running only one episode
 
         self._last_motion_failed = False
 
         self.done = False
         self.hab_info = None
 
-        self.video_frames = [self.obs.third_person_image]
+        self.video_frames = []
 
         if is_stretch_robot:
             self._robot_model = HelloStretchKinematics(
@@ -81,6 +78,7 @@ class OvmmSimClient(RobotClient):
     def reset(self):
         """Reset everything in the robot's internal state"""
         self.obs = self.env.reset()
+        self.video_frames = [self.obs.third_person_image]
         self.done = False
 
     def switch_to_navigation_mode(self) -> bool:
@@ -170,6 +168,9 @@ class OvmmSimClient(RobotClient):
             if self.last_motion_failed():
                 return False
         return True
+
+    # def get_metrics(self):
+    #     self.hab_info
 
 
 class SimGraspPlanner(GraspClient):

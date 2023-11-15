@@ -152,7 +152,7 @@ if __name__ == "__main__":
     # demo.update()
     # demo.robot.navigate_to([0, 0, np.pi / 4], relative=True)
     # demo.update()
-
+    breakpoint()
     print("rotate in place for a bit")
     demo.rotate_in_place(steps=12)
 
