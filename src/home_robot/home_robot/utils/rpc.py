@@ -13,10 +13,10 @@ from loguru import logger
 try:
     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
     import grpc
-    from task_rpc_env_pb2_grpc import AgentgRPCStub
 
     import src.rpc
     import src.rpc.task_rpc_env_pb2
+    from task_rpc_env_pb2_grpc import AgentgRPCStub
     from src.utils.observations import ObjectImage, Observations, ProtoConverter
 except Exception as e:
     ## Temporary hack until we make accel-cortex pip installable
