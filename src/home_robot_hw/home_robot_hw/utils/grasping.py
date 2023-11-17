@@ -166,6 +166,8 @@ class GraspPlanner(GraspClient):
 
         # Choose instance mask with highest score for goal mask
         instance_scores = obs.task_observations["instance_scores"].copy()
+        #instance_classes is 0, check categories. 
+        #run np.unique of this, and object_goal
         class_mask = obs.task_observations["instance_classes"] == object_goal
         valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
         class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
@@ -189,7 +191,7 @@ class GraspPlanner(GraspClient):
         else:
             best_goal_mask = np.zeros_like(obs.semantic).astype(bool)
 
-        return best_goal_mask, class_map
+        return obs.task_observations["instance_map"], best_goal_mask, class_map
 
     def _ensure_manipulation_mode(self):
         """Make sure we are in the manipulation mode"""
@@ -241,7 +243,7 @@ class GraspPlanner(GraspClient):
                 "seconds",
             )
 
-        _, all_object_masks = self.get_object_class_masks(obs, object_goal=object_goal)
+        instance_map, _, all_object_masks = self.get_object_class_masks(obs, object_goal=object_goal)
         # TODO: return to this if we want to take goal mask as an argument in the future
         # For now though we will choose the closest one
         # object_mask = obs.task_observations["goal_mask"]
@@ -249,7 +251,7 @@ class GraspPlanner(GraspClient):
         object_mask = self.get_closest_goal(
             xyz,
             all_object_masks,
-            obs.task_observations["instance_map"],
+            instance_map, # obs.task_observations["instance_map"],
             debug=False,
         )
 
