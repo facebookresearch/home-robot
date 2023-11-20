@@ -268,10 +268,10 @@ class HelloStretchKinematics(Robot):
 
         # You can set one of the visualize flags to true to debug IK issues
         self._manip_dof = len(self._manip_mode_controlled_joints)
+        ranges = np.zeros((self._manip_dof, 2))
+        ranges[:, 0] = self._to_manip_format(self.range[:, 0])
+        ranges[:, 1] = self._to_manip_format(self.range[:, 1])
         if "pybullet" in ik_type:
-            ranges = np.zeros((self._manip_dof, 2))
-            ranges[:, 0] = self._to_manip_format(self.range[:, 0])
-            ranges[:, 1] = self._to_manip_format(self.range[:, 1])
             self.manip_ik_solver = PybulletIKSolver(
                 self.manip_mode_urdf_path,
                 self._ee_link_name,
@@ -284,6 +284,7 @@ class HelloStretchKinematics(Robot):
                 self.manip_mode_urdf_path,
                 self._ee_link_name,
                 self._manip_mode_controlled_joints,
+                joint_range=ranges,
             )
 
         if "optimize" in ik_type:
@@ -291,6 +292,7 @@ class HelloStretchKinematics(Robot):
                 ik_solver=self.manip_ik_solver,
                 pos_error_tol=0.005,
                 ori_error_range=np.array([0.0, 0.0, 0.2]),
+                joint_range=ranges,
             )
 
     def __init__(
@@ -356,6 +358,26 @@ class HelloStretchKinematics(Robot):
         )
 
         self._create_ik_solvers(ik_type=ik_type, visualize=visualize)
+
+    def get_manip_mode_joint_names(self):
+        """Return the controlled joints used in manipulation mode"""
+        return self._manip_mode_controlled_joints
+
+    def set_articulated_object_positions(
+        self, bullet_obj: hrb.PbArticulatedObject, q: np.ndarray, mode: str = "manip"
+    ):
+        """Update positions of a bullet articulated object. This is mostly a helper to wrap bullet objects for visualizations and the like."""
+        if mode != "manip":
+            raise NotImplementedError(
+                "non manip mode articulated objects not yet supported"
+            )
+        else:
+            controlled_joints = self.get_manip_mode_joint_names()
+        assert len(q) == len(
+            controlled_joints
+        ), "incorrect size for joint positions array"
+        controlled_joint_indices = bullet_obj.joint_names_to_indices(controlled_joints)
+        bullet_obj.set_joint_positions(q, controlled_joint_indices)
 
     def set_head_config(self, q):
         # WARNING: this sets all configs

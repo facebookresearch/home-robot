@@ -29,7 +29,13 @@ class PinocchioIKSolver(IKSolverBase):
     DT = 1e-1
     DAMP = 1e-12
 
-    def __init__(self, urdf_path: str, ee_link_name: str, controlled_joints: List[str]):
+    def __init__(
+        self,
+        urdf_path: str,
+        ee_link_name: str,
+        controlled_joints: List[str],
+        joint_range: Optional[np.ndarray] = None,
+    ):
         """
         urdf_path: path to urdf file
         ee_link_name: name of the end-effector link
@@ -44,6 +50,7 @@ class PinocchioIKSolver(IKSolverBase):
             self.model.idx_qs[self.model.getJointId(j)] if j != "ignore" else -1
             for j in controlled_joints
         ]
+        self.joint_range = joint_range
 
     def get_dof(self) -> int:
         """returns dof for the manipulation chain"""
@@ -80,6 +87,14 @@ class PinocchioIKSolver(IKSolverBase):
 
         return pos.copy(), quat.copy()
 
+    def _init_q(self, q_init: Optional[np.ndarray] = None):
+        """Initialize q"""
+        if q_init is None:
+            q = self.q_neutral.copy()
+        else:
+            q = self._qmap_control2model(q_init)
+        return q
+
     def compute_ik(
         self,
         pos_desired: np.ndarray,
@@ -99,14 +114,13 @@ class PinocchioIKSolver(IKSolverBase):
         """
         i = 0
 
-        if q_init is None:
-            q = self.q_neutral.copy()
-            if num_attempts > 1:
-                raise NotImplementedError(
-                    "Sampling multiple initial configs not yet supported by Pinocchio solver."
-                )
-        else:
-            q = self._qmap_control2model(q_init)
+        if num_attempts > 1:
+            raise NotImplementedError(
+                "Sampling multiple initial configs not yet supported by Pinocchio solver."
+            )
+        q = self._init_q(q_init)
+
+        if q_init is not None:
             # Override the number of attempts
             num_attempts = 1
 
@@ -119,12 +133,26 @@ class PinocchioIKSolver(IKSolverBase):
 
             dMi = desired_ee_pose.actInv(self.data.oMf[self.ee_frame_idx])
             err = pinocchio.log(dMi).vector
+
+            if self.joint_range is not None:
+                q_control = self._qmap_model2control(q.flatten())
+                success = np.all(q_control > self.joint_range[:, 0]) and np.all(
+                    q_control < self.joint_range[:, 1]
+                )
+                if not success:
+                    if num_attempts == 1:
+                        # Just quit, we arent going to get better
+                        break
+                    else:
+                        # Re-sample initial condition
+                        q = self._init_q(q_init)
+
             if verbose:
                 print(f"[pinocchio_ik_solver] iter={i}; error={err}")
-            if np.linalg.norm(err) < self.EPS:
+            if success and np.linalg.norm(err) < self.EPS:
                 success = True
                 break
-            if i >= max_iterations:
+            elif i >= max_iterations:
                 success = False
                 break
             J = pinocchio.computeFrameJacobian(
@@ -138,9 +166,11 @@ class PinocchioIKSolver(IKSolverBase):
             q = pinocchio.integrate(self.model, q, v * self.DT)
             i += 1
 
-        q_control = self._qmap_model2control(q.flatten())
         debug_info = {"iter": i, "final_error": err}
 
+        if self.joint_range is not None:
+            # Check to see if q_control is in range
+            pass
         return q_control, success, debug_info
 
 
@@ -163,12 +193,14 @@ class PositionIKOptimizer(IKSolverBase):
         pos_weight: float = 1.0,
         ori_weight: float = 0.0,
         cem_params: Optional[Dict] = None,
+        joint_range: Optional[np.ndarray] = None,
     ):
         self.pos_wt = pos_weight
         self.ori_wt = ori_weight
 
         # Initialize IK solver
         self.ik_solver = ik_solver
+        self.joint_range = joint_range
 
         # Initialize optimizer
         self.pos_error_tol = pos_error_tol

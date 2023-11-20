@@ -77,13 +77,29 @@ class Footprint:
 class Robot(abc.ABC):
     """placeholder"""
 
-    def __init__(self, name="robot", urdf_path=None, visualize=False, assets_path=None):
-        # Load and create planner
-        self.backend = hrb.PbClient(visualize=visualize)
-        # Create object reference
-        self.ref = self.backend.add_articulated_object(
-            name, urdf_path, assets_path=assets_path
-        )
+    backends = ["bullet", "urdfpy"]
+
+    def __init__(
+        self,
+        name="robot",
+        urdf_path=None,
+        visualize=False,
+        assets_path=None,
+        backend="bullet",
+    ):
+
+        self._backend = backend
+        if self._backend == "bullet":
+            # Load and create planner
+            self.backend = hrb.PbClient(visualize=visualize)
+            # Create object reference
+            self.ref = self.backend.add_articulated_object(
+                name, urdf_path, assets_path=assets_path
+            )
+        elif self._backend == "urdfpy":
+            raise NotImplementedError()
+        else:
+            raise RuntimeError("backend not supported: " + str(backend))
 
     def get_backend(self) -> hrb.PbClient:
         """Return model of the robot in bullet - environment for 3d collision checks"""
