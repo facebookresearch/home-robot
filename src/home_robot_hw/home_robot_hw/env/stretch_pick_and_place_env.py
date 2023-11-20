@@ -7,6 +7,7 @@
 import json
 import os
 import pickle
+from enum import IntEnum, auto
 from typing import Any, Dict, Optional
 
 import clip
@@ -35,7 +36,12 @@ from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.utils.grasping import GraspPlanner
+from home_robot.perception.wrapper import OvmmPerception, build_vocab_from_category_map, read_category_map_file
 
+class SemanticVocab(IntEnum):
+    FULL = auto()
+    SIMPLE = auto()
+    ALL = auto()
 
 class StretchPickandPlaceEnv(StretchEnv):
     """Create a Detic-based pick and place environment"""
@@ -90,9 +96,25 @@ class StretchPickandPlaceEnv(StretchEnv):
         if ros_grasping:
             # Create a simple grasp planner object, which will let us pick stuff up.
             # This takes in a reference to the robot client - will replace "self" with "self.client"
-            self.grasp_planner = GraspPlanner(
-                self.robot, self, visualize_planner=visualize_planner
+            obj_id_to_name = {
+                0: config.pick_object,
+            }
+            simple_rec_id_to_name = {
+                0: config.start_recep,
+                1: config.goal_recep,
+            }
+
+        # Simple vocabulary contains only object and necessary receptacles
+            simple_vocab = build_vocab_from_category_map(
+                obj_id_to_name, simple_rec_id_to_name
             )
+            ovmmper = OvmmPerception(config, 0, True)
+            ovmmper.update_vocabulary_list(simple_vocab, SemanticVocab.SIMPLE)
+            ovmmper.set_vocabulary(SemanticVocab.SIMPLE)
+            self.grasp_planner = GraspPlanner(
+                self.robot, self, visualize_planner=visualize_planner, semantic_sensor=ovmmper
+            )
+            
         else:
             if visualize_planner:
                 raise RuntimeError(
@@ -235,7 +257,6 @@ class StretchPickandPlaceEnv(StretchEnv):
                 continuous_action = None
                 # Dummy out robot execution code for perception tests
                 if not self.dry_run:
-                    breakpoint()
                     ok = self.grasp_planner.try_grasping(
                         wait_for_input=self.debug,
                         visualize=True,  # (self.test_grasping or self.visualize_grasping),
