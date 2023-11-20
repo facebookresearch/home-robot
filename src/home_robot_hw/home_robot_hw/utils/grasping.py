@@ -7,12 +7,12 @@
 import timeit
 from typing import Optional, Tuple
 
+import cv2
 import numpy as np
 import rospy
 import skimage
 import torch
 import trimesh
-import cv2
 from geometry_msgs.msg import TransformStamped
 
 import home_robot.utils.planar as planar
@@ -161,19 +161,21 @@ class GraspPlanner(GraspClient):
         if obs.semantic is None:
             # Try to use the semantic sensor
             obs = self.semantic_sensor.predict(obs)
-            cv2.imwrite("semframe.png", obs.task_observations['semantic_frame'])
+            cv2.imwrite("semframe.png", obs.task_observations["semantic_frame"])
 
         # Pull object goal from task spec if it was provided by the environment
         # if object_goal is None:
-        object_goal = self.env.task_info["object_name"] # obs.task_observations["object_goal"]
+        object_goal = self.env.task_info[
+            "object_name"
+        ]  # obs.task_observations["object_goal"]
         print("object goal --", object_goal)
         if isinstance(object_goal, str):
             object_goal = self.semantic_sensor.get_class_id_for_name(object_goal)
         print("object goal 2 -- ", object_goal)
         # Choose instance mask with highest score for goal mask
         instance_scores = obs.task_observations["instance_scores"].copy()
-        #instance_classes is 0, check categories. 
-        #run np.unique of this, and object_goal
+        # instance_classes is 0, check categories.
+        # run np.unique of this, and object_goal
         class_mask = obs.task_observations["instance_classes"] == object_goal
         valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
         class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
@@ -212,10 +214,11 @@ class GraspPlanner(GraspClient):
         #     # Get the observation from the environment if it exists
         #     obs = self.env.prev_obs
         # else:
-            # Get the observation directly from the robot itself
-            # This will not have any other information
+        # Get the observation directly from the robot itself
+        # This will not have any other information
         obs = self.robot_client.get_observation()
-        import cv2 
+        import cv2
+
         cv2.imwrite("rgb.png", obs.rgb)
         if obs is None:
             print("[Grasping] No observation available in environment!")
@@ -249,7 +252,9 @@ class GraspPlanner(GraspClient):
                 "seconds",
             )
 
-        instance_map, _, all_object_masks = self.get_object_class_masks(obs, object_goal=object_goal)
+        instance_map, _, all_object_masks = self.get_object_class_masks(
+            obs, object_goal=object_goal
+        )
         # TODO: return to this if we want to take goal mask as an argument in the future
         # For now though we will choose the closest one
         # object_mask = obs.task_observations["goal_mask"]
@@ -257,7 +262,7 @@ class GraspPlanner(GraspClient):
         object_mask = self.get_closest_goal(
             xyz,
             all_object_masks,
-            instance_map, #obs.task_observations["instance_map"],
+            instance_map,  # obs.task_observations["instance_map"],
             debug=False,
         )
 

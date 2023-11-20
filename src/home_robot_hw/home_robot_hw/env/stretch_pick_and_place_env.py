@@ -30,18 +30,24 @@ from home_robot.motion.stretch import (
     STRETCH_POSTNAV_Q,
     STRETCH_PREGRASP_Q,
 )
+from home_robot.perception.wrapper import (
+    OvmmPerception,
+    build_vocab_from_category_map,
+    read_category_map_file,
+)
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.constants import relative_resting_position
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.utils.grasping import GraspPlanner
-from home_robot.perception.wrapper import OvmmPerception, build_vocab_from_category_map, read_category_map_file
+
 
 class SemanticVocab(IntEnum):
     FULL = auto()
     SIMPLE = auto()
     ALL = auto()
+
 
 class StretchPickandPlaceEnv(StretchEnv):
     """Create a Detic-based pick and place environment"""
@@ -104,7 +110,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 1: config.goal_recep,
             }
 
-        # Simple vocabulary contains only object and necessary receptacles
+            # Simple vocabulary contains only object and necessary receptacles
             simple_vocab = build_vocab_from_category_map(
                 obj_id_to_name, simple_rec_id_to_name
             )
@@ -112,9 +118,12 @@ class StretchPickandPlaceEnv(StretchEnv):
             ovmmper.update_vocabulary_list(simple_vocab, SemanticVocab.SIMPLE)
             ovmmper.set_vocabulary(SemanticVocab.SIMPLE)
             self.grasp_planner = GraspPlanner(
-                self.robot, self, visualize_planner=visualize_planner, semantic_sensor=ovmmper
+                self.robot,
+                self,
+                visualize_planner=visualize_planner,
+                semantic_sensor=ovmmper,
             )
-            
+
         else:
             if visualize_planner:
                 raise RuntimeError(
