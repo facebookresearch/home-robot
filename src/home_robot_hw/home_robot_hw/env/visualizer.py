@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import skimage.morphology
 from PIL import Image
+import datetime
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -78,7 +79,10 @@ class Visualizer:
     def __init__(self, config):
         self.show_images = config.VISUALIZE
         self.print_images = config.PRINT_IMAGES
-        self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}"
+        now = datetime.datetime.now()
+        timestamp = now.strftime("%m_%d_%H_%M")
+        self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}/{timestamp}/"
+        print("Visualizations will be saved to", self.default_vis_dir)
         os.makedirs(self.default_vis_dir, exist_ok=True)
 
         self.num_sem_categories = config.AGENT.SEMANTIC_MAP.num_sem_categories

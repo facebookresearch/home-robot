@@ -26,7 +26,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--pick-object", default="cup")
 @click.option("--start-recep", default="chair")
-@click.option("--goal-recep", default="chair")
+@click.option("--goal-recep", default="table")
 @click.option(
     "--cat-map-file", default="projects/real_world_ovmm/configs/example_cat_map.json"
 )
@@ -44,7 +44,7 @@ def main(
     reset_nav=False,
     pick_object="cup",
     start_recep="chair",
-    goal_recep="chair",
+    goal_recep="table",
     dry_run=False,
     visualize_maps=True,
     visualize_grasping=True,

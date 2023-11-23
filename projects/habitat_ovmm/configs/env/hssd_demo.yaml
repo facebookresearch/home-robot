@@ -30,6 +30,6 @@ EVAL_VECTORIZED:
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
   metrics_save_freq: 5      # save metrics after every n episodes
 
-pick_object: "cup"
 start_recep: "chair"
-goal_recep: "chair"
+pick_object: "bowl"
+goal_recep: "table"

@@ -233,7 +233,7 @@ class GraspPlanner(GraspClient):
         camera_pose = camera_pose_base
 
         # TODO: remove debug code
-        if True:
+        if self.debug_point_cloud:
             import trimesh
 
             from home_robot.utils.point_cloud import show_point_cloud
@@ -271,12 +271,14 @@ class GraspPlanner(GraspClient):
             print("[Grasping] --> could not find object mask with enough points")
             return None
 
-        # if visualize:
-        #     viz.show_image_with_mask(rgb, object_mask)
+        if visualize:
+            viz.show_image_with_mask(rgb, object_mask)
 
         num_object_pts = np.sum(object_mask)
         print("[Grasping] found this many object points:", num_object_pts)
+        # breakpoint()
         if num_object_pts < self.min_obj_pts:
+            print("[Grasping] --> not enough points to grasp")
             return None
 
         mask_valid = (
@@ -380,7 +382,7 @@ class GraspPlanner(GraspClient):
             rospy.sleep(sleep_t)
 
             # Get the observations - we need depth and xyz point clouds
-            manip_obs = self.get_observation(object_goal, visualize=visualize)
+            manip_obs = self.get_observation(object_goal, visualize=False)
             if manip_obs is not None:
                 xyz, rgb, camera_pose, object_mask = manip_obs
             else:

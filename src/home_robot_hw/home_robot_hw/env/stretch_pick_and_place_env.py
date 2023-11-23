@@ -267,7 +267,7 @@ class StretchPickandPlaceEnv(StretchEnv):
                 # Dummy out robot execution code for perception tests
                 if not self.dry_run:
                     ok = self.grasp_planner.try_grasping(
-                        wait_for_input=self.debug,
+                        wait_for_input=False,
                         visualize=True,  # (self.test_grasping or self.visualize_grasping),
                         max_tries=1,
                     )
