@@ -213,12 +213,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         )
         obs = self._preprocess_goal(obs, habitat_obs)
         obs = self._preprocess_semantic(obs, habitat_obs)
-        if "robot_head_panoptic" in habitat_obs:
+        if "head_panoptic" in habitat_obs:
             gt_instance_ids = np.maximum(
                 0,
-                habitat_obs["robot_head_panoptic"]
-                - self._instance_ids_start_in_panoptic
-                + 1,
+                habitat_obs["head_panoptic"] - self._instance_ids_start_in_panoptic + 1,
             )[..., 0]
             # to be used for evaluating the instance map
             obs.task_observations["gt_instance_ids"] = gt_instance_ids
