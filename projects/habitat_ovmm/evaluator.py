@@ -17,13 +17,13 @@ from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.info_dict import extract_scalars_from_info
 from omegaconf import DictConfig
 from tqdm import tqdm
+
 from utils.env_utils import create_ovmm_env_fn
 from utils.metrics_utils import get_stats_from_episode_metrics
 
 if TYPE_CHECKING:
     from habitat.core.dataset import BaseEpisode
     from habitat.core.vector_env import VectorEnv
-
     from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
     from home_robot.core.abstract_agent import Agent
 
@@ -39,12 +39,15 @@ class EvaluationType(Enum):
 class OVMMEvaluator(PPOTrainer):
     """Class for creating vectorized environments, evaluating OpenVocabManipAgent on an episode dataset and returning metrics."""
 
-    def __init__(self, eval_config: DictConfig) -> None:
+    def __init__(self, eval_config: DictConfig, data_dir=None) -> None:
         self.metrics_save_freq = eval_config.EVAL_VECTORIZED.metrics_save_freq
         self.results_dir = os.path.join(
             eval_config.DUMP_LOCATION, "results", eval_config.EXP_NAME
         )
         self.videos_dir = eval_config.habitat_baselines.video_dir
+        self.data_dir = data_dir
+        if self.data_dir:
+            os.makedirs(self.data_dir, exist_ok=True)
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
 
@@ -269,11 +272,12 @@ class OVMMEvaluator(PPOTrainer):
                 f"{current_episode.episode_id}"
             )
             current_episode_metrics = {}
-
+            obs_data = [observations]
             while not done:
                 action, info, _ = agent.act(observations)
                 observations, done, hab_info = self._env.apply_action(action, info)
-
+                if self.data_dir:
+                    obs_data.append(observations)
                 if "skill_done" in info and info["skill_done"] != "":
                     metrics = extract_scalars_from_info(hab_info)
                     metrics_at_skill_end = {
@@ -285,6 +289,14 @@ class OVMMEvaluator(PPOTrainer):
                     }
                     if "goal_name" in info:
                         current_episode_metrics["goal_name"] = info["goal_name"]
+
+            if self.data_dir:
+                import pickle
+
+                data_episode_path = os.path.join(self.data_dir, current_episode_key)
+                os.makedirs(data_episode_path, exist_ok=True)
+                with open(os.path.join(data_episode_path, "obs_data.pkl"), "wb") as f:
+                    pickle.dump(obs_data, f)
 
             metrics = extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}
@@ -330,7 +342,6 @@ class OVMMEvaluator(PPOTrainer):
         import time
 
         import grpc
-
         from home_robot_hw.utils.eval_ai import evaluation_pb2, evaluation_pb2_grpc
 
         # Wait for the remote environment to be up and running

@@ -57,7 +57,7 @@ SKILLS:
     min_joint_delta: 0.02
 
   PICK:
-    type: hw
+    type: oracle
 
   NAV_TO_OBJ:
     type: heuristic # heuristic (default) or rl

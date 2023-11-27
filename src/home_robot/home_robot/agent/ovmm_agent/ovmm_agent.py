@@ -10,8 +10,6 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import torch
-from trimesh import transformations as tra
-
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPickPolicy, HeuristicPlacePolicy
@@ -21,6 +19,7 @@ from home_robot.perception.wrapper import (
     build_vocab_from_category_map,
     read_category_map_file,
 )
+from trimesh import transformations as tra
 
 
 class Skill(IntEnum):
@@ -146,10 +145,13 @@ class OpenVocabManipAgent(ObjectNavAgent):
             semantic_frame = np.concatenate(
                 [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
             ).astype(np.uint8)
+        goal_name = getattr(
+            self.config, "pick_object", obs.task_observations["goal_name"]
+        )
         info = {
             "semantic_frame": semantic_frame,
             "semantic_category_mapping": semantic_category_mapping,
-            "goal_name": self.config.pick_object,
+            "goal_name": goal_name,
             "third_person_image": obs.third_person_image,
             "timestep": self.timesteps[0],
             "curr_skill": Skill(self.states[0].item()).name,
@@ -283,12 +285,21 @@ class OpenVocabManipAgent(ObjectNavAgent):
         :update_full_vocabulary: if False, only updates simple vocabulary
         True by default
         """
+        object_name = getattr(
+            self.config, "pick_object", obs.task_observations["object_name"]
+        )
+        start_recep_name = getattr(
+            self.config, "start_recep", obs.task_observations["start_recep_name"]
+        )
+        goal_recep_name = getattr(
+            self.config, "goal_recep", obs.task_observations["place_recep_name"]
+        )
         obj_id_to_name = {
-            0: self.config.pick_object,
+            0: object_name,
         }
         simple_rec_id_to_name = {
-            0: self.config.start_recep,
-            1: self.config.goal_recep,
+            0: start_recep_name,
+            1: goal_recep_name,
         }
 
         # Simple vocabulary contains only object and necessary receptacles
@@ -556,31 +567,32 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info = self._get_info(obs)
 
         self.timesteps[0] += 1
-        print("no rwyz", obs.camera_pose[:3, :3])
-        roll, pitch, yaw = tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")
-        print(f"Roll: {roll}, Pitch: {pitch}, Yaw: {yaw}")
+        if self.verbose:
+            print("no rwyz", obs.camera_pose[:3, :3])
+            roll, pitch, yaw = tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")
+            print(f"Roll: {roll}, Pitch: {pitch}, Yaw: {yaw}")
         action = None
         while action is None:
             if self.states[0] == Skill.NAV_TO_OBJ:
-                print("nav to obj")
+                print(f"step: {self.timesteps[0]} -- nav to obj")
                 action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
-                print("gaze at obj")
+                print(f"step: {self.timesteps[0]} -- gaze at obj")
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
-                print("pick")
+                print(f"step: {self.timesteps[0]} -- pick")
                 action, info, new_state = self._pick(obs, info)
             elif self.states[0] == Skill.NAV_TO_REC:
-                print("nav to rec")
+                print(f"step: {self.timesteps[0]} -- nav to rec")
                 action, info, new_state = self._nav_to_rec(obs, info)
             elif self.states[0] == Skill.GAZE_AT_REC:
-                print("gaze at rec")
+                print(f"step: {self.timesteps[0]} -- gaze at rec")
                 action, info, new_state = self._gaze_at_rec(obs, info)
             elif self.states[0] == Skill.PLACE:
-                print("place")
+                print(f"step: {self.timesteps[0]} -- place")
                 action, info, new_state = self._place(obs, info)
             elif self.states[0] == Skill.FALL_WAIT:
-                print("fall wait")
+                print(f"step: {self.timesteps[0]} -- fall wait")
                 action, info, new_state = self._fall_wait(obs, info)
             else:
                 raise ValueError
