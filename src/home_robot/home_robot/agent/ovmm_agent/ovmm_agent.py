@@ -149,7 +149,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         info = {
             "semantic_frame": semantic_frame,
             "semantic_category_mapping": semantic_category_mapping,
-            "goal_name": self.config.pick_object,
+            "goal_name": obs.task_observations["object_name"],
             "third_person_image": obs.third_person_image,
             "timestep": self.timesteps[0],
             "curr_skill": Skill(self.states[0].item()).name,
