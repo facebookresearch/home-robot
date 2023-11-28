@@ -47,4 +47,4 @@ object_to_find: "bottle"
 location_to_place: "chair"
 
 # VLM Query parameters
-sample_strategy: "divide_and_conquer"
+sample_strategy: "all"

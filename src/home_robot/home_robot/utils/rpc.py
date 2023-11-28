@@ -77,9 +77,13 @@ def get_obj_centric_world_representation(
 ):
     """Get version that LLM can handle - convert images into torch if not already"""
 
-    if sample_strategy == "divide_and_conquer":
+    if sample_strategy == "all":
+        # Send all the crop images so the agent can implement divide and conquer
         pass
     elif sample_strategy == "random_subsample":
+        pass
+    elif sample_strategy == "first":
+        # Send the first images below the context length
         pass
     else:
         pass
