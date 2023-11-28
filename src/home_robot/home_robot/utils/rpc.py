@@ -13,10 +13,10 @@ from loguru import logger
 try:
     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
     import grpc
+    from task_rpc_env_pb2_grpc import AgentgRPCStub
 
     import src.rpc
     import src.rpc.task_rpc_env_pb2
-    from task_rpc_env_pb2_grpc import AgentgRPCStub
     from src.utils.observations import ObjectImage, Observations, ProtoConverter
 except Exception as e:
     ## Temporary hack until we make accel-cortex pip installable
@@ -72,8 +72,18 @@ def parse_pick_and_place_plan(world_representation, plan: str):
     return pick_instance_id, place_instance_id
 
 
-def get_obj_centric_world_representation(instance_memory, max_context_length: int):
+def get_obj_centric_world_representation(
+    instance_memory, max_context_length: int, sample_strategy: str
+):
     """Get version that LLM can handle - convert images into torch if not already"""
+
+    if sample_strategy == "divide_and_conquer":
+        pass
+    elif sample_strategy == "random_subsample":
+        pass
+    else:
+        pass
+
     obs = Observations(object_images=[])
     for global_id, instance in enumerate(instance_memory):
         if global_id >= max_context_length:

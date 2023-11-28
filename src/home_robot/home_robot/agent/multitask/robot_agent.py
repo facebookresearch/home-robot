@@ -251,7 +251,9 @@ class RobotAgent:
 
         instances = self.voxel_map.get_instances()
         world_representation = get_obj_centric_world_representation(
-            instances, self.parameters["vlm_context_length"]
+            instances,
+            self.parameters["vlm_context_length"],
+            self.parameters["sample_strategy"],
         )
 
         return world_representation

@@ -45,3 +45,6 @@ command: "pick up a bottle and put it on the chair"
 exploration_steps: 10
 object_to_find: "bottle"
 location_to_place: "chair"
+
+# VLM Query parameters
+sample_strategy: "divide_and_conquer"
