@@ -143,7 +143,7 @@ class OvmmPerception:
 
     def predict(self, obs: Observations, depth_threshold: float = 0.5) -> Observations:
         """Run with no postprocessing. Updates observation to add semantics."""
-        print(self.current_vocabulary.goal_id_to_goal_name.values())
+        # print(self.current_vocabulary.goal_id_to_goal_name.values())
         return self._segmentation.predict(
             obs,
             depth_threshold=depth_threshold,
