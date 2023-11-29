@@ -11,9 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from atomicwrites import atomic_write
-from loguru import logger
-from PIL import Image
-
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
@@ -30,6 +27,8 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
+from loguru import logger
+from PIL import Image
 
 
 def publish_obs(
@@ -238,14 +237,26 @@ class RobotAgent:
             get_output_from_world_representation,
         )
 
-        instances = self.voxel_map.get_instances()
-        world_representation = get_obj_centric_world_representation(
-            instances, self.parameters["vlm_context_length"]
-        )
+        world_representation = self.get_observations()
         output = get_output_from_world_representation(
             self.rpc_stub, world_representation, self.get_command()
         )
         return output
+
+    def get_observations(self):
+        from home_robot.utils.rpc import (
+            get_obj_centric_world_representation,
+            get_output_from_world_representation,
+        )
+
+        instances = self.voxel_map.get_instances()
+        world_representation = get_obj_centric_world_representation(
+            instances,
+            self.parameters["vlm_context_length"],
+            self.parameters["sample_strategy"],
+        )
+
+        return world_representation
 
     def execute_vlm_plan(self):
         """Get plan from vlm and execute it"""
@@ -267,8 +278,9 @@ class RobotAgent:
         )
 
         plan = output.action
+        breakpoint()
 
-        def confirm_plan():
+        def confirm_plan(p):
             return True  # might need to merge demo_refactor to find this function
 
         logger.info(f"Received plan: {plan}")
@@ -303,8 +315,28 @@ class RobotAgent:
                     place_instance_id = i
                     break
         if pick_instance_id is None or place_instance_id is None:
-            logger.warn("No instances found")
+            logger.warn("No instances found - exploring instead")
+
+            self.run_exploration(
+                5,  # TODO: pass rate into parameters
+                False,  # TODO: pass manual_wait into parameters
+                explore_iter=self.parameters["exploration_steps"],
+                task_goal=None,
+                go_home_at_end=False,  # TODO: pass into parameters
+            )
+
+            self.say("Exploring")
+
             return
+
+        self.say("Navigating to instance ")
+        self.say(f"Instance id: {pick_instance_id}")
+        success = self.navigate_to_an_instance(
+            pick_instance_id,
+            visualize=self.should_visualize(),
+            should_plan=self.parameters["plan_to_instance"],
+        )
+        self.say(f"Success: {success}")
 
     def say(self, msg: str):
         """Provide input either on the command line or via chat client"""
@@ -321,7 +353,9 @@ class RobotAgent:
             return input(msg)
 
     def get_command(self):
-        if "command" in self.parameters:
+        if (
+            "command" in self.parameters.data.keys()
+        ):  # TODO: this was breaking. Should this be a class method
             return self.parameters["command"]
         else:
             return self.ask("please type any task you want the robot to do: ")

@@ -8,14 +8,13 @@ from enum import IntEnum
 from typing import Any, Dict, Optional, Union
 
 import habitat
+import home_robot
+import home_robot.core.interfaces
 import numpy as np
 import torch
 import trimesh.transformations as tra
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
-
-import home_robot
-import home_robot.core.interfaces
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
     ContinuousNavigationAction,
@@ -209,17 +208,15 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             joint=habitat_obs["joint"],
             relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=third_person_image,
-            camera_pose=self.get_real_world_camera_pose(habitat_obs),
+            camera_pose=np.asarray(habitat_obs["camera_pose"]),
             camera_K=self.camera.K,
         )
         obs = self._preprocess_goal(obs, habitat_obs)
         obs = self._preprocess_semantic(obs, habitat_obs)
-        if "robot_head_panoptic" in habitat_obs:
+        if "head_panoptic" in habitat_obs:
             gt_instance_ids = np.maximum(
                 0,
-                habitat_obs["robot_head_panoptic"]
-                - self._instance_ids_start_in_panoptic
-                + 1,
+                habitat_obs["head_panoptic"] - self._instance_ids_start_in_panoptic + 1,
             )[..., 0]
             # to be used for evaluating the instance map
             obs.task_observations["gt_instance_ids"] = gt_instance_ids

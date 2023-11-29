@@ -19,7 +19,7 @@ ENVIRONMENT:
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 21
   category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
-  use_detic_viz: False
+  use_detic_viz: True
   evaluate_instance_tracking: False # whether to evaluate the built instance map against groundtruth instance ids
 
 EVAL_VECTORIZED:
@@ -30,6 +30,6 @@ EVAL_VECTORIZED:
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
   metrics_save_freq: 5      # save metrics after every n episodes
 
-pick_object: "cup"
 start_recep: "chair"
-goal_recep: "couch"
+pick_object: "bowl"
+goal_recep: "table"

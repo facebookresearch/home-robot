@@ -7,12 +7,14 @@
 import json
 import os
 import pickle
+from enum import IntEnum, auto
 from typing import Any, Dict, Optional
 
 import clip
 import numpy as np
 import rospy
 import torch
+import trimesh.transformations as tra
 
 import home_robot
 from home_robot.core.interfaces import (
@@ -28,12 +30,23 @@ from home_robot.motion.stretch import (
     STRETCH_POSTNAV_Q,
     STRETCH_PREGRASP_Q,
 )
+from home_robot.perception.wrapper import (
+    OvmmPerception,
+    build_vocab_from_category_map,
+    read_category_map_file,
+)
 from home_robot.utils.geometry import xyt2sophus
 from home_robot_hw.constants import relative_resting_position
 from home_robot_hw.env.stretch_abstract_env import StretchEnv
 from home_robot_hw.env.visualizer import Visualizer
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.utils.grasping import GraspPlanner
+
+
+class SemanticVocab(IntEnum):
+    FULL = auto()
+    SIMPLE = auto()
+    ALL = auto()
 
 
 class StretchPickandPlaceEnv(StretchEnv):
@@ -89,9 +102,28 @@ class StretchPickandPlaceEnv(StretchEnv):
         if ros_grasping:
             # Create a simple grasp planner object, which will let us pick stuff up.
             # This takes in a reference to the robot client - will replace "self" with "self.client"
-            self.grasp_planner = GraspPlanner(
-                self.robot, self, visualize_planner=visualize_planner
+            obj_id_to_name = {
+                0: config.pick_object,
+            }
+            simple_rec_id_to_name = {
+                0: config.start_recep,
+                1: config.goal_recep,
+            }
+
+            # Simple vocabulary contains only object and necessary receptacles
+            simple_vocab = build_vocab_from_category_map(
+                obj_id_to_name, simple_rec_id_to_name
             )
+            ovmmper = OvmmPerception(config, 0, True)
+            ovmmper.update_vocabulary_list(simple_vocab, SemanticVocab.SIMPLE)
+            ovmmper.set_vocabulary(SemanticVocab.SIMPLE)
+            self.grasp_planner = GraspPlanner(
+                self.robot,
+                self,
+                visualize_planner=visualize_planner,
+                semantic_sensor=ovmmper,
+            )
+
         else:
             if visualize_planner:
                 raise RuntimeError(
@@ -235,8 +267,8 @@ class StretchPickandPlaceEnv(StretchEnv):
                 # Dummy out robot execution code for perception tests
                 if not self.dry_run:
                     ok = self.grasp_planner.try_grasping(
-                        wait_for_input=self.debug,
-                        visualize=(self.test_grasping or self.visualize_grasping),
+                        wait_for_input=False,
+                        visualize=True,  # (self.test_grasping or self.visualize_grasping),
                         max_tries=1,
                     )
                     self.prev_grasp_success = ok
@@ -400,6 +432,9 @@ class StretchPickandPlaceEnv(StretchEnv):
             joint=self.robot.model.config_to_hab(joint_positions),
             relative_resting_position=relative_resting_position,
         )
+        print("no rwyz", obs.camera_pose[:3, :3])
+        roll, pitch, yaw = tra.euler_from_matrix(obs.camera_pose[:3, :3], "rzyx")
+        print(f"Roll: {roll}, Pitch: {pitch}, Yaw: {yaw}")
         obs.task_observations["prev_grasp_success"] = np.array(
             [self.prev_grasp_success], np.float32
         )

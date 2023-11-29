@@ -20,14 +20,14 @@ from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 @click.option("--test-pick", default=False, is_flag=True)
 @click.option("--test-gaze", default=False, is_flag=True)
 @click.option("--test-place", default=False, is_flag=True)
-@click.option("--skip-gaze", default=True, is_flag=True)
+@click.option("--skip-gaze", default=False, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--pick-object", default="cup")
-@click.option("--start-recep", default="table")
-@click.option("--goal-recep", default="chair")
+@click.option("--start-recep", default="chair")
+@click.option("--goal-recep", default="table")
 @click.option("--visualize-maps", default=False, is_flag=True)
-@click.option("--show-observations", default=False, is_flag=True)
+@click.option("--show-observations", default=True, is_flag=True)
 @click.option(
     "--cat-map-file", default="projects/real_world_ovmm/configs/example_cat_map.json"
 )

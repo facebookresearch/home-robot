@@ -7,6 +7,7 @@
 import timeit
 from typing import Optional, Tuple
 
+import cv2
 import numpy as np
 import rospy
 import skimage
@@ -96,7 +97,10 @@ class GraspPlanner(GraspClient):
         """Return the closest object mask to the camera"""
         W, H = class_mask.shape
         # Compute list of unique ids -- (-1) is background
+        print(np.unique(instances))
+        print(np.unique(class_mask))
         unique_ids = np.unique((instances + 1) * class_mask) - 1
+        print(unique_ids)
         pts = xyz.reshape(-1, 3)
         min_dist = float("Inf")
         min_id = -1
@@ -145,7 +149,7 @@ class GraspPlanner(GraspClient):
     def get_object_class_masks(
         self,
         obs: Observations,
-        object_goal: Optional[str] = None,
+        object_goal: Optional[str] = "cup",
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Get object and class information from the perception system.
 
@@ -157,15 +161,21 @@ class GraspPlanner(GraspClient):
         if obs.semantic is None:
             # Try to use the semantic sensor
             obs = self.semantic_sensor.predict(obs)
+            cv2.imwrite("semframe.png", obs.task_observations["semantic_frame"])
 
         # Pull object goal from task spec if it was provided by the environment
-        if object_goal is None:
-            object_goal = obs.task_observations["object_goal"]
-        elif isinstance(object_goal, str):
+        # if object_goal is None:
+        object_goal = self.env.task_info[
+            "object_name"
+        ]  # obs.task_observations["object_goal"]
+        print("object goal --", object_goal)
+        if isinstance(object_goal, str):
             object_goal = self.semantic_sensor.get_class_id_for_name(object_goal)
-
+        print("object goal 2 -- ", object_goal)
         # Choose instance mask with highest score for goal mask
         instance_scores = obs.task_observations["instance_scores"].copy()
+        # instance_classes is 0, check categories.
+        # run np.unique of this, and object_goal
         class_mask = obs.task_observations["instance_classes"] == object_goal
         valid_instances = (instance_scores * class_mask) > self.min_detection_threshold
         class_map = np.zeros_like(obs.task_observations["instance_map"]).astype(bool)
@@ -189,7 +199,7 @@ class GraspPlanner(GraspClient):
         else:
             best_goal_mask = np.zeros_like(obs.semantic).astype(bool)
 
-        return best_goal_mask, class_map
+        return obs.task_observations["instance_map"], best_goal_mask, class_map
 
     def _ensure_manipulation_mode(self):
         """Make sure we are in the manipulation mode"""
@@ -199,16 +209,17 @@ class GraspPlanner(GraspClient):
 
     def get_observation(self, object_goal, visualize: bool = False):
         """Get a single updated observation and make sure we get the pose and object mask for it"""
-
         t0 = timeit.default_timer()
-        if self.env is not None:
-            # Get the observation from the environment if it exists
-            obs = self.env.prev_obs
-        else:
-            # Get the observation directly from the robot itself
-            # This will not have any other information
-            obs = self.robot_client.get_observation()
+        # if self.env is not None:
+        #     # Get the observation from the environment if it exists
+        #     obs = self.env.prev_obs
+        # else:
+        # Get the observation directly from the robot itself
+        # This will not have any other information
+        obs = self.robot_client.get_observation()
+        import cv2
 
+        cv2.imwrite("rgb.png", obs.rgb)
         if obs is None:
             print("[Grasping] No observation available in environment!")
             return None
@@ -241,7 +252,9 @@ class GraspPlanner(GraspClient):
                 "seconds",
             )
 
-        _, all_object_masks = self.get_object_class_masks(obs, object_goal=object_goal)
+        instance_map, _, all_object_masks = self.get_object_class_masks(
+            obs, object_goal=object_goal
+        )
         # TODO: return to this if we want to take goal mask as an argument in the future
         # For now though we will choose the closest one
         # object_mask = obs.task_observations["goal_mask"]
@@ -249,7 +262,7 @@ class GraspPlanner(GraspClient):
         object_mask = self.get_closest_goal(
             xyz,
             all_object_masks,
-            obs.task_observations["instance_map"],
+            instance_map,  # obs.task_observations["instance_map"],
             debug=False,
         )
 
@@ -263,7 +276,9 @@ class GraspPlanner(GraspClient):
 
         num_object_pts = np.sum(object_mask)
         print("[Grasping] found this many object points:", num_object_pts)
+        # breakpoint()
         if num_object_pts < self.min_obj_pts:
+            print("[Grasping] --> not enough points to grasp")
             return None
 
         mask_valid = (
@@ -280,7 +295,7 @@ class GraspPlanner(GraspClient):
         object_goal: Optional[str] = None,
         max_tries: int = 1,
         visualize: bool = False,
-        sleep_t: float = 0.5,
+        sleep_t: float = 5,
     ):
         """Detect and place at different locations."""
         self._ensure_manipulation_mode()
@@ -367,7 +382,7 @@ class GraspPlanner(GraspClient):
             rospy.sleep(sleep_t)
 
             # Get the observations - we need depth and xyz point clouds
-            manip_obs = self.get_observation(object_goal, visualize=visualize)
+            manip_obs = self.get_observation(object_goal, visualize=False)
             if manip_obs is not None:
                 xyz, rgb, camera_pose, object_mask = manip_obs
             else:
