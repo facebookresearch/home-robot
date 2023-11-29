@@ -135,7 +135,7 @@ class RobotAgent:
         self.guarantee_instance_is_reachable = (
             parameters.guarantee_instance_is_reachable
         )
-
+        self.obs_history = []
         # Wrapper for SparseVoxelMap which connects to ROS
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
@@ -255,8 +255,22 @@ class RobotAgent:
             self.parameters["vlm_context_length"],
             self.parameters["sample_strategy"],
         )
-
+        # self.save_svm()
+        self.obs_history.append(self.robot.get_observation())
+        # self.save_obs_history()
         return world_representation
+
+    def save_svm(self):
+        import pickle
+
+        with open(os.path.join(self.robot.debug_path, "svm.pkl"), "wb") as f:
+            pickle.dump(self.voxel_map, f)
+
+    def save_obs_history(self):
+        import pickle
+
+        with open(os.path.join(self.robot.debug_path, "obs_data.pkl"), "wb") as f:
+            pickle.dump(self.obs_history, f)
 
     def execute_vlm_plan(self):
         """Get plan from vlm and execute it"""
@@ -401,7 +415,14 @@ class RobotAgent:
         obs = self.semantic_sensor.predict(obs)
 
         # Add observation - helper function will unpack it
-        self.voxel_map.add_obs(obs)
+        # import pdb; pdb.set_trace()
+        import copy
+
+        voxel_obs = copy.deepcopy(obs)
+        voxel_obs.rgb = voxel_obs.rgb / 255.0
+        self.voxel_map.add_obs(voxel_obs)
+        # obs.rgb = obs.rgb / 255.0
+        # self.voxel_map.add_obs(obs)
         if visualize_map:
             # Now draw 2d
             self.voxel_map.get_2d_map(debug=True)

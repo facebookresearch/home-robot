@@ -2,6 +2,9 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import os
+import shutil
+import time
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import imageio
@@ -55,12 +58,16 @@ class OvmmSimClient(RobotClient):
                 manip_mode_controlled_joints=None,
             )
 
+        self.debug_path = os.path.join(os.getcwd(), "frames")
+        shutil.rmtree(self.debug_path, ignore_errors=True)
+        os.makedirs(self.debug_path, exist_ok=True)
+
     def navigate_to(
         self,
         xyt: ContinuousNavigationAction,
         relative: bool = False,
         blocking: bool = False,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         """Move to xyt in global coordinates or relative coordinates."""
         if not relative:
@@ -141,9 +148,17 @@ class OvmmSimClient(RobotClient):
         else:
             self._last_motion_failed = True
         self.video_frames.append(self.obs.third_person_image)
+        # self.save_frame()
 
     def last_motion_failed(self):
         return self._last_motion_failed
+
+    def save_frame(self):
+        """Save frame for debug the sim client at each step"""
+        imageio.imwrite(
+            os.path.join(self.debug_path, str(time.time()) + ".png"),
+            self.obs.third_person_image,
+        )
 
     def make_video(self):
         """Save a video for this sim client"""
