@@ -31,7 +31,7 @@ git submodule update -f src/home_robot/home_robot/perception/detection/detic/Det
 ```
 
 ```
-mamba env create -n home-robot -f projects/vlm_planning/environment.yaml
+mamba env create -n home-robot -f src/home_robot_spot/env.yaml
 ```
 
  If `mamba` not found, `conda install -c conda-forge mamba --yes`
