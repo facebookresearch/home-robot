@@ -12,7 +12,7 @@
 #### Home-Robot
 ```
 git clone https://github.com/facebookresearch/home-robot.git --recursive
-cd home-robot && git checkout demo_grasp
+cd home-robot && git checkout demo-refactor
 ```
 
 ```
