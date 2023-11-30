@@ -16,7 +16,7 @@ cd home-robot && git checkout demo-refactor
 ```
 
 ```
-echo 'alias HOME_ROBOT_ROOT=<path/to/home-robot>' >> ~/.bashrc 
+echo 'export HOME_ROBOT_ROOT=<path/to/home-robot>' >> ~/.bashrc 
 source ~/.bashrc
 ```
 
