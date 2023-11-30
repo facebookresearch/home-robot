@@ -12,11 +12,11 @@
 #### Home-Robot
 ```
 git clone https://github.com/facebookresearch/home-robot.git --recursive
-cd home-robot && git checkout demo_grasp
+cd home-robot && git checkout demo-refactor
 ```
 
 ```
-echo 'alias HOME_ROBOT_ROOT=<path/to/home-robot>' >> ~/.bashrc 
+echo 'export HOME_ROBOT_ROOT=<path/to/home-robot>' >> ~/.bashrc 
 source ~/.bashrc
 ```
 
@@ -31,7 +31,7 @@ git submodule update -f src/home_robot/home_robot/perception/detection/detic/Det
 ```
 
 ```
-mamba env create -n home-robot -f projects/vlm_planning/environment.yaml
+mamba env create -n home-robot -f src/home_robot_spot/env.yaml
 ```
 
  If `mamba` not found, `conda install -c conda-forge mamba --yes`

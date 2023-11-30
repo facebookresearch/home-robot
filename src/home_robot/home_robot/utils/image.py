@@ -107,7 +107,8 @@ class Camera(object):
         self.pose_matrix = pose_matrix
         self.pos = pos
         self.orn = orn
-        self.K = np.array([[self.fx, 0, self.px], [0, self.fy, self.py], [0, 0, 1]])
+        # symmetric pinhole should have the same xy focal length
+        self.K = np.array([[self.fy, 0, self.px], [0, self.fy, self.py], [0, 0, 1]])
 
     def to_dict(self):
         """create a dictionary so that we can extract the necessary information for
@@ -169,6 +170,55 @@ def z_from_opengl_depth(depth, camera: Camera):
 # R_CORRECTION = R1 @ R2
 T_CORRECTION = tra.euler_matrix(0, 0, np.pi / 2)
 R_CORRECTION = T_CORRECTION[:3, :3]
+
+
+def opengl_to_opencv(pose):
+    transform = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+    pose = pose @ transform
+    return pose
+
+
+def convert_xz_y_to_xyz(camera_pose_xz_y):
+    # Extract rotation matrix and translation vector from the camera pose
+    rotation_matrix_xz_y = camera_pose_xz_y[:3, :3]
+    translation_vector_xz_y = camera_pose_xz_y[:3, 3]
+
+    # Convert rotation matrix from XZ-Y to XYZ convention
+    rotation_matrix_xyz = np.array(
+        [
+            [
+                rotation_matrix_xz_y[0, 0],
+                rotation_matrix_xz_y[0, 1],
+                rotation_matrix_xz_y[0, 2],
+            ],
+            [
+                -rotation_matrix_xz_y[2, 0],
+                -rotation_matrix_xz_y[2, 1],
+                -rotation_matrix_xz_y[2, 2],
+            ],
+            [
+                rotation_matrix_xz_y[1, 0],
+                rotation_matrix_xz_y[1, 1],
+                rotation_matrix_xz_y[1, 2],
+            ],
+        ]
+    )
+
+    # Convert translation vector from XZ-Y to XYZ convention
+    translation_vector_xyz = np.array(
+        [
+            translation_vector_xz_y[0],
+            -translation_vector_xz_y[2],
+            translation_vector_xz_y[1],
+        ]
+    )
+
+    # Create the new camera pose matrix in XYZ convention
+    camera_pose_xyz = np.eye(4)
+    camera_pose_xyz[:3, :3] = rotation_matrix_xyz
+    camera_pose_xyz[:3, 3] = translation_vector_xyz
+
+    return camera_pose_xyz
 
 
 def opengl_depth_to_xyz(depth, camera: Camera):

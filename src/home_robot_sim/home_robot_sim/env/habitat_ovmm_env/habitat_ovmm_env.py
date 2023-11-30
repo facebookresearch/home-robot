@@ -31,7 +31,7 @@ from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
 )
-from home_robot.utils.image import Camera
+from home_robot.utils.image import Camera, convert_xz_y_to_xyz, opengl_to_opencv
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 
@@ -208,7 +208,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             joint=habitat_obs["joint"],
             relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=third_person_image,
-            camera_pose=np.asarray(habitat_obs["camera_pose"]),
+            camera_pose=convert_xz_y_to_xyz(
+                opengl_to_opencv(np.asarray(habitat_obs["camera_pose"]))
+            ),
             camera_K=self.camera.K,
         )
         obs = self._preprocess_goal(obs, habitat_obs)
