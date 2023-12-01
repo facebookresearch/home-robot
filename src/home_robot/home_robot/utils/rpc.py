@@ -42,6 +42,14 @@ def parse_pick_and_place_plan(world_representation, plan: str):
     # TODO: make it more general for all actions
     # get pick instance id
     current_high_level_action = plan.split("; ")[0]
+
+    # addtional format checking of whether the current action is in the robot's skill set
+    if not any(
+        action in current_high_level_action
+        for action in ["goto", "pickup", "placeon", "explore"]
+    ):
+        return None, None
+
     pick_instance_id = int(
         world_representation.object_images[
             int(
