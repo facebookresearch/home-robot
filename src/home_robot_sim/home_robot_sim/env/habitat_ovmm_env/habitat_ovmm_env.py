@@ -12,6 +12,7 @@ import numpy as np
 import torch
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
+from habitat_baselines.utils.common import generate_video
 
 import home_robot
 import home_robot.core.interfaces
@@ -59,7 +60,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.max_depth = config.ENVIRONMENT.max_depth
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
         self._dataset = dataset
-        self.visualize = config.VISUALIZE or config.PRINT_IMAGES
+        self.record_videos = config.get("EVAL_VECTORIZED", {}).get(
+            "record_videos", False
+        )
+        self.visualize = config.VISUALIZE or config.PRINT_IMAGES or self.record_videos
         if self.visualize:
             self.visualizer = Visualizer(config, dataset)
 
@@ -104,6 +108,29 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             return self.habitat_env.current_episode()
         else:
             return self.habitat_env.current_episode
+
+    def save_video(self, video_dir, episode_key, metrics):
+        if self.record_videos:
+            frames = self.visualizer.get_frames()
+            generate_video(
+                video_option="disk",
+                video_dir=video_dir,
+                # Since the final frame is the start frame of the next episode.
+                images=frames[:-1],
+                episode_id=episode_key,
+                checkpoint_idx=0,
+                metrics=metrics,
+                fps=30,
+                tb_writer=None,
+                keys_to_include_in_name=[
+                    "ovmm_find_object_phase_success",
+                    "ovmm_pick_object_phase_success",
+                    "ovmm_find_recep_phase_success",
+                    "ovmm_place_success",
+                    "num_steps",
+                    "robot_collisions.robot_scene_colls",
+                ],
+            )
 
     def set_vis_dir(self):
         scene_id = self.get_current_episode().scene_id.split("/")[-1].split(".")[0]
@@ -159,12 +186,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         )
         obs = self._preprocess_goal(obs, habitat_obs)
         obs = self._preprocess_semantic(obs, habitat_obs)
-        if "robot_head_panoptic" in habitat_obs:
+        if "head_panoptic" in habitat_obs:
             gt_instance_ids = np.maximum(
                 0,
-                habitat_obs["robot_head_panoptic"]
-                - self._instance_ids_start_in_panoptic
-                + 1,
+                habitat_obs["head_panoptic"] - self._instance_ids_start_in_panoptic + 1,
             )[..., 0]
             # to be used for evaluating the instance map
             obs.task_observations["gt_instance_ids"] = gt_instance_ids
@@ -349,7 +374,8 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 info["curr_action"] = str([round(a, 3) for a in action.xyt])
             if type(action) == DiscreteNavigationAction:
                 info["curr_action"] = DiscreteNavigationAction(action).name
-            self._process_info(info)
+            else:
+                info["curr_action"] = "Cont Nav+Manip"
         habitat_action = self._preprocess_action(action, self._last_habitat_obs)
         habitat_obs, _, dones, infos = self.habitat_env.step(habitat_action)
         if info is not None:
@@ -357,6 +383,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             for key in info:
                 if key.startswith("is_curr_skill"):
                     infos[key] = info[key]
+            infos["curr_action"] = info["curr_action"]
+            info["metrics"] = infos
+            self._process_info(info)
         self._last_habitat_obs = habitat_obs
         self._last_obs = self._preprocess_obs(habitat_obs)
         return self._last_obs, dones, infos

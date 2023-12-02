@@ -42,7 +42,12 @@ class OVMMEvaluator(PPOTrainer):
         self.results_dir = os.path.join(
             eval_config.DUMP_LOCATION, "results", eval_config.EXP_NAME
         )
-        self.videos_dir = eval_config.habitat_baselines.video_dir
+        self.videos_dir = os.path.join(
+            eval_config.DUMP_LOCATION, "videos", eval_config.EXP_NAME
+        )
+        self.record_videos = eval_config.get("EVAL_VECTORIZED", {}).get(
+            "record_videos", False
+        )
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.videos_dir, exist_ok=True)
 
@@ -168,6 +173,13 @@ class OVMMEvaluator(PPOTrainer):
                             f"Episode indexes {episode_idxs[e]} / {num_episodes_per_env[e]} "
                             f"after {round(time.time() - start_time, 2)} seconds"
                         )
+                    if self.record_videos:
+                        self.envs.call_at(
+                            e,
+                            "save_video",
+                            os.path.join(self.videos_dir, f"{episode_key}.mp4"),
+                        )
+
                     if len(episode_metrics) % self.metrics_save_freq == 0:
                         aggregated_metrics = self._aggregate_metrics(episode_metrics)
                         self._write_results(episode_metrics, aggregated_metrics)
@@ -292,6 +304,11 @@ class OVMMEvaluator(PPOTrainer):
             }
             if "goal_name" in info:
                 current_episode_metrics["goal_name"] = info["goal_name"]
+
+            if self.record_videos:
+                self._env.save_video(
+                    os.path.join(self.videos_dir), current_episode_key, metrics
+                )
 
             episode_metrics[current_episode_key] = current_episode_metrics
             if len(episode_metrics) % self.metrics_save_freq == 0:

@@ -59,12 +59,13 @@ def get_metrics_from_jsons(folder_name: str, exp_name: str) -> pd.DataFrame:
             If no valid JSON files are found or an error occurs during reading, None is returned.
     """
     df = read_single_json(os.path.join(folder_name, exp_name, "episode_results.json"))
+
+    dfs = []
+
     if df is not None:
         df["start_idx"] = 0
-        return df
-
+        dfs.append(df)
     # collect stats for all episodes
-    dfs = []
     for subfolder in os.listdir(os.path.join(folder_name, exp_name)):
         if not os.path.isdir(os.path.join(folder_name, exp_name, subfolder)):
             continue
@@ -113,6 +114,15 @@ def get_summary(args: argparse.Namespace, exclude_substr: str = "viz"):
         episode_metrics = get_metrics_from_jsons(args.folder_name, exp_name)
         if episode_metrics is None:
             continue
+        episode_metrics = episode_metrics.reset_index()
+        episode_metrics.drop_duplicates(subset="index", inplace=True, keep="last")
+        episode_metrics.set_index("index", inplace=True)
+        # Now save the scene and episode ids of complete episodes to args.folder_name/completed_ids.txt
+        episode_ids = episode_metrics.index.values.tolist()
+        with open(
+            os.path.join(args.folder_name, exp_name, "completed_episodes.txt"), "w"
+        ) as f:
+            f.write("\n".join(episode_ids))
         stats = get_stats_from_episode_metrics(episode_metrics)
 
         results_dfs[exp_name] = stats

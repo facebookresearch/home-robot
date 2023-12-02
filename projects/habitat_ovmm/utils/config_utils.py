@@ -12,6 +12,13 @@ from habitat_baselines.config.default import get_config as _get_habitat_config
 from omegaconf import DictConfig, OmegaConf
 
 
+def split_config_overrides(overrides):
+    agent_overrides = {}
+    env_overrides = {}
+    habitat_overrides = {}
+    return agent_overrides, env_overrides, overrides
+
+
 def get_habitat_config(
     config_path: str,
     overrides: Optional[list] = None,
@@ -49,8 +56,8 @@ def create_env_config(
     """
 
     env_config = DictConfig({**habitat_config, **env_config})
-
-    visualize = env_config.VISUALIZE or env_config.PRINT_IMAGES
+    record_videos = env_config.get("EVAL_VECTORIZED", {}).get("record_videos", False)
+    visualize = env_config.VISUALIZE or env_config.PRINT_IMAGES or record_videos
     if not visualize:
         if "third_rgb" in env_config.habitat.gym.obs_keys:
             env_config.habitat.gym.obs_keys.remove("third_rgb")

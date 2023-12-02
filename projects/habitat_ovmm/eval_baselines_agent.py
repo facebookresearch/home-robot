@@ -13,6 +13,7 @@ from utils.config_utils import (
     create_env_config,
     get_habitat_config,
     get_omega_config,
+    split_config_overrides,
 )
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
@@ -65,9 +66,13 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    agent_overrides, env_overrides, habitat_overrides = split_config_overrides(
+        args.overrides
+    )
+
     # get habitat config
     habitat_config, _ = get_habitat_config(
-        args.habitat_config_path, overrides=args.overrides
+        args.habitat_config_path, overrides=habitat_overrides
     )
 
     # get baseline config

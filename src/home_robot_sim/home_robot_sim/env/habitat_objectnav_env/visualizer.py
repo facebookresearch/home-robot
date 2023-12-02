@@ -11,6 +11,7 @@ from typing import List, Optional
 import cv2
 import numpy as np
 import skimage.morphology
+from habitat.utils.visualizations.utils import overlay_frame
 from omegaconf import DictConfig
 from PIL import Image
 
@@ -35,6 +36,7 @@ class VIS_LAYOUT:
     MIDDLE_PADDING = 15
     TOP_PADDING = 50
     LEGEND_TOP_PADDING = 5
+    LEGEND_LEFT_PADDING = 300
     BOTTOM_PADDING = 120
     Y1 = TOP_PADDING
     Y2 = TOP_PADDING + HEIGHT
@@ -61,6 +63,9 @@ class Visualizer:
     def __init__(self, config, dataset=None):
         self.show_images = config.VISUALIZE
         self.print_images = config.PRINT_IMAGES
+        self.record_videos = config.get("EVAL_VECTORIZED", {}).get(
+            "record_videos", False
+        )
         self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}"
         self._dataset = dataset
         os.makedirs(self.default_vis_dir, exist_ok=True)
@@ -132,6 +137,10 @@ class Visualizer:
         self.num_sem_categories = None
         self.map_resolution = None
         self.map_shape = None
+        self.frames = []
+
+    def get_frames(self):
+        return self.frames
 
     def set_map_params(self, map_config: DictConfig):
         """
@@ -155,9 +164,9 @@ class Visualizer:
         self.image_vis = None
         self.visited_map_vis = None
         self.last_xy = None
+        self.frames = []
 
     def set_vis_dir(self, scene_id: str, episode_id: str):
-        self.print_images = True
         self.vis_dir = os.path.join(self.default_vis_dir, f"{scene_id}_{episode_id}")
         shutil.rmtree(self.vis_dir, ignore_errors=True)
         os.makedirs(self.vis_dir, exist_ok=True)
@@ -264,6 +273,7 @@ class Visualizer:
         semantic_map_config=None,
         instance_map: Optional[np.ndarray] = None,
         instance_memory: Optional[InstanceMemory] = None,
+        metrics: Optional[dict] = None,
         **kwargs,
     ):
         """Visualize frame input and semantic map.
@@ -290,7 +300,7 @@ class Visualizer:
             rl_obs_frame: variable sized image containing all observations passed to RL (useful for debugging)
         """
         # Do nothing if visualization is off
-        if not self.show_images and not self.print_images:
+        if not self.show_images and not self.print_images and not self.record_videos:
             return
 
         if semantic_category_mapping is not None:
@@ -454,6 +464,12 @@ class Visualizer:
                 os.path.join(self.vis_dir, "snapshot_{:03d}.png".format(timestep)),
                 image_vis,
             )
+        if self.record_videos:
+            if metrics is not None:
+                image_vis_rgb = image_vis[:, :, ::-1].copy()
+                # TODO: add font_size as a parameter to the function defined in habitat-lab
+                image_vis = overlay_frame(image_vis_rgb, metrics, font_size=0.4)
+            self.frames.append(image_vis)
 
     def _visualize_semantic_frame(
         self, image_vis: np.ndarray, semantic_frame: np.ndarray, palette: List
@@ -577,7 +593,7 @@ class Visualizer:
                 vis_image, text, V.TOP_DOWN_X1, 0, V.TOP_DOWN_W, V.TOP_PADDING
             )
 
-            text = "Instance counts"
+            text = "Third person image"
             vis_image = self._put_text_on_image(
                 vis_image, text, V.THIRD_PERSON_X1, 0, V.THIRD_PERSON_W, V.TOP_PADDING
             )
@@ -612,7 +628,9 @@ class Visualizer:
             legend = cv2.imread(self.semantic_category_mapping.categories_legend_path)
             lx, ly, _ = legend.shape
             vis_image[
-                V.Y2 + V.LEGEND_TOP_PADDING : V.Y2 + lx + V.LEGEND_TOP_PADDING, 0:ly, :
+                V.Y2 + V.LEGEND_TOP_PADDING : V.Y2 + lx + V.LEGEND_TOP_PADDING,
+                V.LEGEND_LEFT_PADDING : ly + V.LEGEND_LEFT_PADDING,
+                :,
             ] = legend
 
         return vis_image
