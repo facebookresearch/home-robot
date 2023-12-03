@@ -321,6 +321,7 @@ class PPOAgent(Agent):
         )
         hab_obs = OrderedDict(
             {
+                "object_category": obs.task_observations["object_category"],
                 "head_depth": np.expand_dims(normalized_depth, -1).astype(np.float32),
                 "object_embedding": obs.task_observations["object_embedding"],
                 "object_segmentation": np.expand_dims(
@@ -480,6 +481,8 @@ class PPOAgent(Agent):
             cont_action[2] = self.discrete_turn
         elif discrete_action == "turn_right":
             cont_action[2] = -self.discrete_turn
+        elif discrete_action == "snap":
+            return DiscreteNavigationAction.SNAP_OBJECT
         elif discrete_action == "stop":
             return DiscreteNavigationAction.STOP
         else:

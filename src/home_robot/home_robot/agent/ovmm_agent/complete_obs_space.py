@@ -93,6 +93,13 @@ def get_complete_obs_space(skill_config, baseline_config):
                 (1,),
                 np.int64,
             ),
+            "object_category": spaces.Box(
+                0,
+                baseline_config.ENVIRONMENT.num_train_val_categories
+                - 1,  # TODO: remove this
+                (1,),
+                np.int64,
+            ),
             "goal_receptacle": spaces.Box(
                 0,
                 baseline_config.ENVIRONMENT.num_receptacles - 1,

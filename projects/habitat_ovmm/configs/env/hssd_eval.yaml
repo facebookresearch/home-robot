@@ -18,6 +18,7 @@ ENVIRONMENT:
   min_depth: 0.0          # minimum depth for depth sensor (in metres)
   max_depth: 10.0         # maximum depth for depth sensor (in metres)
   num_receptacles: 21
+  num_train_val_categories: 108
   category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
   use_detic_viz: False
   evaluate_instance_tracking: False # whether to evaluate the built instance map against groundtruth instance ids

@@ -30,9 +30,15 @@ habitat_baselines:
               - head_depth
               - ovmm_nav_goal_segmentation
               - receptacle_segmentation
+              - object_segmentation
+              - start_recep_segmentation
+              - goal_recep_segmentation
             semantic_keys:
               - ovmm_nav_goal_segmentation
               - receptacle_segmentation
+              - object_segmentation
+              - start_recep_segmentation
+              - goal_recep_segmentation
           center_cropper:
             type: CenterCropper
             height: 160

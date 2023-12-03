@@ -25,6 +25,7 @@ from home_robot.motion.stretch import (
     STRETCH_ARM_EXTENSION,
     STRETCH_ARM_LIFT,
     STRETCH_NAVIGATION_Q,
+    STRETCH_POSTNAV_Q,
     STRETCH_PREGRASP_Q,
     map_joint_q_state_to_action_space,
 )
@@ -175,6 +176,9 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 "object_embedding": habitat_obs["object_embedding"],
                 "start_receptacle": habitat_obs["start_receptacle"],
                 "goal_receptacle": habitat_obs["goal_receptacle"],
+                "object_category": habitat_obs[
+                    "object_category"
+                ],  # Todo: this shouldn't be required, remove this
                 "prev_grasp_success": habitat_obs["is_holding"],
             },
             joint=habitat_obs["joint"],
@@ -340,7 +344,11 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 target_joint_pos[SimJointActionIndex.ARM] = STRETCH_ARM_EXTENSION
                 target_joint_pos[SimJointActionIndex.LIFT] = STRETCH_ARM_LIFT
                 arm_action = target_joint_pos - curr_joint_pos
-
+            # elif action == DiscreteNavigationAction.POST_NAV_MODE: # TODO: post-nav  mode has -1.5 instead of -1.57
+            #     target_joint_pos = map_joint_q_state_to_action_space(
+            #         STRETCH_POSTNAV_Q
+            #     )
+            #     arm_action = target_joint_pos - curr_joint_pos
             stop = float(action == DiscreteNavigationAction.STOP) * 2 - 1
             cont_action = np.concatenate(
                 [
