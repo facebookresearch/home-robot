@@ -11,7 +11,6 @@ import skfmm
 import skimage
 import skimage.morphology
 import torch
-
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion import XYT, RobotModel
 from home_robot.utils.geometry import angle_difference, interpolate_angles
@@ -376,6 +375,23 @@ class SparseVoxelMapNavigationSpace(XYT):
         # We failed to find anything useful
         return None
 
+    def has_zero_contour(self, phi):
+        """
+        Check if a zero contour exists in the given phi array.
+
+        Parameters:
+        - phi: 2D NumPy array with boolean values.
+
+        Returns:
+        - True if a zero contour exists, False otherwise.
+        """
+        # Check if there are True and False values in the array
+        has_true_values = np.any(phi)
+        has_false_values = np.any(~phi)
+
+        # Return True if both True and False values are present
+        return has_true_values and has_false_values
+
     def sample_closest_frontier(
         self,
         xyt: np.ndarray,
@@ -394,7 +410,6 @@ class SparseVoxelMapNavigationSpace(XYT):
             debug(bool): show visualizations of frontiers
             step_dist(float): how far apart in geo dist these points should be
         """
-
         assert (
             len(xyt) == 2 or len(xyt) == 3
         ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
@@ -444,6 +459,14 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         m[start_x, start_y] = 0
         m = np.ma.masked_array(m, ~traversible)
+
+        # import pickle
+        # with open('debug_m.pkl', 'wb') as f:
+        #     pickle.dump(m, f)
+        # print (~traversible)
+        if not self.has_zero_contour(m):
+            return None
+
         distance_map = skfmm.distance(m, dx=1)
         frontier_map = distance_map.copy()
         # Masks are the areas we are ignoring - ignore everything but the frontiers

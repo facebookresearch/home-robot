@@ -47,6 +47,7 @@ class OvmmSimClient(RobotClient):
         self.hab_info = None
 
         self.video_frames = []
+        self.fpv_video_frames = []
 
         if is_stretch_robot:
             self._robot_model = HelloStretchKinematics(
@@ -57,10 +58,8 @@ class OvmmSimClient(RobotClient):
                 ee_link_name=None,
                 manip_mode_controlled_joints=None,
             )
-
-        self.debug_path = os.path.join(os.getcwd(), "frames")
-        shutil.rmtree(self.debug_path, ignore_errors=True)
-        os.makedirs(self.debug_path, exist_ok=True)
+        self.num_action_applied = 0
+        self.force_quit = False
 
     def navigate_to(
         self,
@@ -86,7 +85,9 @@ class OvmmSimClient(RobotClient):
         """Reset everything in the robot's internal state"""
         self.obs = self.env.reset()
         self.video_frames = [self.obs.third_person_image]
+        self.num_action_applied = 0
         self.done = False
+        self.force_quit = False
 
     def switch_to_navigation_mode(self) -> bool:
         """Apply sim navigation mode action and set internal state"""
@@ -114,6 +115,7 @@ class OvmmSimClient(RobotClient):
         """Return object_to_find and location_to_place"""
         return (
             self.obs.task_observations["object_name"],
+            self.obs.task_observations["start_recep_name"],
             self.obs.task_observations["place_recep_name"],
         )
 
@@ -129,12 +131,24 @@ class OvmmSimClient(RobotClient):
         """xyt position of robot"""
         return np.array([self.obs.gps[0], self.obs.gps[1], self.obs.compass[0]])
 
+    def episode_over(self):
+        return (
+            self.num_action_applied
+            >= self.env.config["habitat"]["environment"]["max_episode_steps"]
+        )
+
     def apply_action(self, action, verbose: bool = False):
+        verbose = True
         """Actually send the action to the simulator."""
+        if self.episode_over():
+            print("habitat env is closed, so the robot can't take any actions")
+            self.force_quit = True
+            return
         xyt0 = self.get_base_pose()
         if verbose:
             print("STARTED AT:", xyt0)
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
+        self.num_action_applied += 1
         if verbose:
             print("MOVED TO:", self.get_base_pose())
         xyt1 = self.get_base_pose()
@@ -148,6 +162,8 @@ class OvmmSimClient(RobotClient):
         else:
             self._last_motion_failed = True
         self.video_frames.append(self.obs.third_person_image)
+        self.fpv_video_frames.append(self.obs.rgb)
+
         # self.save_frame()
 
     def last_motion_failed(self):
@@ -160,9 +176,13 @@ class OvmmSimClient(RobotClient):
             self.obs.third_person_image,
         )
 
-    def make_video(self):
+    def make_video(self, path=os.getcwd(), name="debug.mp4"):
         """Save a video for this sim client"""
-        imageio.mimsave("debug.mp4", self.video_frames, fps=30)
+        imageio.mimsave(os.path.join(path, name), self.video_frames, fps=30)
+
+    def make_fpv_video(self):
+        """Save a fpv video for this sim client"""
+        imageio.mimsave("debug_fpv.mp4", self.fpv_video_frames, fps=30)
 
     def execute_trajectory(
         self,
@@ -203,6 +223,8 @@ class SimGraspPlanner(GraspClient):
 
     def try_grasping(self, object_goal: Optional[str] = None) -> bool:
         """Grasp the object by snapping object in sim"""
+        if object_goal:
+            pass
         self.robot_client.apply_action(DiscreteNavigationAction.SNAP_OBJECT)
         return True
 

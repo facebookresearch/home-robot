@@ -30,53 +30,45 @@ except Exception as e:
 def parse_pick_and_place_plan(world_representation, plan: str):
     """Simple parser to pull out high level actions from a plan of the form:
 
-        pick(obj1),place(obj2)
+        goto(obj1),pickup(obj1),goto(obj2),placeon(obj1,obj2)
 
     Args:
         plan(str): contains a plan
     """
-
+    pick_instance_id, place_instance_id = None, None
     if plan == "explore":
         return None, None
-    # now it is hacky to get two instance ids
-    # TODO: make it more general for all actions
-    # get pick instance id
-    current_high_level_action = plan.split("; ")[0]
 
-    # addtional format checking of whether the current action is in the robot's skill set
-    if not any(
-        action in current_high_level_action
-        for action in ["goto", "pickup", "placeon", "explore"]
-    ):
-        return None, None
+    for current_high_level_action in plan.split("; "):
 
-    pick_instance_id = int(
-        world_representation.object_images[
-            int(
+        # addtional format checking of whether the current action is in the robot's skill set
+        if not any(
+            action in current_high_level_action
+            for action in ["goto", "pickup", "placeon", "explore"]
+        ):
+            return None, None
+
+        if "pickup" in current_high_level_action:
+            img_id = current_high_level_action.split("(")[1].split(")")[0].split("_")[1]
+            if img_id.isnumeric():
+                pick_instance_id = int(
+                    world_representation.object_images[int(img_id)].crop_id
+                )
+            else:
+                pick_instance_id = None
+        if "placeon" in current_high_level_action:
+            img_id = (
                 current_high_level_action.split("(")[1]
                 .split(")")[0]
-                .split(", ")[0]
+                .split(", ")[1]
                 .split("_")[1]
             )
-        ].crop_id
-    )
-    place_instance_id = None
-    # self.instance_ids['PICK'] = pick_instance_id
-    if len(plan.split(": ")) > 2:
-        # get place instance id
-        current_high_level_action = plan.split("; ")[2]
-        place_instance_id = int(
-            world_representation.object_images[
-                int(
-                    current_high_level_action.split("(")[1]
-                    .split(")")[0]
-                    .split(", ")[0]
-                    .split("_")[1]
+            if img_id.isnumeric():
+                place_instance_id = int(
+                    world_representation.object_images[int(img_id)].crop_id
                 )
-            ].crop_id
-        )
-        # print("place_instance_id", place_instance_id)
-        # self.instance_ids['PLACE'] = place_instance_id
+            else:
+                place_instance_id = None
     return pick_instance_id, place_instance_id
 
 
