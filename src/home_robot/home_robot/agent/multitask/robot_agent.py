@@ -178,8 +178,11 @@ class RobotAgent:
         print(f"Writing logs to {self.path}")
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
-        with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
-            pickle.dump(self.semantic_sensor.seg_id_to_name, f)
+
+        # Assume this will only be needed for hw demo, but not for sim
+        if parameters["start_ui_server"]:
+            with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
+                pickle.dump(self.semantic_sensor.seg_id_to_name, f)
 
         if parameters["start_ui_server"]:
             start_demo_ui_server()
@@ -275,10 +278,10 @@ class RobotAgent:
         # self.save_obs_history()
         return world_representation
 
-    def save_svm(self):
+    def save_svm(self, path):
         import pickle
 
-        with open(os.path.join(self.robot.debug_path, "svm.pkl"), "wb") as f:
+        with open(os.path.join(path, "svm.pkl"), "wb") as f:
             pickle.dump(self.voxel_map, f)
 
     def save_obs_history(self):
@@ -430,6 +433,14 @@ class RobotAgent:
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs)
 
+        # Add observation - helper function will unpack it
+        import copy
+
+        voxel_obs = copy.deepcopy(obs)
+        voxel_obs.rgb = voxel_obs.rgb / 255.0
+        self.voxel_map.add_obs(voxel_obs)
+        # obs.rgb = obs.rgb / 255.0
+        # self.voxel_map.add_obs(obs)
         if visualize_map:
             # Now draw 2d maps to show waht was happening
             self.voxel_map.get_2d_map(debug=True)
@@ -444,6 +455,7 @@ class RobotAgent:
         start: np.ndarray,
         verbose: bool = True,
         instance_id: int = -1,
+        max_try: int = 10,
     ) -> PlanResult:
         """Move to a specific instance. Goes until a motion plan is found.
 
@@ -462,6 +474,7 @@ class RobotAgent:
             return PlanResult(success=False, reason="invalid start state")
 
         mask = self.voxel_map.mask_from_bounds(instance.bounds)
+        try_count = 0
         for goal in self.space.sample_near_mask(mask, radius_m=0.7):
             goal = goal.cpu().numpy()
             print("       Start:", start)
@@ -483,13 +496,16 @@ class RobotAgent:
             else:
                 res = self.planner.plan(start, goal)
             print("Found plan:", res.success)
-            if res.success:
+            try_count += 1
+            if res.success or try_count > max_try:
                 break
         if res is None:
             return PlanResult(success=False, reason="no valid plans found")
         return res
 
-    def move_to_any_instance(self, matches: List[Tuple[int, Instance]]):
+    def move_to_any_instance(
+        self, matches: List[Tuple[int, Instance]], max_try_per_instance=10
+    ):
         """Check instances and find one we can move to"""
         self.current_state = "NAV_TO_INSTANCE"
         self.robot.move_to_nav_posture()
@@ -507,22 +523,36 @@ class RobotAgent:
 
         # Just terminate here - motion planning issues apparently!
         if not start_is_valid:
-            raise RuntimeError("Invalid start state!")
+            return False
+            # TODO: fix this
+            # raise RuntimeError("Invalid start state!")
 
         # Find and move to one of these
         for i, match in matches:
-            print("Checking instance", i)
-            # TODO: this is a bad name for this variable
-            res = self.plan_to_instance(match, start, instance_id=i)
-            if res is not None and res.success:
-                break
-            else:
-                # TODO: remove debug code
-                print("-> could not plan to instance", i)
-                if i not in self._object_attempts:
-                    self._object_attempts[i] = 1
+            tries = 0
+            while tries <= max_try_per_instance:
+                print("Checking instance", i)
+                # TODO: this is a bad name for this variable
+                res = self.plan_to_instance(match, start, instance_id=i)
+                tries += 1
+                if res is not None and res.success:
+                    break
                 else:
-                    self._object_attempts[i] += 1
+                    # TODO: remove debug code
+                    print("-> could not plan to instance", i)
+                    if i not in self._object_attempts:
+                        self._object_attempts[i] = 1
+                    else:
+                        self._object_attempts[i] += 1
+
+                    print("no plan found, explore more")
+                    self.run_exploration(
+                        5,  # TODO: pass rate into parameters
+                        False,  # TODO: pass manual_wait into parameters
+                        explore_iter=10,
+                        task_goal=None,
+                        go_home_at_end=False,  # TODO: pass into parameters
+                    )
             if res is not None and res.success:
                 break
 
@@ -536,6 +566,23 @@ class RobotAgent:
                 pos_err_threshold=self.pos_err_threshold,
                 rot_err_threshold=self.rot_err_threshold,
             )
+
+            if self.robot.last_motion_failed():
+                print("!!!!!!!!!!!!!!!!!!!!!!")
+                print("ROBOT IS STUCK! Move back!")
+                r = np.random.randint(3)
+                if r == 0:
+                    self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
+                elif r == 1:
+                    self.robot.navigate_to(
+                        [0, 0, np.pi / 4], relative=True, blocking=True
+                    )
+                elif r == 2:
+                    self.robot.navigate_to(
+                        [0, 0, -np.pi / 4], relative=True, blocking=True
+                    )
+                return False
+
             time.sleep(1.0)
             self.robot.navigate_to([0, 0, np.pi / 2], relative=True)
             self.robot.move_to_manip_posture()
@@ -717,6 +764,7 @@ class RobotAgent:
 
         # Explore some number of times
         matches = []
+        no_success_explore = True
         for i in range(explore_iter):
             print("\n" * 2)
             print("-" * 20, i + 1, "/", explore_iter, "-" * 20)
@@ -745,8 +793,9 @@ class RobotAgent:
                 # After doing everything
                 self.voxel_map.show(orig=show_goal)
 
-            # if it fails, skip; else, execute a trajectory to this position
+            # if it succeeds, execute a trajectory to this position
             if res.success:
+                no_success_explore = False
                 print("Plan successful!")
                 if not dry_run:
                     self.robot.execute_trajectory(
@@ -754,6 +803,7 @@ class RobotAgent:
                         pos_err_threshold=self.pos_err_threshold,
                         rot_err_threshold=self.rot_err_threshold,
                     )
+
             if self.robot.last_motion_failed():
                 print("!!!!!!!!!!!!!!!!!!!!!!")
                 print("ROBOT IS STUCK! Move back!")
@@ -779,6 +829,11 @@ class RobotAgent:
                 if len(matches) > 0:
                     print("!!! GOAL FOUND! Done exploration. !!!")
                     break
+
+        # if it fails to find any frontier in the given iteration, simply quit in sim
+        if no_success_explore:
+            print("The robot did not explore at all, force quit in sim")
+            self.robot.force_quit = True
 
         if go_home_at_end:
             self.current_state = "NAV_TO_HOME"
