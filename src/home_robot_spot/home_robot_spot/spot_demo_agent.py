@@ -666,9 +666,8 @@ class SpotDemoAgent(RobotAgent):
                             obj_image.image/=255
                             print(obj_image.image.shape)
                     c = 0
-                    for obj_image in world_representation.object_images:
+                    for c, obj_image in enumerate(world_representation.object_images):
                         cv2.imwrite(f"debug/obj_image_{c}.png", np.asarray(obj_image.image))
-                        c+=1
                     # task is the prompt, save it
                     data["prompt"] = self.get_language_task()
                     logger.info(f'User Command: {data["prompt"]}.')
