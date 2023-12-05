@@ -95,9 +95,7 @@ def load_referit3d_data(
     :param scans_split:
     :return:
     """
-    assert (nr3d_csv_fpath is None) == (
-        sr3d_csv_fpath is None
-    ), "Cannot use sr3d without nr3d"
+    assert nr3d_csv_fpath is not None, "Cannot use sr3d without nr3d"
 
     referit_data = pd.read_csv(nr3d_csv_fpath)
 
