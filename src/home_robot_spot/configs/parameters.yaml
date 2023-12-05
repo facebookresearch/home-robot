@@ -4,10 +4,10 @@ clip: "ViT-B/32"
 category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
 
 # Planner parameters
-step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually)
-rotation_step_size: 0.25
+step_size: 1  # (originally .1, we can make it all the way to 2 maybe actually)
+rotation_step_size: 0.5
 visualize: False
-exploration_steps: 1
+exploration_steps: 50
 shortcut_iter: 250
 extend_mode: "joint"  # joint = rotate and move at the same time
 # extend_mode: "separate"
@@ -17,12 +17,12 @@ frontier_step_dist: 0.5
 frontier_min_dist: 0.5
 
 # Voxel map
-min_depth: 0.6
-max_depth: 3.5
+min_depth: 0.4
+max_depth: 4
 obs_min_height: 0.3  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
-obs_max_height: 1.5  # Originally 1.8, spot is shorter than stretch tho
-obs_min_density: 12  # Originally 10, making it bigger because theres a bunch on noise
-voxel_size: 0.02
+obs_max_height: 1.3  # Originally 1.8, spot is shorter than stretch tho
+obs_min_density: 10  # Originally 10, making it bigger because theres a bunch on noise
+voxel_size: 0.07
 local_radius: 1.5  # Can probably be bigger than original (.15)
 
 # 2d parameters
@@ -63,14 +63,16 @@ use_midas: False
 
 # Task setup
 pick_categories: ["bottle", "cup"]
-place_categories: ["chair", "sofa"]
+place_categories: ["table"]
 use_get_close: False
 best_view_metric: "area"
 # GOOD COMMANDS
 #command: "move a stuffed toy to a chair"
-#command: "pick up a stuffed animal and put it on a chair"
-command: "pick up a cup and put it on the chair"
-# OK/BAD COMMANDS
+#command: "I am on the chair, and need a cup to drink water, get me one"
+#command: "pick up the cup on the couch and place it on the chair"
+command: "pick up toy animal from the chair and place it on the table"
+#command: "Pick up the stuffed penguin from the chair and give it to me on the table"
+#command: "I want the stuffed penguin from the chair on the table"
 confirm_plan: False
 find_only: True
 
@@ -78,3 +80,5 @@ find_only: True
 chat: True
 limited_obs_publish_sleep: 0.5  # set to 0 for no limited obs
 context_length: 20
+sample_strategy: "all"
+our_vlm: False

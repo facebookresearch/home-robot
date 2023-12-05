@@ -57,6 +57,7 @@ def parse_pick_and_place_plan(world_representation, plan: str):
                 .split(")")[0]
                 .split(", ")[0]
                 .split("_")[1]
+                .split('"')[0]
             )
         ].crop_id
     )
@@ -72,6 +73,7 @@ def parse_pick_and_place_plan(world_representation, plan: str):
                     .split(")")[0]
                     .split(", ")[0]
                     .split("_")[1]
+                    .split('"')[0]
                 )
             ].crop_id
         )

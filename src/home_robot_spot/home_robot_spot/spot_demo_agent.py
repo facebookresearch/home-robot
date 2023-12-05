@@ -645,8 +645,30 @@ class SpotDemoAgent(RobotAgent):
                     #    instance_id=0, should_plan=self.parameters["plan_to_instance"]
                     # )
                     world_representation = get_obj_centric_world_representation(
-                        instances, self.parameters["context_length"]
+                        instances, 
+                        self.parameters["context_length"], 
+                        self.parameters["sample_strategy"],
                     )
+                    if self.parameters['our_vlm']:
+                        import torchvision.transforms as transforms
+
+                        # Specify the desired size
+                        desired_size = (256,256)
+
+                        # Create the resize transform
+                        resize_transform = transforms.Resize(desired_size)
+
+                        # Iterate over the object images and resize them
+                        for obj_image in world_representation.object_images:
+                            obj_image.image = torch.permute(obj_image.image, (2, 0, 1))
+                            obj_image.image = resize_transform(obj_image.image)
+                            obj_image.image = torch.permute(obj_image.image, (1, 2, 0))
+                            obj_image.image/=255
+                            print(obj_image.image.shape)
+                    c = 0
+                    for obj_image in world_representation.object_images:
+                        cv2.imwrite(f"debug/obj_image_{c}.png", np.asarray(obj_image.image))
+                        c+=1
                     # task is the prompt, save it
                     data["prompt"] = self.get_language_task()
                     logger.info(f'User Command: {data["prompt"]}.')
@@ -727,9 +749,52 @@ class SpotDemoAgent(RobotAgent):
                 )
                 self.say(f"Success: {success}")
                 if self.parameters["find_only"]:
+                    obj_pose = self.get_pose_for_best_view(pick_instance_id)
+                    xy = np.array([obj_pose[0], obj_pose[1]])
+                    curr_pose = self.spot.current_position
+                    vr = np.array([curr_pose[0], curr_pose[1]])
+                    distance = np.linalg.norm(xy - vr)
+                    instance_pose, location, vf = self.get_close(pick_instance_id)
+                    logger.info("Navigating closer to the object")
+                    self.spot.navigate_to(
+                        np.array(
+                            [
+                                vf[0],
+                                vf[1],
+                                instance_pose[2] + self.parameters["place_offset"],
+                            ]
+                        ),
+                        blocking=True,
+                    )
+                    time.sleep(1)
                     logger.success("Tried navigating to close to the object!")
-                    # self.goto(self.parameters[''])
-                    # exit out of loop without killing script
+                    rgb = np.asarray(instances[pick_instance_id].instance_views[0].cropped_image)[:,:,::-1]
+                    cv2.imwrite("pick_object_instance.png", rgb)
+                    logger.success("At the pick instance, looking at the object")
+                    if place_instance_id is not None:
+                        rgb = np.asarray(instances[place_instance_id].instance_views[0].cropped_image)[:,:,::-1]
+                        cv2.imwrite("place_instance.png", rgb)
+                        logger.info("Navigating to place instance now")
+                        obj_pose = self.get_pose_for_best_view(pick_instance_id)
+                        xy = np.array([obj_pose[0], obj_pose[1]])
+                        curr_pose = self.spot.current_position
+                        vr = np.array([curr_pose[0], curr_pose[1]])
+                        distance = np.linalg.norm(xy - vr)
+                        instance_pose, location, vf = self.get_close(pick_instance_id)
+                        logger.info("Navigating closer to the object")
+                        success = self.spot.navigate_to(
+                            np.array(
+                                [
+                                    vf[0],
+                                    vf[1],
+                                    instance_pose[2] + self.parameters["place_offset"],
+                                ]
+                            ),
+                            blocking=True,
+                        )
+                        time.sleep(1)
+                    if success:
+                        break
                     continue
 
                 # # try to pick up this instance
