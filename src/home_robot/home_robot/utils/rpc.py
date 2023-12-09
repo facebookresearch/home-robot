@@ -29,7 +29,7 @@ except Exception as e:
 def parse_pick_and_place_plan(world_representation, plan: str):
     """Simple parser to pull out high level actions from a plan of the form:
 
-        goto(obj1),pickup(obj1),goto(obj2),placeon(obj1,obj2)
+        goto(obj1);pickup(obj1);goto(obj2);placeon(obj1,obj2)
 
     Args:
         plan(str): contains a plan
