@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 import json
 import os
 import time
@@ -15,6 +14,7 @@ import numpy as np
 import pandas as pd
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.info_dict import extract_scalars_from_info
+from home_robot.utils.image import Camera, convert_xz_y_to_xyz, opengl_to_opencv
 from omegaconf import DictConfig
 from tqdm import tqdm
 
@@ -297,6 +297,84 @@ class OVMMEvaluator(PPOTrainer):
                 os.makedirs(data_episode_path, exist_ok=True)
                 with open(os.path.join(data_episode_path, "obs_data.pkl"), "wb") as f:
                     pickle.dump(obs_data, f)
+
+                sim = self._env.habitat_env.env.env._env._sim
+                import gzip
+                import json
+
+                import habitat_sim
+
+                episodes = json.load(
+                    gzip.open(
+                        "/private/home/xiaohanzhang/home-robot/data/datasets/ovmm/val/episodes.json.gz"
+                    )
+                )["episodes"]
+                valid_epi = False
+                for episode in episodes:
+                    if episode["episode_id"] == current_episode.episode_id:
+                        valid_epi = True
+                        break
+                if valid_epi:
+                    # recording aabb for candidate objects
+                    objects = []
+                    uni_obj_ids = []
+                    for cand_obj in episode["candidate_objects"]:
+                        cand_obj_id = sim.scene_obj_ids[int(cand_obj["object_id"])]
+                        if cand_obj_id not in uni_obj_ids:
+                            uni_obj_ids.append(cand_obj_id)
+                        cand_obj_class = (
+                            sim.get_rigid_object_manager().get_object_by_id(cand_obj_id)
+                        )
+                        obj_node = cand_obj_class.root_scene_node
+                        obj_bb = obj_node.cumulative_bb
+                        obj_bb = habitat_sim.geo.get_transformed_bb(
+                            obj_node.cumulative_bb, obj_node.transformation
+                        )
+                        # bb_min = [obj_bb.min[0], -obj_bb.min[2], obj_bb.min[1]]
+                        # bb_max = [obj_bb.max[0], -obj_bb.max[2], obj_bb.max[1]]
+
+                        # bb_min_opencv_rel=convert_xz_y_to_xyz(opengl_to_opencv(np.asarray(bb_min)))
+                        # bb_max_opencv_rel=convert_xz_y_to_xyz(opengl_to_opencv(np.asarray(bb_max)))
+
+                        # import pdb; pdb.set_trace()
+                        bbox = [
+                            [obj_bb.min[0], -obj_bb.min[2], obj_bb.min[1]],
+                            [obj_bb.max[0], -obj_bb.max[2], obj_bb.max[1]],
+                        ]
+                        if bbox not in objects:
+                            objects.append(bbox)
+
+                    # recording aabb for goal receptacles
+                    goal_receps = []
+                    uni_recep_ids = []
+                    for cand_obj in episode["candidate_goal_receps"]:
+                        cand_obj_id = int(cand_obj["object_id"])
+                        if cand_obj_id not in uni_recep_ids:
+                            uni_recep_ids.append(cand_obj_id)
+                        cand_obj_class = (
+                            sim.get_rigid_object_manager().get_object_by_id(cand_obj_id)
+                        )
+                        obj_node = cand_obj_class.root_scene_node
+                        obj_bb = obj_node.cumulative_bb
+                        obj_bb = habitat_sim.geo.get_transformed_bb(
+                            obj_node.cumulative_bb, obj_node.transformation
+                        )
+                        bbox = [
+                            [obj_bb.min[0], -obj_bb.min[2], obj_bb.min[1]],
+                            [obj_bb.max[0], -obj_bb.max[2], obj_bb.max[1]],
+                        ]
+                        if bbox not in goal_receps:
+                            goal_receps.append(bbox)
+                    bounds = {
+                        "episode_id": current_episode_key,
+                        "task": info["goal_name"],
+                        "object_bounds": objects,
+                        "goal_recep_bounds": goal_receps,
+                        "goal_recep_ids": uni_recep_ids,
+                        "object_ids": uni_obj_ids,
+                    }
+                    with open(os.path.join(data_episode_path, "bounds.json"), "w") as f:
+                        json.dump(bounds, f, indent=4)
 
             metrics = extract_scalars_from_info(hab_info)
             metrics_at_episode_end = {"END." + k: v for k, v in metrics.items()}

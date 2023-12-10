@@ -409,6 +409,18 @@ class RobotAgent:
             )
         return True
 
+    def update_on_obs(self, obs):
+        self.obs_count += 1
+        # Semantic prediction
+        obs = self.semantic_sensor.predict(obs)
+
+        # Add observation - helper function will unpack it
+        import copy
+
+        voxel_obs = copy.deepcopy(obs)
+        voxel_obs.rgb = voxel_obs.rgb / 255.0
+        self.voxel_map.add_obs(voxel_obs)
+
     def update(self, visualize_map=False):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
         obs = self.robot.get_observation()
