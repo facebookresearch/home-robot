@@ -138,7 +138,7 @@ class RobotAgent:
         self.guarantee_instance_is_reachable = (
             parameters.guarantee_instance_is_reachable
         )
-        self.obs_history = []
+        # self.obs_history = []
         # Wrapper for SparseVoxelMap which connects to ROS
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
@@ -274,7 +274,7 @@ class RobotAgent:
             self.parameters["sample_strategy"],
         )
         # self.save_svm()
-        self.obs_history.append(self.robot.get_observation())
+        # self.obs_history.append(self.robot.get_observation())
         # self.save_obs_history()
         return world_representation
 
@@ -423,6 +423,19 @@ class RobotAgent:
                 f,
             )
         return True
+
+    def update_on_obs(self, obs):
+        """step SVM by passing the obs manually"""
+        self.obs_count += 1
+        # Semantic prediction
+        obs = self.semantic_sensor.predict(obs)
+
+        # Add observation - helper function will unpack it
+        import copy
+
+        voxel_obs = copy.deepcopy(obs)
+        voxel_obs.rgb = voxel_obs.rgb / 255.0
+        self.voxel_map.add_obs(voxel_obs)
 
     def update(self, visualize_map=False):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
