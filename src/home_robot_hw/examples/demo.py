@@ -57,7 +57,7 @@ def do_manipulation_test(demo, object_to_find, location_to_place):
 @click.command()
 @click.option("--rate", default=5, type=int)
 @click.option("--visualize", default=False, is_flag=True)
-@click.option("--manual_wait", default=False, is_flag=True)
+@click.option("--manual-wait", default=False, is_flag=True)
 @click.option("--output-filename", default="stretch_output", type=str)
 @click.option("--show-intermediate-maps", default=False, is_flag=True)
 @click.option("--show-final-map", default=False, is_flag=True)
@@ -158,6 +158,9 @@ def main(
     if test_grasping:
         do_manipulation_test(demo, object_to_find, location_to_place)
         return
+
+    demo.rotate_in_place()
+
     # Run the actual procedure
     try:
         if len(matches) == 0 or force_explore:

@@ -406,6 +406,22 @@ class RobotAgent:
 
         return False
 
+    def rotate_in_place(self) -> bool:
+        """Do a 360 degree turn to get some observations (this helps debug the robot and create a nice map).
+
+        Returns:
+            executed(bool): false if we did not actually do any rotations"""
+        logger.info("Rotate in place")
+        x0, y0, theta0 = self.robot.get_base_pose()
+        if self.parameters["in_place_rotation_steps"] <= 0:
+            return False
+        for i in range(self.parameters["in_place_rotatation_steps"]):
+            self.robot.navigate_to(
+                [x0, y0, theta0 + (i + 1) * np.pi / 4], blocking=True
+            )
+            self.update()
+        return True
+
     def print_found_classes(self, goal: Optional[str] = None):
         """Helper. print out what we have found according to detic."""
         instances = self.voxel_map.get_instances()
