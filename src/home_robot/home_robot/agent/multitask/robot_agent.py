@@ -415,7 +415,7 @@ class RobotAgent:
         x0, y0, theta0 = self.robot.get_base_pose()
         if self.parameters["in_place_rotation_steps"] <= 0:
             return False
-        for i in range(self.parameters["in_place_rotatation_steps"]):
+        for i in range(self.parameters["in_place_rotation_steps"]):
             self.robot.navigate_to(
                 [x0, y0, theta0 + (i + 1) * np.pi / 4], blocking=True
             )
