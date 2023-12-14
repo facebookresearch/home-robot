@@ -29,7 +29,6 @@ from home_robot.perception.encoders import ClipEncoder
 
 # Chat and UI tools
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
-from home_robot.utils.rpc import get_vlm_rpc_stub
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
@@ -65,7 +64,7 @@ def do_manipulation_test(demo, object_to_find, location_to_place):
 @click.option("--show-paths", default=False, is_flag=True)
 @click.option("--random-goals", default=False, is_flag=True)
 @click.option("--test-grasping", default=False, is_flag=True)
-@click.option("--explore-iter", default=20)
+@click.option("--explore-iter", default=-1)
 @click.option("--navigate-home", default=False, is_flag=True)
 @click.option("--force-explore", default=False, is_flag=True)
 @click.option("--no-manip", default=False, is_flag=True)
@@ -115,6 +114,12 @@ def main(
     output_pkl_filename = output_filename + "_" + formatted_datetime + ".pkl"
 
     if use_vlm:
+        try:
+            from home_robot.utils.rpc import get_vlm_rpc_stub
+        except KeyError:
+            print(
+                "Environment not configured for RPC connection! Needs $ACCEL_CORTEX to be set."
+            )
         stub = get_vlm_rpc_stub(vlm_server_addr, vlm_server_port)
     else:
         stub = None
@@ -127,6 +132,8 @@ def main(
     print("- Load parameters")
     parameters = get_parameters("src/home_robot_hw/configs/default.yaml")
     print(parameters)
+    if explore_iter > 0:
+        parameters["exploration_steps"] = explore_iter
     object_to_find, location_to_place = parameters.get_task_goals()
 
     print("- Create semantic sensor based on detic")
