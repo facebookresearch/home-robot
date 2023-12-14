@@ -1,0 +1,19 @@
+defaults:
+  - _self_
+  - clusterer: dbscan
+  - image_text_encoder: clip
+  - mask_generator: sam
+  - voxel_ptc: default
+
+_target_: home_robot.mapping.voxel.feature.ConceptFusion
+similarity_params:
+  viz_type: "thresh" # "topk" or "thresh"
+  similarity_thresh: 0.9
+  topk: 1000
+
+file_params:
+  save_path: "saved-feat"
+  save_images: False
+  voxel_map_file: "None" 
+
+device: 'cuda:0'

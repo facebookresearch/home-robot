@@ -8,15 +8,16 @@ import argparse
 import os
 
 from evaluator import OVMMEvaluator
+from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
+from home_robot.agent.ovmm_agent.ovmm_exploration_agent import OVMMExplorationAgent
+from home_robot.agent.ovmm_agent.random_agent import RandomAgent
+
 from utils.config_utils import (
     create_agent_config,
     create_env_config,
     get_habitat_config,
     get_omega_config,
 )
-
-from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
-from home_robot.agent.ovmm_agent.random_agent import RandomAgent
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -47,15 +48,27 @@ if __name__ == "__main__":
     parser.add_argument(
         "--env_config_path",
         type=str,
-        default="projects/habitat_ovmm/configs/env/hssd_demo.yaml",
+        default="projects/habitat_ovmm/configs/env/hssd_eval.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
         "--agent_type",
         type=str,
         default="baseline",
-        choices=["baseline", "random"],
+        choices=["baseline", "random", "explore"],
         help="Agent to evaluate",
+    )
+    parser.add_argument(
+        "--force_step",
+        type=int,
+        default=20,
+        help="force to switch to new episode after a number of steps",
+    )
+    parser.add_argument(
+        "--data_dir",
+        type=str,
+        default=None,
+        help="whether to save obseration history for data collection",
     )
     parser.add_argument(
         "overrides",
@@ -89,11 +102,13 @@ if __name__ == "__main__":
     # create agent
     if args.agent_type == "random":
         agent = RandomAgent(agent_config, device_id=device_id)
+    elif args.agent_type == "explore":
+        agent = OVMMExplorationAgent(agent_config, device_id=device_id, args=args)
     else:
         agent = OpenVocabManipAgent(agent_config, device_id=device_id)
 
     # create evaluator
-    evaluator = OVMMEvaluator(env_config)
+    evaluator = OVMMEvaluator(env_config, data_dir=args.data_dir)
 
     # evaluate agent
     metrics = evaluator.evaluate(

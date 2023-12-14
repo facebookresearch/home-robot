@@ -159,7 +159,9 @@ def main(
         do_manipulation_test(demo, object_to_find, location_to_place)
         return
 
-    demo.rotate_in_place(visualize=show_intermediate_maps)
+    demo.rotate_in_place(
+        steps=parameters["in_place_rotation_steps"], visualize=show_intermediate_maps
+    )
 
     # Run the actual procedure
     try:

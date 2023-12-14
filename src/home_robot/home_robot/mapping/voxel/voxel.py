@@ -49,6 +49,7 @@ Frame = namedtuple(
         "base_pose",
         "info",
         "obs",
+        "full_world_xyz",
         "xyz_frame",
     ],
 )
@@ -409,6 +410,7 @@ class SparseVoxelMap(object):
                 base_pose,
                 info,
                 obs,
+                full_world_xyz,
                 xyz_frame=xyz_frame,
             )
         )
@@ -444,7 +446,8 @@ class SparseVoxelMap(object):
         world_xyz = full_world_xyz.view(-1, 3)[valid_depth.flatten()]
 
         # TODO: weights could also be confidence, inv distance from camera, etc
-        self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
+        if world_xyz.nelement() > 0:
+            self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
         # TODO: just get this from camera_pose?
         self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))
@@ -487,8 +490,10 @@ class SparseVoxelMap(object):
         """Write out to a pickle file. This is a rough, quick-and-easy output for debugging, not intended to replace the scalable data writer in data_tools for bigger efforts."""
         data = {}
         data["camera_poses"] = []
+        data["camera_K"] = []
         data["base_poses"] = []
         data["xyz"] = []
+        data["world_xyz"] = []
         data["rgb"] = []
         data["depth"] = []
         data["feats"] = []
@@ -498,7 +503,9 @@ class SparseVoxelMap(object):
             # TODO: switch to using just Obs struct?
             data["camera_poses"].append(frame.camera_pose)
             data["base_poses"].append(frame.base_pose)
+            data["camera_K"].append(frame.camera_K)
             data["xyz"].append(frame.xyz)
+            data["world_xyz"].append(frame.full_world_xyz)
             data["rgb"].append(frame.rgb)
             data["depth"].append(frame.depth)
             data["feats"].append(frame.feats)
@@ -553,6 +560,9 @@ class SparseVoxelMap(object):
 
     def fix_data_type(self, tensor) -> torch.Tensor:
         """make sure tensors are in the right format for this model"""
+        # If its empty just hope we're handling that somewhere else
+        if tensor is None:
+            return None
         # Conversions
         if isinstance(tensor, np.ndarray):
             tensor = torch.from_numpy(tensor)
@@ -570,7 +580,7 @@ class SparseVoxelMap(object):
         assert filename.exists(), f"No file found at {filename}"
         with filename.open("rb") as f:
             data = pickle.load(f)
-        for camera_pose, xyz, rgb, feats, depth, base_pose, obs in zip(
+        for camera_pose, xyz, rgb, feats, depth, base_pose, obs, K, world_xyz in zip(
             data["camera_poses"],
             data["xyz"],
             data["rgb"],
@@ -578,6 +588,8 @@ class SparseVoxelMap(object):
             data["depth"],
             data["base_poses"],
             data["obs"],
+            data["camera_K"],
+            data["world_xyz"],
         ):
             camera_pose = self.fix_data_type(camera_pose)
             xyz = self.fix_data_type(xyz)
@@ -596,6 +608,7 @@ class SparseVoxelMap(object):
                 base_pose=base_pose,
                 instance_image=instance,
                 obs=obs,
+                camera_K=K,
             )
 
     def recompute_map(self):
@@ -850,6 +863,7 @@ class SparseVoxelMap(object):
             pointcloud_max_points=200_000,
             boxes_plot_together=True,
             boxes_wireframe_width=3,
+            aspectmode="cube",
         )
         fig = plot_scene_with_bboxes(
             plots={"Global scene": traces},
@@ -902,7 +916,11 @@ class SparseVoxelMap(object):
         self.instances.global_box_compression_and_nms(env_id=0)
 
     def _show_open3d(
-        self, instances: bool, orig: Optional[np.ndarray] = None, **backend_kwargs
+        self,
+        instances: bool,
+        orig: Optional[np.ndarray] = None,
+        norm: float = 255.0,
+        **backend_kwargs,
     ):
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
@@ -911,7 +929,7 @@ class SparseVoxelMap(object):
         # pc_xyz, pc_rgb, pc_feats = self.get_data()
         points, _, _, rgb = self.voxel_pcd.get_pointcloud()
         pcd = numpy_to_pcd(
-            points.detach().cpu().numpy(), (rgb / 255.0).detach().cpu().numpy()
+            points.detach().cpu().numpy(), (rgb / norm).detach().cpu().numpy()
         )
         if orig is None:
             orig = np.zeros(3)

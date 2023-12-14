@@ -4,6 +4,7 @@ channels:
 dependencies:
   - withbullet
   - habitat-sim==0.2.5
+  - pip
   - pip:
     - gym>=0.22.0,<0.23.1
     - yacs>=0.1.8

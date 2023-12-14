@@ -3,8 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 import json
+import os
 from typing import Any, Dict, Optional, Tuple
 
 from home_robot.core.interfaces import Observations
@@ -143,6 +143,7 @@ class OvmmPerception:
 
     def predict(self, obs: Observations, depth_threshold: float = 0.5) -> Observations:
         """Run with no postprocessing. Updates observation to add semantics."""
+        # print(self.current_vocabulary.goal_id_to_goal_name.values())
         return self._segmentation.predict(
             obs,
             depth_threshold=depth_threshold,
@@ -166,6 +167,11 @@ def read_category_map_file(
     These mappings are also present in the episodes file but are extracted to use in a stand-alone manner.
     Returns object and receptacle mappings.
     """
+    if os.environ["HOME_ROBOT_ROOT"]:
+        category_map_file = os.path.join(
+            os.environ["HOME_ROBOT_ROOT"], category_map_file
+        )
+
     with open(category_map_file) as f:
         category_map = json.load(f)
 

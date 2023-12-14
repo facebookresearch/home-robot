@@ -12,6 +12,7 @@ try:
 except Exception:
     print("[WARNING] could not import mtm encoder!")
 
+from .base_encoder import BaseImageTextEncoder
 
 # THIS PATH IS HARD CODED, you will need to copy the configs here and point to your copies
 _MY_PATH = "/private/home/vincentpierre/Documents/eaif/public/eai-foundations/vc_models/src/vc_models/conf/model"
@@ -91,7 +92,7 @@ class ModelWrapper:
 
 
 # THIS IS THE ENCODER
-class HomeRobotMTMEncoder:
+class HomeRobotMTMEncoder(BaseImageTextEncoder):
     def __init__(self, version="oct1_laiononly_250k", device=None):
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"

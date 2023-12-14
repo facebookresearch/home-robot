@@ -1,0 +1,6 @@
+_target_: home_robot.perception.detection.grounded_sam.sam_perception.SAMPerception 
+
+# This shouldn't be an arg in init() -- model should implement .to(device)
+gpu_device_id: 0
+mask_generator_kwargs:
+  points_per_side: 32

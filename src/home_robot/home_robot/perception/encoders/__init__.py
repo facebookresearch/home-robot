@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from typing import Any
 
+from .base_encoder import BaseImageTextEncoder
 from .clip_encoder import ClipEncoder
 
 

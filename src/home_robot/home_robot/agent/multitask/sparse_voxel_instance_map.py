@@ -13,16 +13,15 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from hydra_zen import store, zen
-from torch import Tensor
-from tqdm import tqdm
-
 from home_robot.core.interfaces import Observations
 from home_robot.datasets.scannet import ScanNetDataset
 from home_robot.mapping.instance import Instance
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.perception import OvmmPerception
 from home_robot.perception.constants import RearrangeDETICCategories
+from hydra_zen import store, zen
+from torch import Tensor
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -137,14 +136,41 @@ class SparseVoxelMapAgent:
         self.semantic_sensor.set_vocabulary(SemanticVocab.SIMPLE)
         return self.semantic_sensor.current_vocabulary
 
-    def get_instances_for_query(self, text_query: str) -> List[Instance]:
-        assert (
-            text_query in self.semantic_sensor.name_to_seg_id
-        ), f"{text_query} not in semantic_sensor vocabulary (current vocab: {self.semantic_sensor.current_vocabulary_id})"
-        query_class_id = self.semantic_sensor.name_to_seg_id[text_query]
+    def get_instances_for_query(
+        self, text_query: str, method: str = "class_match", return_scores: bool = False
+    ) -> List[Instance]:
         instances = self.voxel_map.get_instances()
-        instances = [inst for inst in instances if inst.category_id == query_class_id]
-        return instances
+
+        if method == "class_match":
+            assert (
+                text_query in self.semantic_sensor.name_to_seg_id
+            ), f"{text_query} not in semantic_sensor vocabulary (current vocab: {self.semantic_sensor.current_vocabulary_id})"
+            query_class_id = self.semantic_sensor.name_to_seg_id[text_query]
+            instances = [
+                inst for inst in instances if inst.category_id == query_class_id
+            ]
+            scores = [inst.score for inst in instances]
+        elif method == "text_image_encoder":
+            assert (
+                self.voxel_map.encoder is not None
+            ), 'Getting queries using "text_image_encoder" method requries using an encoder, but voxel_map.encoder is None'
+            encoder = self.voxel_map.encoder
+            text_embed = encoder.encode_text("chair")
+            text_embed = text_embed / text_embed.norm(dim=-1)
+            inst_embeddings = [
+                inst.get_image_embedding(aggregation_method="max") for inst in instances
+            ]
+            scores = [
+                (text_embed * image_embed.to(text_embed.device)).sum(dim=-1).max()
+                for image_embed in inst_embeddings
+            ]
+        else:
+            raise NotImplementedError(f"Unknown method type {method}")
+
+        if return_scores:
+            return instances, scores
+        else:
+            return instances
 
     def build_scene_and_get_instances_for_queries(
         self, scene_obs: Dict[str, Any], queries: Sequence[str], reset: bool = True
@@ -205,9 +231,9 @@ class SparseVoxelMapAgent:
             instances=True,
             height=1000,
             boxes_plot_together=False,
-            boxes_name_int_to_display_name_dict=dict(
-                enumerate(self.metadata.thing_classes)
-            ),
+            # boxes_name_int_to_display_name_dict=dict(
+            #     enumerate(self.metadata.thing_classes)
+            # ),
             backend="pytorch3d",
         )
 

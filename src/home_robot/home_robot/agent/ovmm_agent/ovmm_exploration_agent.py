@@ -1,21 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # quick fix for import
-import json
-import os
-import shutil
-import sys
-import warnings
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
 
 import torch
-from PIL import Image
-
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
-
-sys.path.append("src/home_robot/home_robot/perception/detection/minigpt4/MiniGPT-4/")
 
 
 class Skill(IntEnum):
@@ -30,25 +21,13 @@ class Skill(IntEnum):
     FALL_WAIT = auto()
 
 
-class VLMExplorationAgent(OpenVocabManipAgent):
+class OVMMExplorationAgent(OpenVocabManipAgent):
     def __init__(
         self, config, device_id: int = 0, obs_spaces=None, action_spaces=None, args=None
     ):
-        warnings.warn(
-            "VLM (MiniGPT-4) agent is currently under development and not fully supported yet."
-        )
         super().__init__(config, device_id=device_id)
-        print("VLM Exploration Agent created")
-        self.vlm_freq = 10
-        self.high_level_plan = None
-        self.max_context_length = 20
-        self.planning_times = 1
-        self.remaining_actions = None
+        print("Exploration Agent created")
         self.args = args
-        # print_image currently breaks
-        self.obs_path = "data_obs/"
-        shutil.rmtree(self.obs_path, ignore_errors=True)
-        os.makedirs(self.obs_path, exist_ok=True)
 
     def _explore(
         self, obs: Observations, info: Dict[str, Any]
@@ -99,7 +78,7 @@ class VLMExplorationAgent(OpenVocabManipAgent):
 
         self.timesteps[0] += 1
 
-        is_finished = False
+        # is_finished = False
         action = None
 
         while action is None:
@@ -111,12 +90,12 @@ class VLMExplorationAgent(OpenVocabManipAgent):
 
         # update the curr skill to the new skill whose action will be executed
         info["curr_skill"] = Skill(self.states[0].item()).name
-        if self.verbose:
+        # if self.verbose:
+        print(f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}')
+        if self.args.force_step == self.timesteps[0]:
             print(
-                f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}'
+                "Max agent step reached, forcing the agent to quit and wrapping up..."
             )
-        if self.args.max_step == self.timesteps[0]:
-            print("Max agent step reached -- wrapping up...")
-            is_finished = True
+            action = DiscreteNavigationAction.STOP
 
-        return action, info, obs, is_finished
+        return action, info, obs

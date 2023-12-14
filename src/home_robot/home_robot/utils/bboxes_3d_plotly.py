@@ -325,7 +325,7 @@ def plot_scene_with_bboxes(
     use_orthographic: bool = False,
     equalticks: bool = True,
     ticklen: float = 1.0,
-    aspectmode: str = "data",
+    aspectmode: str = "cube",
     **kwargs,
 ):  # pragma: no cover
     """
