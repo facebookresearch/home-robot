@@ -170,8 +170,9 @@ class RobotAgent:
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
         timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-        # f"data/hw_exps/{self.parameters['name']}/{timestamp}"
-        self.path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
+        self.path = os.path.expanduser(
+            f"data/hw_exps/{self.parameters['name']}/{timestamp}"
+        )
         print(f"Writing logs to {self.path}")
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
@@ -406,7 +407,7 @@ class RobotAgent:
 
         return False
 
-    def rotate_in_place(self) -> bool:
+    def rotate_in_place(self, visualize: bool = False) -> bool:
         """Do a 360 degree turn to get some observations (this helps debug the robot and create a nice map).
 
         Returns:
@@ -420,6 +421,9 @@ class RobotAgent:
                 [x0, y0, theta0 + (i + 1) * np.pi / 4], blocking=True
             )
             self.update()
+
+            if visualize:
+                self.voxel_map.show()
         return True
 
     def print_found_classes(self, goal: Optional[str] = None):
