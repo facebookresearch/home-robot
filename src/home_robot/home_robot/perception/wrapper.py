@@ -7,6 +7,8 @@ import json
 import os
 from typing import Any, Dict, Optional, Tuple
 
+from loguru import logger
+
 from home_robot.core.interfaces import Observations
 from home_robot.perception.constants import RearrangeDETICCategories
 from home_robot.utils.config import load_config
@@ -167,9 +169,14 @@ def read_category_map_file(
     These mappings are also present in the episodes file but are extracted to use in a stand-alone manner.
     Returns object and receptacle mappings.
     """
-    if os.environ["HOME_ROBOT_ROOT"]:
-        category_map_file = os.path.join(
-            os.environ["HOME_ROBOT_ROOT"], category_map_file
+    try:
+        if os.environ["HOME_ROBOT_ROOT"]:
+            category_map_file = os.path.join(
+                os.environ["HOME_ROBOT_ROOT"], category_map_file
+            )
+    except KeyError:
+        logger.warning(
+            "HOME_ROBOT_ROOT environment variable not set when initializing perception!"
         )
 
     with open(category_map_file) as f:

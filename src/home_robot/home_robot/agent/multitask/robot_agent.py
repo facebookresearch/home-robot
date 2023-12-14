@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import copy
 import datetime
 import os
 import pickle
@@ -426,18 +427,10 @@ class RobotAgent:
         obs_count = self.obs_count
         # Semantic prediction
         obs = self.semantic_sensor.predict(obs)
+        self.voxel_map.add_obs(obs)
 
-        # Add observation - helper function will unpack it
-        # import pdb; pdb.set_trace()
-        import copy
-
-        voxel_obs = copy.deepcopy(obs)
-        voxel_obs.rgb = voxel_obs.rgb / 255.0
-        self.voxel_map.add_obs(voxel_obs)
-        # obs.rgb = obs.rgb / 255.0
-        # self.voxel_map.add_obs(obs)
         if visualize_map:
-            # Now draw 2d
+            # Now draw 2d maps to show waht was happening
             self.voxel_map.get_2d_map(debug=True)
 
         # Send message to user interface

@@ -9,10 +9,12 @@ import os
 from pathlib import Path
 from typing import Optional, Tuple
 
-import home_robot
 import hydra
 import yacs.config
 import yaml
+from loguru import logger
+
+import home_robot
 
 
 class Config(yacs.config.CfgNode):
@@ -30,8 +32,14 @@ def get_config(path: str, opts: Optional[list] = None) -> Tuple[Config, str]:
         path: path to our code's config
         opts: command line arguments overriding the config
     """
-    if os.environ["HOME_ROBOT_ROOT"]:
-        path = os.path.join(os.environ["HOME_ROBOT_ROOT"], path)
+    try:
+        if os.environ["HOME_ROBOT_ROOT"]:
+            path = os.path.join(os.environ["HOME_ROBOT_ROOT"], path)
+    except KeyError:
+        logger.warning(
+            "HOME_ROBOT_ROOT environment variable not set when trying to read configs!"
+        )
+
     # Start with our code's config
     config = Config()
     config.merge_from_file(path)
