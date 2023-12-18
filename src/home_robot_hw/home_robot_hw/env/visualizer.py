@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import datetime
 import os
 import shutil
 from typing import Optional
@@ -10,7 +11,6 @@ import cv2
 import numpy as np
 import skimage.morphology
 from PIL import Image
-import datetime
 
 import home_robot.utils.pose as pu
 import home_robot.utils.visualization as vu
@@ -73,7 +73,7 @@ SEMANTIC_MAP_WIDTH = IMAGE_HEIGHT
 
 class Visualizer:
     """
-    This class is intended to visualize a single object goal navigation task.
+    This class is intended to visualize a single object goal navigation task or OVMM episode on the real robot.
     """
 
     def __init__(self, config):
@@ -81,7 +81,9 @@ class Visualizer:
         self.print_images = config.PRINT_IMAGES
         now = datetime.datetime.now()
         timestamp = now.strftime("%m_%d_%H_%M")
-        self.default_vis_dir = f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}/{timestamp}/"
+        self.default_vis_dir = (
+            f"{config.DUMP_LOCATION}/images/{config.EXP_NAME}/{timestamp}/"
+        )
         print("Visualizations will be saved to", self.default_vis_dir)
         os.makedirs(self.default_vis_dir, exist_ok=True)
 
