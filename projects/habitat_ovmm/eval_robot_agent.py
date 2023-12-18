@@ -2,20 +2,12 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-
 import argparse
 import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from home_robot.agent.multitask import get_parameters
-from home_robot.agent.multitask.robot_agent import RobotAgent
-from home_robot.perception import create_semantic_sensor
-from home_robot.utils.rpc import get_vlm_rpc_stub
-from home_robot_sim.ovmm_sim_client import OvmmSimClient, SimGraspPlanner
 from loguru import logger
-
 from utils.config_utils import (
     create_agent_config,
     create_env_config,
@@ -23,6 +15,12 @@ from utils.config_utils import (
     get_omega_config,
 )
 from utils.env_utils import create_ovmm_env_fn
+
+from home_robot.agent.multitask import get_parameters
+from home_robot.agent.multitask.robot_agent import RobotAgent
+from home_robot.perception import create_semantic_sensor
+from home_robot.utils.rpc import get_vlm_rpc_stub
+from home_robot_sim.ovmm_sim_client import OvmmSimClient, SimGraspPlanner
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
