@@ -13,6 +13,7 @@ import time
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d
@@ -58,7 +59,7 @@ from home_robot_spot.grasp_env import GraspController
 
 
 class SpotDemoAgent(RobotAgent):
-    """Demo agent for use in Spot experiments. Extends the base robot demo agent."""
+    """Demo agent for use in Spot experiments. Extends the base robot demo agent. Work in progress code."""
 
     def __init__(
         self,
@@ -645,15 +646,15 @@ class SpotDemoAgent(RobotAgent):
                     #    instance_id=0, should_plan=self.parameters["plan_to_instance"]
                     # )
                     world_representation = get_obj_centric_world_representation(
-                        instances, 
-                        self.parameters["context_length"], 
+                        instances,
+                        self.parameters["context_length"],
                         self.parameters["sample_strategy"],
                     )
-                    if self.parameters['our_vlm']:
+                    if self.parameters["our_vlm"]:
                         import torchvision.transforms as transforms
 
                         # Specify the desired size
-                        desired_size = (256,256)
+                        desired_size = (256, 256)
 
                         # Create the resize transform
                         resize_transform = transforms.Resize(desired_size)
@@ -663,11 +664,13 @@ class SpotDemoAgent(RobotAgent):
                             obj_image.image = torch.permute(obj_image.image, (2, 0, 1))
                             obj_image.image = resize_transform(obj_image.image)
                             obj_image.image = torch.permute(obj_image.image, (1, 2, 0))
-                            obj_image.image/=255
+                            obj_image.image /= 255
                             print(obj_image.image.shape)
                     c = 0
                     for c, obj_image in enumerate(world_representation.object_images):
-                        cv2.imwrite(f"debug/obj_image_{c}.png", np.asarray(obj_image.image))
+                        cv2.imwrite(
+                            f"debug/obj_image_{c}.png", np.asarray(obj_image.image)
+                        )
                     # task is the prompt, save it
                     data["prompt"] = self.get_language_task()
                     logger.info(f'User Command: {data["prompt"]}.')
@@ -767,20 +770,25 @@ class SpotDemoAgent(RobotAgent):
                     )
                     time.sleep(1)
                     logger.success("Tried navigating to close to the object!")
-                    rgb = np.asarray(instances[pick_instance_id].instance_views[0].cropped_image)[:,:,::-1]
+                    rgb = np.asarray(
+                        instances[pick_instance_id].instance_views[0].cropped_image
+                    )[:, :, ::-1]
                     cv2.imwrite("pick_object_instance.png", rgb)
                     logger.success("At the pick instance, looking at the object")
                     if place_instance_id is not None:
-                        rgb = np.asarray(instances[place_instance_id].instance_views[0].cropped_image)[:,:,::-1]
+                        rgb = np.asarray(
+                            instances[place_instance_id].instance_views[0].cropped_image
+                        )[:, :, ::-1]
                         cv2.imwrite("place_instance.png", rgb)
                         logger.info("Navigating to place instance now")
                         obj_pose = self.get_pose_for_best_view(pick_instance_id)
                         xy = np.array([obj_pose[0], obj_pose[1]])
                         curr_pose = self.spot.current_position
                         vr = np.array([curr_pose[0], curr_pose[1]])
+                        # Compute a distance for debugging and info
                         distance = np.linalg.norm(xy - vr)
                         instance_pose, location, vf = self.get_close(pick_instance_id)
-                        logger.info("Navigating closer to the object")
+                        logger.info(f"Navigating closer to the object: {distance}")
                         success = self.spot.navigate_to(
                             np.array(
                                 [
@@ -796,105 +804,10 @@ class SpotDemoAgent(RobotAgent):
                         break
                     continue
 
-                # # try to pick up this instance
-                # if success:
-
-                # TODO: change the grasp API to be able to grasp from the point cloud / mask of the instance
-                # currently it will fail if there are two instances of the same category sitting close to each other
-                object_category_name = self.vocab.goal_id_to_goal_name[
-                    int(instances[pick_instance_id].category_id.item())
-                ]
-                if self.parameters["verify_before_grasp"]:
-                    opt = self.ask(f"Grasping {object_category_name}..., y/n?: ")
-                else:
-                    opt = "y"
-                if opt == "n":
-                    blacklist.append(pick_instance_id)
-                    del instances[pick_instance_id]
-                    continue
-                logger.info(f"Grasping: {object_category_name}")
-                self.set_objects_for_grasping([[object_category_name]])
-                self.spot.open_gripper()
-                time.sleep(0.5)
-
-                logger.log("DEMO", "Resetting environment...")
-                # TODO: have a better way to reset the environment
-                obj_pose = self.get_pose_for_best_view(pick_instance_id)
-                xy = np.array([obj_pose[0], obj_pose[1]])
-                curr_pose = self.spot.current_position
-                vr = np.array([curr_pose[0], curr_pose[1]])
-                distance = np.linalg.norm(xy - vr)
-
-                # Try to get closer to the object
-                if distance > 2.0 and self.parameters["use_get_close"]:
-                    instance_pose, location, vf = self.get_close(pick_instance_id)
-                    logger.info("Navigating closer to the object")
-                    self.spot.navigate_to(
-                        np.array(
-                            [
-                                vf[0],
-                                vf[1],
-                                instance_pose[2] + self.parameters["place_offset"],
-                            ]
-                        ),
-                        blocking=True,
-                    )
-                time.sleep(0.5)
-                success = self.gaze.gaze_and_grasp(
-                    finish_sweep_before_deciding=self.parameters["finish_grasping"]
+                success = self._pick(
+                    instances, blacklist, pick_instance_id, place_instance_id
                 )
-                time.sleep(0.5)
-                if success:
-                    # TODO: @JAY make placing cleaner
-                    # navigate to the place instance
-                    print("Navigating to instance ")
-                    print(f"Instance id: {place_instance_id}")
-                    self.publish_full_obs(place_instance_id)
-                    success = self.navigate_to_an_instance(
-                        place_instance_id,
-                        visualize=self.should_visualize(),
-                        should_plan=self.parameters["plan_to_instance"],
-                    )
-                    print(f"navigated to place {success=}")
-                    place_location = self.vocab.goal_id_to_goal_name[
-                        int(instances[place_instance_id].category_id.item())
-                    ]
-                    # Get close to the instance after we nvagate
-                    instance_pose, location, vf = self.get_close(
-                        place_instance_id, dist=0.5
-                    )
-                    if not self.parameters["use_get_close"]:
-                        vf = instance_pose
-                    # Now we can try to actually place at the target location
-                    logger.info(
-                        "placing {object} at {place}",
-                        object=object_category_name,
-                        place=place_location,
-                    )
-                    rot = self.gaze.get_pick_location()
-                    self.place_in_an_instance(
-                        place_instance_id,
-                        instance_pose,
-                        location,
-                        vf,
-                        place_rotation=rot,
-                        place_height=self.parameters["place_height"],
-                    )
 
-                """
-                # visualize pointcloud and add location as red
-                pcd = open3d.geometry.PointCloud()
-                pcd.points = open3d.utility.Vector3dVector(pc_xyz)
-                pcd.colors = open3d.utility.Vector3dVector(pc_rgb)
-                pcd.colors[location] = [1, 0, 0]
-                open3d.visualization.draw_geometries([pcd])
-
-
-                # TODO> Navigate to that point
-                # TODO VISUALIZE THAT POINT
-                # ransform point to base coordinates
-                # Move armjoint with ik to x,y,z+.02
-                """
                 if success:
                     logger.success("Successfully grasped the object!")
                     self.goto(center)
@@ -906,6 +819,93 @@ class SpotDemoAgent(RobotAgent):
 
         # At the end, go back to where we started
         self.goto(center)
+
+    def _pick(
+        self, instances, blacklist, pick_instance_id: int, place_instance_id: int
+    ) -> bool:
+        """Try to pick and place an instance"""
+        # TODO: change the grasp API to be able to grasp from the point cloud / mask of the instance
+        # currently it will fail if there are two instances of the same category sitting close to each other
+        object_category_name = self.vocab.goal_id_to_goal_name[
+            int(instances[pick_instance_id].category_id.item())
+        ]
+        if self.parameters["verify_before_grasp"]:
+            opt = self.ask(f"Grasping {object_category_name}..., y/n?: ")
+        else:
+            opt = "y"
+        if opt == "n":
+            blacklist.append(pick_instance_id)
+            del instances[pick_instance_id]
+            return False
+
+        logger.info(f"Grasping: {object_category_name}")
+        self.set_objects_for_grasping([[object_category_name]])
+        self.spot.open_gripper()
+        time.sleep(0.5)
+
+        logger.log("DEMO", "Resetting environment...")
+        # TODO: have a better way to reset the environment
+        obj_pose = self.get_pose_for_best_view(pick_instance_id)
+        xy = np.array([obj_pose[0], obj_pose[1]])
+        curr_pose = self.spot.current_position
+        vr = np.array([curr_pose[0], curr_pose[1]])
+        distance = np.linalg.norm(xy - vr)
+
+        # Try to get closer to the object
+        if distance > 2.0 and self.parameters["use_get_close"]:
+            instance_pose, location, vf = self.get_close(pick_instance_id)
+            logger.info("Navigating closer to the object")
+            self.spot.navigate_to(
+                np.array(
+                    [
+                        vf[0],
+                        vf[1],
+                        instance_pose[2] + self.parameters["place_offset"],
+                    ]
+                ),
+                blocking=True,
+            )
+        time.sleep(0.5)
+        success = self.gaze.gaze_and_grasp(
+            finish_sweep_before_deciding=self.parameters["finish_grasping"]
+        )
+        time.sleep(0.5)
+        if success:
+            # TODO: @JAY make placing cleaner
+            # navigate to the place instance
+            print("Navigating to instance ")
+            print(f"Instance id: {place_instance_id}")
+            self.publish_full_obs(place_instance_id)
+            success = self.navigate_to_an_instance(
+                place_instance_id,
+                visualize=self.should_visualize(),
+                should_plan=self.parameters["plan_to_instance"],
+            )
+            print(f"navigated to place {success=}")
+            place_location = self.vocab.goal_id_to_goal_name[
+                int(instances[place_instance_id].category_id.item())
+            ]
+            # Get close to the instance after we nvagate
+            instance_pose, location, vf = self.get_close(place_instance_id, dist=0.5)
+            if not self.parameters["use_get_close"]:
+                vf = instance_pose
+            # Now we can try to actually place at the target location
+            logger.info(
+                "placing {object} at {place}",
+                object=object_category_name,
+                place=place_location,
+            )
+            rot = self.gaze.get_pick_location()
+            self.place_in_an_instance(
+                place_instance_id,
+                instance_pose,
+                location,
+                vf,
+                place_rotation=rot,
+                place_height=self.parameters["place_height"],
+            )
+
+        return success
 
     def run_explore(self):
         """Run exploration in different environments. Will explore until there's nothing else to find."""
