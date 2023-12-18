@@ -1,10 +1,16 @@
 #!/usr/bin/env python
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 # -*- coding: utf-8 -*-
 # quick fix for import
+
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
 
 import torch
+
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 

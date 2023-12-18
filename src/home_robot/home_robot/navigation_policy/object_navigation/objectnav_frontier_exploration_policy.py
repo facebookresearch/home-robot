@@ -7,9 +7,10 @@ import scipy
 import skimage.morphology
 import torch
 import torch.nn as nn
+from sklearn.cluster import DBSCAN
+
 from home_robot.mapping.semantic.constants import MapConstants as MC
 from home_robot.utils.morphology import binary_dilation, binary_erosion
-from sklearn.cluster import DBSCAN
 
 
 class ObjectNavFrontierExplorationPolicy(nn.Module):

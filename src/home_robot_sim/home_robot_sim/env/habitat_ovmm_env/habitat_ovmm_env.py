@@ -2,19 +2,18 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-
 from enum import IntEnum
 from typing import Any, Dict, Optional, Union
 
 import habitat
-import home_robot
-import home_robot.core.interfaces
 import numpy as np
 import torch
 import trimesh.transformations as tra
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
+
+import home_robot
+import home_robot.core.interfaces
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
     ContinuousNavigationAction,
