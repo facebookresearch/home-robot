@@ -147,9 +147,22 @@ class RobotAgent:
             obs_max_height=parameters["obs_max_height"],
             min_depth=parameters["min_depth"],
             max_depth=parameters["max_depth"],
+            add_local_radius_points=parameters.get(
+                "add_local_radius_points", default=True
+            ),
+            remove_visited_from_obstacles=parameters.get(
+                "remove_visited_from_obstacles", default=False
+            ),
             obs_min_density=parameters["obs_min_density"],
             smooth_kernel_size=parameters["smooth_kernel_size"],
             encoder=self.encoder,
+            use_median_filter=parameters.get("use_median_filter", False),
+            median_filter_size=parameters.get("median_filter_size", 5),
+            median_filter_max_error=parameters.get("median_filter_max_error", 0.01),
+            use_derivative_filter=parameters.get("use_derivative_filter", False),
+            derivative_filter_threshold=parameters.get(
+                "derivative_filter_threshold", 0.5
+            ),
         )
 
         # Create planning space
@@ -457,7 +470,7 @@ class RobotAgent:
             for j, view in enumerate(instance.instance_views):
                 print(f"- instance {instance_id} view {j} at {view.cam_to_world}")
 
-        start_is_valid = self.space.is_valid(start)
+        start_is_valid = self.space.is_valid(start, verbose=True)
         if not start_is_valid:
             return PlanResult(success=False, reason="invalid start state")
 
@@ -468,7 +481,7 @@ class RobotAgent:
             print("Sampled Goal:", goal)
             show_goal = np.zeros(3)
             show_goal[:2] = goal[:2]
-            goal_is_valid = self.space.is_valid(goal)
+            goal_is_valid = self.space.is_valid(goal, verbose=True)
             print("Start is valid:", start_is_valid)
             print(" Goal is valid:", goal_is_valid)
             if not goal_is_valid:
@@ -477,10 +490,15 @@ class RobotAgent:
 
             # plan to the sampled goal
             if instance_id >= 0 and instance_id in self._cached_plans:
-                if verbose:
-                    print(f"- retrieving cached plan for {instance_id}")
                 res = self._cached_plans[instance_id]
+                has_plan = res.success
+                if verbose:
+                    print(
+                        f"- try retrieving cached plan for {instance_id}: {has_plan=}"
+                    )
             else:
+                has_plan = False
+            if not has_plan:
                 res = self.planner.plan(start, goal)
             print("Found plan:", res.success)
             if res.success:
@@ -494,14 +512,14 @@ class RobotAgent:
         self.current_state = "NAV_TO_INSTANCE"
         self.robot.move_to_nav_posture()
         start = self.robot.get_base_pose()
-        start_is_valid = self.space.is_valid(start)
+        start_is_valid = self.space.is_valid(start, verbose=True)
         start_is_valid_retries = 5
         while not start_is_valid and start_is_valid_retries > 0:
             print(f"Start {start} is not valid. back up a bit.")
             self.robot.navigate_to([-0.1, 0, 0], relative=True)
             # Get the current position in case we are still invalid
             start = self.robot.get_base_pose()
-            start_is_valid = self.space.is_valid(start)
+            start_is_valid = self.space.is_valid(start, verbose=True)
             start_is_valid_retries -= 1
         res = None
 
@@ -561,13 +579,27 @@ class RobotAgent:
         print("Sending arm to  home...")
         self.robot.switch_to_manipulation_mode()
 
+        # Call the robot's own startup hooks
+        started = self.robot.start()
+        if started:
+            # update here
+            self.update()
+
+        # Add some debugging stuff - show what 3d point clouds look like
+        if visualize_map_at_start:
+            self.voxel_map.show()
+
         self.robot.move_to_nav_posture()
-        # self.robot.head.look_close(blocking=False)
         print("... done.")
 
         # Move the robot into navigation mode
         self.robot.switch_to_navigation_mode()
         self.update(visualize_map=visualize_map_at_start)  # Append latest observations
+
+        # Add some debugging stuff - show what 3d point clouds look like
+        if visualize_map_at_start:
+            self.voxel_map.show()
+
         self.print_found_classes(goal)
         return self.get_found_instances_by_class(goal)
 
@@ -722,7 +754,7 @@ class RobotAgent:
             print("-" * 20, i + 1, "/", explore_iter, "-" * 20)
             self.print_found_classes(task_goal)
             start = self.robot.get_base_pose()
-            start_is_valid = self.space.is_valid(start)
+            start_is_valid = self.space.is_valid(start, verbose=True)
             # if start is not valid move backwards a bit
             if not start_is_valid:
                 print("Start not valid. back up a bit.")
@@ -741,9 +773,6 @@ class RobotAgent:
                     try_to_plan_iter=try_to_plan_iter,
                     visualize=visualize,
                 )
-            if visualize:
-                # After doing everything
-                self.voxel_map.show(orig=show_goal)
 
             # if it fails, skip; else, execute a trajectory to this position
             if res.success:
@@ -754,6 +783,10 @@ class RobotAgent:
                         pos_err_threshold=self.pos_err_threshold,
                         rot_err_threshold=self.rot_err_threshold,
                     )
+            else:
+                print("Failed. Try again!")
+                continue
+
             if self.robot.last_motion_failed():
                 print("!!!!!!!!!!!!!!!!!!!!!!")
                 print("ROBOT IS STUCK! Move back!")
@@ -771,6 +804,9 @@ class RobotAgent:
 
             # Append latest observations
             self.update()
+            if visualize:
+                # After doing everything - show where we will move to
+                self.voxel_map.show()
             if manual_wait:
                 input("... press enter ...")
 

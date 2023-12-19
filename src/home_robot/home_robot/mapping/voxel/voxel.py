@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import open3d as open3d
+import scipy
 import skimage
 import torch
 import trimesh
@@ -23,7 +24,7 @@ from home_robot.motion import PlanResult, RobotModel
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
-from home_robot.utils.morphology import binary_dilation, binary_erosion
+from home_robot.utils.morphology import binary_dilation, binary_erosion, get_edges
 from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
@@ -84,6 +85,7 @@ class SparseVoxelMap(object):
         obs_min_density (float): The minimum density for observations.
         smooth_kernel_size (int): The size of the smoothing kernel.
         add_local_radius_points (bool): Whether to add local radius points.
+        remove_visited_from_obstacles(bool): subtract out observations potentially of the robot
         local_radius (float): The radius for local points.
         min_depth (float): The minimum depth for observations.
         max_depth (float): The maximum depth for observations.
@@ -114,6 +116,7 @@ class SparseVoxelMap(object):
         obs_min_density: float = 10,
         smooth_kernel_size: int = 2,
         add_local_radius_points: bool = True,
+        remove_visited_from_obstacles: bool = False,
         local_radius: float = 0.15,
         min_depth: float = 0.1,
         max_depth: float = 4.0,
@@ -124,6 +127,11 @@ class SparseVoxelMap(object):
         encoder: Optional[ClipEncoder] = None,
         map_2d_device: str = "cpu",
         use_instance_memory: bool = True,
+        use_median_filter: bool = False,
+        median_filter_size: int = 5,
+        median_filter_max_error: float = 0.01,
+        use_derivative_filter: bool = False,
+        derivative_filter_threshold: float = 0.5,
     ):
         """
         Args:
@@ -137,6 +145,8 @@ class SparseVoxelMap(object):
         self.obs_min_height = obs_min_height
         self.obs_max_height = obs_max_height
         self.obs_min_density = obs_min_density
+
+        # Smoothing kernel params
         self.smooth_kernel_size = smooth_kernel_size
         if self.smooth_kernel_size > 0:
             self.smooth_kernel = torch.nn.Parameter(
@@ -148,6 +158,16 @@ class SparseVoxelMap(object):
             )
         else:
             self.smooth_kernel = None
+
+        # Median filter params
+        self.median_filter_size = median_filter_size
+        self.use_median_filter = use_median_filter
+        self.median_filter_max_error = median_filter_max_error
+
+        # Derivative filter params
+        self.use_derivative_filter = use_derivative_filter
+        self.derivative_filter_threshold = derivative_filter_threshold
+
         self.grid_resolution = grid_resolution
         self.voxel_resolution = resolution
         self.min_depth = min_depth
@@ -174,7 +194,8 @@ class SparseVoxelMap(object):
             self.dilate_obstacles_kernel = None
 
         # Add points with local_radius to the voxel map at (0,0,0) unless we receive lidar points
-        self.add_local_radius_points = add_local_radius_points
+        self._add_local_radius_points = add_local_radius_points
+        self._remove_visited_from_obstacles = remove_visited_from_obstacles
         self.local_radius = local_radius
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
@@ -376,6 +397,14 @@ class SparseVoxelMap(object):
             xyz_frame in VALID_FRAMES
         ), f"frame {xyz_frame} was not valid; should one one of {VALID_FRAMES}"
 
+        # Apply a median filter to remove bad depth values when mapping and exploring
+        # This is not strictly necessary but the idea is to clean up bad pixels
+        if depth is not None and self.use_median_filter:
+            median_depth = torch.from_numpy(
+                scipy.ndimage.median_filter(depth, size=self.median_filter_size)
+            )
+            median_filter_error = (depth - median_depth).abs()
+
         # Get full_world_xyz
         if xyz is not None:
             if xyz_frame == "camera":
@@ -415,10 +444,19 @@ class SparseVoxelMap(object):
             )
         )
 
-        # filter depth
         valid_depth = torch.full_like(rgb[:, 0], fill_value=True, dtype=torch.bool)
         if depth is not None:
             valid_depth = (depth > self.min_depth) & (depth < self.max_depth)
+
+            if self.use_derivative_filter:
+                edges = get_edges(depth, threshold=self.derivative_filter_threshold)
+                valid_depth = valid_depth & ~edges
+
+            if self.use_median_filter:
+                valid_depth = (
+                    valid_depth
+                    & (median_filter_error < self.median_filter_max_error).bool()
+                )
 
         # Add instance views to memory
         if self.use_instance_memory:
@@ -449,8 +487,9 @@ class SparseVoxelMap(object):
         if world_xyz.nelement() > 0:
             self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
-        # TODO: just get this from camera_pose?
-        self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))
+        if self._add_local_radius_points:
+            # TODO: just get this from camera_pose?
+            self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))
         if base_pose is not None:
             self._update_visited(base_pose.to(self.map_2d_device))
 
@@ -671,6 +710,11 @@ class SparseVoxelMap(object):
         obstacle_voxels = voxels[:, :, min_height:]
         obstacles_soft = torch.sum(obstacle_voxels, dim=-1)
         obstacles = obstacles_soft > self.obs_min_density
+
+        if self._remove_visited_from_obstacles:
+            # Remove "visited" points containing observations of the robot
+            obstacles *= (1 - self._visited).bool()
+
         if self.dilate_obstacles_kernel is not None:
             obstacles = binary_dilation(
                 obstacles.float().unsqueeze(0).unsqueeze(0),

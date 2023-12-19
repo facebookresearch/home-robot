@@ -235,6 +235,7 @@ class HelloStretchKinematics(BulletRobotModel):
     look_front = np.array([0.0, math.radians(-30)])
     look_ahead = np.array([0.0, 0.0])
     look_close = np.array([0.0, math.radians(-45)])
+    look_down = np.array([0.0, math.radians(-58)])
 
     max_arm_height = 1.2
 
