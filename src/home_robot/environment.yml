@@ -49,7 +49,7 @@ dependencies:
     - atomicwrites
     - loguru
     - yacs
-    - h5py
+    - h5py>=3.9
     - imageio
     - pygifsicle
     - pynput
