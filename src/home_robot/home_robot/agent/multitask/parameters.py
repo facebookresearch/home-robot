@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from home_robot.utils.config import get_config
 
@@ -13,7 +13,13 @@ class Parameters(object):
     def __init__(self, **kwargs):
         self.data = kwargs
 
-    def __getitem__(self, key: str):
+    def get(self, key: str, default: Any = None):
+        """Safe wrapper to dictionary, with defaults"""
+        if default is not None and key not in self.data:
+            return default
+        return self.data[key]
+
+    def __getitem__(self, key: str) -> Any:
         """Just a wrapper to the dictionary"""
         return self.data[key]
 

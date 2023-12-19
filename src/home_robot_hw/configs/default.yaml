@@ -8,9 +8,10 @@ voxel_size: 0.02
 obs_min_height: 0.05  # Ignore things less than this high when planning motions
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
 obs_min_density: 10  # This many points makes it an obstacle
-pad_obstacles: 1  # Add this many units (voxel_size) to the area around obstacles
-local_radius: 0.8  # Area around the robot to mark as explored (kind of a hack)
+pad_obstacles: 2  # Add this many units (voxel_size) to the area around obstacles
+local_radius: 0.6  # Area around the robot to mark as explored (kind of a hack)
 smooth_kernel_size: 2
+remove_visited_from_obstacles: False
 min_depth: 0.1
 max_depth: 3.5
 
@@ -24,7 +25,7 @@ guarantee_instance_is_reachable: True
 step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
 rotation_step_size: 0.2 
 dilate_frontier_size: 12  # Used to shrink the frontier back from the edges of the world
-dilate_obstacle_size: 5  # Used when selecting goals and computing what the "frontier" is 
+dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
 
 # Trajectory following - how closely we follow intermediate waypoints
 # These should be less strict than whatever parameters the low-level controller is using; this will

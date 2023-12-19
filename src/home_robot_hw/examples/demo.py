@@ -21,7 +21,6 @@ from PIL import Image
 import home_robot.utils.depth as du
 from home_robot.agent.multitask import get_parameters
 from home_robot.agent.multitask.robot_agent import RobotAgent
-from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.perception import create_semantic_sensor
 
 # Import planning tools for exploration
@@ -166,9 +165,11 @@ def main(
         do_manipulation_test(demo, object_to_find, location_to_place)
         return
 
-    demo.rotate_in_place(
-        steps=parameters["in_place_rotation_steps"], visualize=show_intermediate_maps
-    )
+    if parameters["in_place_rotation_steps"] > 0:
+        demo.rotate_in_place(
+            steps=parameters["in_place_rotation_steps"],
+            visualize=show_intermediate_maps,
+        )
 
     # Run the actual procedure
     try:
@@ -180,6 +181,7 @@ def main(
                 explore_iter=parameters["exploration_steps"],
                 task_goal=object_to_find,
                 go_home_at_end=navigate_home,
+                visualize=show_intermediate_maps,
             )
         print("Done collecting data.")
         matches = demo.get_found_instances_by_class(object_to_find)
