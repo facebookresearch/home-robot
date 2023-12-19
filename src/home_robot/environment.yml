@@ -41,7 +41,7 @@ dependencies:
     - pandas
     - mss
     # visualizations and debugging
-    - matplotlib
+    - matplotlib>=3
     # Command line tools
     - click
     # data tools
@@ -54,6 +54,6 @@ dependencies:
     - pygifsicle
     - pynput
     - git+https://github.com/openai/CLIP.git
-    - open3d
+    - open3d>=0.17
     # For MiDaS
     - imutils
