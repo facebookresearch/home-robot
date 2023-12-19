@@ -24,7 +24,7 @@ dependencies:
     - scipy
     - sophuspy
     - pybullet
-    - trimesh
+    - trimesh<4
     - pytest
     - scikit-image
     - scikit-fmm
@@ -38,7 +38,7 @@ dependencies:
     # Neural networks
     - openai-clip
     - timm
-    - pandas
+    - pandas>=2
     - mss
     # visualizations and debugging
     - matplotlib>=3
@@ -53,7 +53,7 @@ dependencies:
     - imageio
     - pygifsicle
     - pynput
-    - git+https://github.com/openai/CLIP.git
+      # - git+https://github.com/openai/CLIP.git
     - open3d>=0.17
     # For MiDaS
-    - imutils
+    #- imutils
