@@ -7,6 +7,7 @@ import datetime
 import os
 import pickle
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -796,3 +797,16 @@ class RobotAgent:
             else:
                 print("WARNING: planning to home failed!")
         return matches
+
+    def save_instance_images(self, root: str = "."):
+        """Save out instance images from the voxel map that we hav ecollected while exploring."""
+
+        if isinstance(root, str):
+            root = Path(root)
+
+        # Write out instance images
+        for i, instance in enumerate(self.voxel_map.get_instances()):
+            for j, view in enumerate(instance.instance_views):
+                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
+                filename = f"instance{i}_view{j}.png"
+                image.save(root / filename)
