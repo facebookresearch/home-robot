@@ -39,7 +39,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--env_config_path",
         type=str,
-        default="projects/habitat_ovmm/configs/env/hssd_demo.yaml",
+        default="projects/habitat_ovmm/configs/env/hssd_demo_robot_agent.yaml",
         help="Path to config yaml",
     )
     parser.add_argument(
