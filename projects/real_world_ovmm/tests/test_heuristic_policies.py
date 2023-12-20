@@ -8,6 +8,7 @@
 from typing import List, Optional, Tuple
 
 import click
+import matplotlib.pyplot as plt
 import rospy
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
@@ -27,7 +28,7 @@ from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
 @click.option("--start-recep", default="chair")
 @click.option("--goal-recep", default="table")
 @click.option("--visualize-maps", default=False, is_flag=True)
-@click.option("--show-observations", default=True, is_flag=True)
+@click.option("--show-observations", default=False, is_flag=True)
 @click.option(
     "--cat-map-file", default="projects/real_world_ovmm/configs/example_cat_map.json"
 )
@@ -55,6 +56,9 @@ def main(
         config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
         **kwargs
     )
+    config["start_recep"] = start_recep
+    config["pick_object"] = pick_object
+    config["goal_recep"] = goal_recep
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
@@ -91,7 +95,6 @@ def main(
         t += 1
         print("STEP =", t)
         obs = env.get_observation()
-        import matplotlib.pyplot as plt
 
         if show_observations:
             plt.imshow(obs.rgb)
