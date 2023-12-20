@@ -152,7 +152,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             lambda habitat_camera_pose: convert_xz_y_to_xyz(
                 opengl_to_opencv(habitat_camera_pose)
             )
-            if getattr(self.config.ENVIRONMENT, "use_opengl_camera_pose", False)
+            if getattr(self.config.ENVIRONMENT, "use_opencv_camera_pose", False)
             else self.convert_pose_to_real_world_axis(habitat_camera_pose)
         )
         obs = home_robot.core.interfaces.Observations(
