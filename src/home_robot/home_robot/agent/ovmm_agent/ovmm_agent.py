@@ -324,7 +324,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         """
         Set active vocabulary for semantic sensor to use to the given ID.
         """
-        # import pdb; pdb.set_trace()
         if self.config.GROUND_TRUTH_SEMANTICS == 0 and (
             force_set or self.semantic_sensor.current_vocabulary_id != vocab_id
         ):
@@ -452,7 +451,6 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.skip_skills.pick:
             action = None
         elif self.config.AGENT.SKILLS.PICK.type == "oracle":
-            print("oracle pick")
             pick_step = self.timesteps[0] - self.pick_start_step[0]
             if pick_step == 0:
                 action = DiscreteNavigationAction.MANIPULATION_MODE
@@ -465,11 +463,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
                     "Still in oracle pick. Should've transitioned to next skill."
                 )
         elif self.config.AGENT.SKILLS.PICK.type == "heuristic":
-            print("heuristic pick")
             action, info = self.pick_policy(obs, info)
         elif self.config.AGENT.SKILLS.PICK.type == "hw":
             # use the hardware pick skill
-            print("hw pick")
             pick_step = self.timesteps[0] - self.pick_start_step[0]
             if pick_step == 0:
                 action = DiscreteNavigationAction.MANIPULATION_MODE
