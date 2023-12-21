@@ -86,6 +86,7 @@ class OvmmSimClient(RobotClient):
         """Reset everything in the robot's internal state"""
         self.obs = self.env.reset()
         self.video_frames = [self.obs.third_person_image]
+        self.fpv_video_frames = [self.obs.rgb]
         self.num_action_applied = 0
         self.done = False
         self.force_quit = False

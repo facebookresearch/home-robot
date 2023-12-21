@@ -46,7 +46,7 @@ class ViewMatchingConfig:
     within_class: bool = True
 
     box_match_mode: Bbox3dOverlapMethodEnum = Bbox3dOverlapMethodEnum.ONE_SIDED_IOU
-    box_overlap_eps: float = 1e-6
+    box_overlap_eps: float = 1e-7
     box_min_iou_thresh: float = 0.4
     box_overlap_weight: float = 1.0
 
