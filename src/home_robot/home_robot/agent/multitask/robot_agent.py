@@ -415,22 +415,6 @@ class RobotAgent:
             )
         return True
 
-<<<<<<< HEAD
-    def update_on_obs(self, obs):
-        """step SVM by passing the obs manually"""
-        self.obs_count += 1
-        # Semantic prediction
-        obs = self.semantic_sensor.predict(obs)
-
-        # Add observation - helper function will unpack it
-        import copy
-
-        voxel_obs = copy.deepcopy(obs)
-        voxel_obs.rgb = voxel_obs.rgb / 255.0
-        self.voxel_map.add_obs(voxel_obs)
-
-=======
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
     def update(self, visualize_map=False):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
         obs = self.robot.get_observation()
@@ -440,17 +424,12 @@ class RobotAgent:
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs)
 
-<<<<<<< HEAD
         # Add observation - helper function will unpack it
-        import copy
-
         voxel_obs = copy.deepcopy(obs)
         voxel_obs.rgb = voxel_obs.rgb / 255.0
         self.voxel_map.add_obs(voxel_obs)
         # obs.rgb = obs.rgb / 255.0
         # self.voxel_map.add_obs(obs)
-=======
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
         if visualize_map:
             # Now draw 2d maps to show waht was happening
             self.voxel_map.get_2d_map(debug=True)
@@ -465,10 +444,7 @@ class RobotAgent:
         start: np.ndarray,
         verbose: bool = True,
         instance_id: int = -1,
-<<<<<<< HEAD
         max_try: int = 10,
-=======
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
     ) -> PlanResult:
         """Move to a specific instance. Goes until a motion plan is found.
 
@@ -487,10 +463,7 @@ class RobotAgent:
             return PlanResult(success=False, reason="invalid start state")
 
         mask = self.voxel_map.mask_from_bounds(instance.bounds)
-<<<<<<< HEAD
         try_count = 0
-=======
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
         for goal in self.space.sample_near_mask(mask, radius_m=0.7):
             goal = goal.cpu().numpy()
             print("       Start:", start)
@@ -512,24 +485,16 @@ class RobotAgent:
             else:
                 res = self.planner.plan(start, goal)
             print("Found plan:", res.success)
-<<<<<<< HEAD
             try_count += 1
             if res.success or try_count > max_try:
-=======
-            if res.success:
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
                 break
         if res is None:
             return PlanResult(success=False, reason="no valid plans found")
         return res
 
-<<<<<<< HEAD
     def move_to_any_instance(
         self, matches: List[Tuple[int, Instance]], max_try_per_instance=10
     ):
-=======
-    def move_to_any_instance(self, matches: List[Tuple[int, Instance]]):
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
         """Check instances and find one we can move to"""
         self.current_state = "NAV_TO_INSTANCE"
         self.robot.move_to_nav_posture()
@@ -547,7 +512,6 @@ class RobotAgent:
 
         # Just terminate here - motion planning issues apparently!
         if not start_is_valid:
-<<<<<<< HEAD
             return False
             # TODO: fix this
             # raise RuntimeError("Invalid start state!")
@@ -578,24 +542,6 @@ class RobotAgent:
                         task_goal=None,
                         go_home_at_end=False,  # TODO: pass into parameters
                     )
-=======
-            raise RuntimeError("Invalid start state!")
-
-        # Find and move to one of these
-        for i, match in matches:
-            print("Checking instance", i)
-            # TODO: this is a bad name for this variable
-            res = self.plan_to_instance(match, start, instance_id=i)
-            if res is not None and res.success:
-                break
-            else:
-                # TODO: remove debug code
-                print("-> could not plan to instance", i)
-                if i not in self._object_attempts:
-                    self._object_attempts[i] = 1
-                else:
-                    self._object_attempts[i] += 1
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
             if res is not None and res.success:
                 break
 
@@ -609,7 +555,6 @@ class RobotAgent:
                 pos_err_threshold=self.pos_err_threshold,
                 rot_err_threshold=self.rot_err_threshold,
             )
-<<<<<<< HEAD
 
             if self.robot.last_motion_failed():
                 print("!!!!!!!!!!!!!!!!!!!!!!")
@@ -627,8 +572,6 @@ class RobotAgent:
                     )
                 return False
 
-=======
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
             time.sleep(1.0)
             self.robot.navigate_to([0, 0, np.pi / 2], relative=True)
             self.robot.move_to_manip_posture()
@@ -810,10 +753,7 @@ class RobotAgent:
 
         # Explore some number of times
         matches = []
-<<<<<<< HEAD
         no_success_explore = True
-=======
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
         for i in range(explore_iter):
             print("\n" * 2)
             print("-" * 20, i + 1, "/", explore_iter, "-" * 20)
@@ -842,14 +782,9 @@ class RobotAgent:
                 # After doing everything
                 self.voxel_map.show(orig=show_goal)
 
-<<<<<<< HEAD
             # if it succeeds, execute a trajectory to this position
             if res.success:
                 no_success_explore = False
-=======
-            # if it fails, skip; else, execute a trajectory to this position
-            if res.success:
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
                 print("Plan successful!")
                 if not dry_run:
                     self.robot.execute_trajectory(
@@ -857,10 +792,6 @@ class RobotAgent:
                         pos_err_threshold=self.pos_err_threshold,
                         rot_err_threshold=self.rot_err_threshold,
                     )
-<<<<<<< HEAD
-
-=======
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
             if self.robot.last_motion_failed():
                 print("!!!!!!!!!!!!!!!!!!!!!!")
                 print("ROBOT IS STUCK! Move back!")
@@ -887,14 +818,11 @@ class RobotAgent:
                     print("!!! GOAL FOUND! Done exploration. !!!")
                     break
 
-<<<<<<< HEAD
         # if it fails to find any frontier in the given iteration, simply quit in sim
         if no_success_explore:
             print("The robot did not explore at all, force quit in sim")
             self.robot.force_quit = True
 
-=======
->>>>>>> [Major update] Spot support, open-world exploration, instance mapping fixes, and RRT for pick and place in cluttered scenes (#435)
         if go_home_at_end:
             self.current_state = "NAV_TO_HOME"
             # Finally - plan back to (0,0,0)
