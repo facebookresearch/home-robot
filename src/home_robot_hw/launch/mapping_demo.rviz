@@ -10,7 +10,7 @@ Panels:
         - /TF1/Tree1
         - /DepthCloud1/Occlusion Compensation1
       Splitter Ratio: 0.5726743936538696
-    Tree Height: 1079
+    Tree Height: 365
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -26,6 +26,7 @@ Panels:
     Name: Views
     Splitter Ratio: 0.5
   - Class: rviz/Time
+    Experimental: false
     Name: Time
     SyncMode: 0
     SyncSource: DepthCloud
@@ -118,7 +119,6 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         camera_accel_frame:
           Alpha: 1
           Show Axes: false
@@ -185,57 +185,46 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_arm_l0:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_arm_l1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_arm_l2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_arm_l3:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_arm_l4:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_aruco_inner_wrist:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_aruco_left_base:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_aruco_right_base:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_aruco_shoulder:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_aruco_top_wrist:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_grasp_center:
           Alpha: 1
           Show Axes: false
@@ -244,87 +233,70 @@ Visualization Manager:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_gripper_finger_right:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_gripper_fingertip_left:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_gripper_fingertip_right:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_head:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_head_pan:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_head_tilt:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_left_wheel:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_lift:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_mast:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_right_wheel:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_straight_gripper:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_wrist_pitch:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_wrist_roll:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_wrist_yaw:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         link_wrist_yaw_bottom:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
         respeaker_base:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-          Value: true
       Name: RobotModel
       Robot Description: robot_description
       TF Prefix: ""
@@ -361,8 +333,6 @@ Visualization Manager:
       Value: true
     - Class: rviz/TF
       Enabled: false
-      Filter (blacklist): ""
-      Filter (whitelist): ""
       Frame Timeout: 150
       Frames:
         All Enabled: false
@@ -424,7 +394,7 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
     - Class: rviz/Image
       Enabled: true
       Image Topic: /camera/aligned_depth_to_color/image_raw
@@ -436,7 +406,7 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
-      Value: true
+      Value: false
     - Class: rviz/InteractiveMarkers
       Enable Transparency: true
       Enabled: true
@@ -453,7 +423,6 @@ Visualization Manager:
       Name: World
       Radius: 0.05000000074505806
       Reference Frame: map
-      Show Trail: false
       Value: true
     - Alpha: 1
       Arrow Length: 0.30000001192092896
@@ -510,7 +479,7 @@ Visualization Manager:
       Marker Topic: /goto_controller/goal_abs
       Name: Env Commanded Pose
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -528,7 +497,6 @@ Visualization Manager:
       Name: Grasp Center Ideal
       Radius: 0.009999999776482582
       Reference Frame: link_grasp_center
-      Show Trail: false
       Value: false
     - Alpha: 1
       Class: rviz/Axes
@@ -537,7 +505,6 @@ Visualization Manager:
       Name: Grasp Center Real
       Radius: 0.009999999776482582
       Reference Frame: link_grasp_center_real
-      Show Trail: false
       Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -687,7 +654,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 7.18055534362793
+      Distance: 4.592573165893555
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -703,21 +670,21 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8547978401184082
+      Pitch: 0.5797975659370422
       Target Frame: <Fixed Frame>
-      Yaw: 2.1457180976867676
+      Yaw: 5.155733108520508
     Saved: ~
 Window Geometry:
   Depth (aligned):
-    collapsed: false
+    collapsed: true
   Displays:
     collapsed: true
-  Height: 1376
+  Height: 1016
   Hide Left Dock: true
-  Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000015a000004c2fc0200000009fc0000003d000004c20000000000fffffffaffffffff0100000002fb000000100044006900730070006c0061007900730000000000ffffffff0000015600fffffffb0000001200530065006c0065006300740069006f006e0000000000000002860000007400fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb00000008005200470042005d00000004c4000000db0000000000000000fb0000000c00430061006d00650072006100000006e9000000e60000000000000000000000010000020b000004c2fc0200000005fb00000006005200470042010000003d000002280000001600fffffffb0000001e00440065007000740068002000280061006c00690067006e006500640029010000026b000002940000001600fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0056006900650077007300000002f0000002af000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000005000000003efc0100000002fb0000000800540069006d0065010000000000000500000003bc00fffffffb0000000800540069006d00650100000000000004500000000000000000000002ef000004c200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Hide Right Dock: true
+  QMainWindow State: 000000ff00000000fd00000004000000000000015a000004c2fc0200000009fc0000003d000004c20000000000fffffffaffffffff0100000002fb000000100044006900730070006c0061007900730000000000ffffffff0000015600fffffffb0000001200530065006c0065006300740069006f006e0000000000000002860000006c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb00000008005200470042005d00000004c4000000db0000000000000000fb0000000c00430061006d00650072006100000006e9000000e60000000000000000000000010000020b0000035efc0200000005fb00000006005200470042000000003b000001870000001600fffffffb0000001e00440065007000740068002000280061006c00690067006e00650064002900000001c8000001d10000001600fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0056006900650077007300000002f0000002af000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000039c0000003efc0100000002fb0000000800540069006d006501000000000000039c0000024400fffffffb0000000800540069006d006501000000000000045000000000000000000000039c0000035e00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   RGB:
-    collapsed: false
+    collapsed: true
   Selection:
     collapsed: false
   Time:
@@ -726,6 +693,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1280
-  X: 115
+  Width: 924
+  X: 72
   Y: 27

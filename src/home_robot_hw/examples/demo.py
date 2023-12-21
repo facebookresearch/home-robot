@@ -29,7 +29,6 @@ from home_robot.perception.encoders import ClipEncoder
 
 # Chat and UI tools
 from home_robot.utils.point_cloud import numpy_to_pcd, show_point_cloud
-from home_robot.utils.rpc import get_vlm_rpc_stub
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_hw.remote import StretchClient
 from home_robot_hw.ros.grasp_helper import GraspClient as RosGraspClient
@@ -58,14 +57,14 @@ def do_manipulation_test(demo, object_to_find, location_to_place):
 @click.command()
 @click.option("--rate", default=5, type=int)
 @click.option("--visualize", default=False, is_flag=True)
-@click.option("--manual_wait", default=False, is_flag=True)
+@click.option("--manual-wait", default=False, is_flag=True)
 @click.option("--output-filename", default="stretch_output", type=str)
 @click.option("--show-intermediate-maps", default=False, is_flag=True)
 @click.option("--show-final-map", default=False, is_flag=True)
 @click.option("--show-paths", default=False, is_flag=True)
 @click.option("--random-goals", default=False, is_flag=True)
 @click.option("--test-grasping", default=False, is_flag=True)
-@click.option("--explore-iter", default=20)
+@click.option("--explore-iter", default=-1)
 @click.option("--navigate-home", default=False, is_flag=True)
 @click.option("--force-explore", default=False, is_flag=True)
 @click.option("--no-manip", default=False, is_flag=True)
@@ -78,6 +77,12 @@ def do_manipulation_test(demo, object_to_find, location_to_place):
 @click.option("--use-vlm", default=False, is_flag=True, help="use remote vlm to plan")
 @click.option("--vlm-server-addr", default="127.0.0.1")
 @click.option("--vlm-server-port", default="50054")
+@click.option(
+    "--write-instance-images",
+    default=False,
+    is_flag=True,
+    help="write out images of every object we found",
+)
 def main(
     rate,
     visualize,
@@ -97,6 +102,7 @@ def main(
     use_vlm: bool = False,
     vlm_server_addr: str = "127.0.0.1",
     vlm_server_port: str = "50054",
+    write_instance_images: bool = False,
     **kwargs,
 ):
     """
@@ -115,6 +121,12 @@ def main(
     output_pkl_filename = output_filename + "_" + formatted_datetime + ".pkl"
 
     if use_vlm:
+        try:
+            from home_robot.utils.rpc import get_vlm_rpc_stub
+        except KeyError:
+            print(
+                "Environment not configured for RPC connection! Needs $ACCEL_CORTEX to be set."
+            )
         stub = get_vlm_rpc_stub(vlm_server_addr, vlm_server_port)
     else:
         stub = None
@@ -127,6 +139,8 @@ def main(
     print("- Load parameters")
     parameters = get_parameters("src/home_robot_hw/configs/default.yaml")
     print(parameters)
+    if explore_iter >= 0:
+        parameters["exploration_steps"] = explore_iter
     object_to_find, location_to_place = parameters.get_task_goals()
 
     print("- Create semantic sensor based on detic")
@@ -151,6 +165,11 @@ def main(
     if test_grasping:
         do_manipulation_test(demo, object_to_find, location_to_place)
         return
+
+    demo.rotate_in_place(
+        steps=parameters["in_place_rotation_steps"], visualize=show_intermediate_maps
+    )
+
     # Run the actual procedure
     try:
         if len(matches) == 0 or force_explore:
@@ -232,11 +251,8 @@ def main(
             print(f"Write pkl to {output_pkl_filename}...")
             demo.voxel_map.write_to_pickle(output_pkl_filename)
 
-        # Write out instance images
-        for i, instance in enumerate(demo.voxel_map.get_instances()):
-            for j, view in enumerate(instance.instance_views):
-                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
-                image.save(f"instance{i}_view{j}.png")
+        if write_instance_images:
+            demo.save_instance_images(".")
 
         demo.go_home()
         demo.finish()

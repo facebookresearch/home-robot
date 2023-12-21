@@ -2,8 +2,6 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-
 import json
 import os
 import time
@@ -17,13 +15,13 @@ from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.info_dict import extract_scalars_from_info
 from omegaconf import DictConfig
 from tqdm import tqdm
-
 from utils.env_utils import create_ovmm_env_fn
 from utils.metrics_utils import get_stats_from_episode_metrics
 
 if TYPE_CHECKING:
     from habitat.core.dataset import BaseEpisode
     from habitat.core.vector_env import VectorEnv
+
     from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
     from home_robot.core.abstract_agent import Agent
 
@@ -342,6 +340,7 @@ class OVMMEvaluator(PPOTrainer):
         import time
 
         import grpc
+
         from home_robot_hw.utils.eval_ai import evaluation_pb2, evaluation_pb2_grpc
 
         # Wait for the remote environment to be up and running

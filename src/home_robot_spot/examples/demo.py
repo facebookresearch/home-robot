@@ -32,7 +32,7 @@ from home_robot.mapping.voxel import (  # Sample positions in free space for our
 from home_robot.motion import ConfigurationSpace, Planner, PlanResult
 from home_robot.motion.rrt_connect import RRTConnect
 from home_robot.motion.shortcut import Shortcut
-from home_robot.motion.spot import (  # Just saves the Spot robot footprint for kinematic planning
+from home_robot.motion.spot import (  # Just saves the Spot robot footprint for kinematic planning; This should be changed in the future
     SimpleSpotKinematics,
 )
 from home_robot.perception.encoders import ClipEncoder
@@ -60,7 +60,7 @@ from home_robot_spot.spot_demo_agent import SpotDemoAgent
 
 # def main(dock: Optional[int] = 549):
 def main(dock: Optional[int] = None, args=None):
-    """Runs the demo.
+    """Runs the demo. Will explore a certain amount then do pick and place.
 
     Args:
         dock(int): id of dock to return to at the end.
@@ -68,6 +68,8 @@ def main(dock: Optional[int] = None, args=None):
     """
     level = logger.level("DEMO", no=38, color="<yellow>", icon="🤖")
     print(f"{level=}")
+    start_time = time.time()
+    logger.info("Starting demo at {}", start_time)
     data: Dict[str, List[str]] = {}
     if args.enable_vlm == 1:
         stub = get_vlm_rpc_stub(args.vlm_server_addr, args.vlm_server_port)
@@ -187,6 +189,16 @@ def main(dock: Optional[int] = None, args=None):
         spot.spot.sit()
         spot.spot.power_off()
         spot.stop()
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        emin = int(elapsed_time // 60)
+        esec = int(elapsed_time % 60)
+        logger.success("Demo finished at {}", end_time)
+        logger.success(f"Elapsed time: {emin} mins {esec} secs")
+        message = f"Elapsed time: {emin} mins {esec} secs"
+        with open(f"{path}/elapsed_time.txt", "w") as f:
+            f.write(message)
+            f.close()
 
 
 if __name__ == "__main__":

@@ -446,7 +446,8 @@ class SparseVoxelMap(object):
         world_xyz = full_world_xyz.view(-1, 3)[valid_depth.flatten()]
 
         # TODO: weights could also be confidence, inv distance from camera, etc
-        self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
+        if world_xyz.nelement() > 0:
+            self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
         # TODO: just get this from camera_pose?
         self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))

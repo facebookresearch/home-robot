@@ -2,19 +2,18 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-
 from enum import IntEnum
 from typing import Any, Dict, Optional, Union
 
 import habitat
-import home_robot
-import home_robot.core.interfaces
 import numpy as np
 import torch
 import trimesh.transformations as tra
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
+
+import home_robot
+import home_robot.core.interfaces
 from home_robot.core.interfaces import (
     ContinuousFullBodyAction,
     ContinuousNavigationAction,
@@ -194,6 +193,13 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
                 fov_degrees=42,
             )
 
+        camera_pose_transform = (
+            lambda habitat_camera_pose: convert_xz_y_to_xyz(
+                opengl_to_opencv(habitat_camera_pose)
+            )
+            if getattr(self.config.ENVIRONMENT, "use_opencv_camera_pose", False)
+            else self.convert_pose_to_real_world_axis(habitat_camera_pose)
+        )
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["head_rgb"],
             depth=depth,
@@ -208,11 +214,10 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             joint=habitat_obs["joint"],
             relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=third_person_image,
-            camera_pose=convert_xz_y_to_xyz(
-                opengl_to_opencv(np.asarray(habitat_obs["camera_pose"]))
-            ),
+            camera_pose=camera_pose_transform(np.asarray(habitat_obs["camera_pose"])),
             camera_K=self.camera.K,
         )
+
         obs = self._preprocess_goal(obs, habitat_obs)
         obs = self._preprocess_semantic(obs, habitat_obs)
         if "head_panoptic" in habitat_obs:

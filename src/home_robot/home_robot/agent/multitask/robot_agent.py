@@ -2,15 +2,20 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import copy
 import datetime
 import os
 import pickle
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 from atomicwrites import atomic_write
+from loguru import logger
+from PIL import Image
+
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
 from home_robot.mapping.instance import Instance
@@ -27,8 +32,6 @@ from home_robot.utils.demo_chat import (
     stop_demo_ui_server,
 )
 from home_robot.utils.threading import Interval
-from loguru import logger
-from PIL import Image
 
 
 def publish_obs(
@@ -135,7 +138,7 @@ class RobotAgent:
         self.guarantee_instance_is_reachable = (
             parameters.guarantee_instance_is_reachable
         )
-        # self.obs_history = []
+
         # Wrapper for SparseVoxelMap which connects to ROS
         self.voxel_map = SparseVoxelMap(
             resolution=parameters["voxel_size"],
@@ -169,16 +172,14 @@ class RobotAgent:
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
 
         timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
-        # f"data/hw_exps/{self.parameters['name']}/{timestamp}"
-        self.path = os.path.expanduser(f"data/hw_exps/spot/{timestamp}")
+        self.path = os.path.expanduser(
+            f"data/hw_exps/{self.parameters['name']}/{timestamp}"
+        )
         print(f"Writing logs to {self.path}")
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(f"{self.path}/viz_data", exist_ok=True)
-
-        # Assume this will only be needed for hw demo, but not for sim
-        if parameters["start_ui_server"]:
-            with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
-                pickle.dump(self.semantic_sensor.seg_id_to_name, f)
+        with atomic_write(f"{self.path}/viz_data/vocab_dict.pkl", mode="wb") as f:
+            pickle.dump(self.semantic_sensor.seg_id_to_name, f)
 
         if parameters["start_ui_server"]:
             start_demo_ui_server()
@@ -214,8 +215,14 @@ class RobotAgent:
             return False
         return self.grasp_client.try_grasping(object_goal=object_goal, **kwargs)
 
-    def rotate_in_place(self, steps: int = 12):
-        """Simple helper to rotate in place"""
+    def rotate_in_place(self, steps: int = 12, visualize: bool = True) -> bool:
+        """Simple helper function to make the robot rotate in place. Do a 360 degree turn to get some observations (this helps debug the robot and create a nice map).
+
+        Returns:
+            executed(bool): false if we did not actually do any rotations"""
+        logger.info("Rotate in place")
+        if steps <= 0:
+            return False
         step_size = 2 * np.pi / steps
         i = 0
         while i < steps:
@@ -229,6 +236,11 @@ class RobotAgent:
                 i = 0
             else:
                 i += 1
+
+            if visualize:
+                self.voxel_map.show()
+
+        return True
 
     def get_plan_from_vlm(self):
         """This is a connection to a remote thing for getting language commands"""
@@ -258,22 +270,13 @@ class RobotAgent:
             self.parameters["vlm_context_length"],
             self.parameters["sample_strategy"],
         )
-        # self.save_svm()
-        # self.obs_history.append(self.robot.get_observation())
-        # self.save_obs_history()
         return world_representation
 
-    def save_svm(self, path):
+    def save_svm(self):
         import pickle
 
-        with open(os.path.join(path, "svm.pkl"), "wb") as f:
+        with open(os.path.join(self.robot.debug_path, "svm.pkl"), "wb") as f:
             pickle.dump(self.voxel_map, f)
-
-    def save_obs_history(self):
-        import pickle
-
-        with open(os.path.join(self.robot.debug_path, "obs_data.pkl"), "wb") as f:
-            pickle.dump(self.obs_history, f)
 
     def execute_vlm_plan(self):
         """Get plan from vlm and execute it"""
@@ -409,19 +412,6 @@ class RobotAgent:
             )
         return True
 
-    def update_on_obs(self, obs):
-        """step SVM by passing the obs manually"""
-        self.obs_count += 1
-        # Semantic prediction
-        obs = self.semantic_sensor.predict(obs)
-
-        # Add observation - helper function will unpack it
-        import copy
-
-        voxel_obs = copy.deepcopy(obs)
-        voxel_obs.rgb = voxel_obs.rgb / 255.0
-        self.voxel_map.add_obs(voxel_obs)
-
     def update(self, visualize_map=False):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
         obs = self.robot.get_observation()
@@ -431,15 +421,14 @@ class RobotAgent:
         obs = self.semantic_sensor.predict(obs)
 
         # Add observation - helper function will unpack it
-        import copy
-
+        # TODO: verify if this is a sim-only change
         voxel_obs = copy.deepcopy(obs)
         voxel_obs.rgb = voxel_obs.rgb / 255.0
         self.voxel_map.add_obs(voxel_obs)
         # obs.rgb = obs.rgb / 255.0
         # self.voxel_map.add_obs(obs)
         if visualize_map:
-            # Now draw 2d
+            # Now draw 2d maps to show waht was happening
             self.voxel_map.get_2d_map(debug=True)
 
         # Send message to user interface
@@ -790,7 +779,7 @@ class RobotAgent:
                 # After doing everything
                 self.voxel_map.show(orig=show_goal)
 
-            # if it succeeds, execute a trajectory to this position
+            # if it fails, skip; else, execute a trajectory to this position
             if res.success:
                 no_success_explore = False
                 print("Plan successful!")
@@ -800,7 +789,6 @@ class RobotAgent:
                         pos_err_threshold=self.pos_err_threshold,
                         rot_err_threshold=self.rot_err_threshold,
                     )
-
             if self.robot.last_motion_failed():
                 print("!!!!!!!!!!!!!!!!!!!!!!")
                 print("ROBOT IS STUCK! Move back!")
@@ -849,3 +837,16 @@ class RobotAgent:
             else:
                 print("WARNING: planning to home failed!")
         return matches
+
+    def save_instance_images(self, root: str = "."):
+        """Save out instance images from the voxel map that we have collected while exploring."""
+
+        if isinstance(root, str):
+            root = Path(root)
+
+        # Write out instance images
+        for i, instance in enumerate(self.voxel_map.get_instances()):
+            for j, view in enumerate(instance.instance_views):
+                image = Image.fromarray(view.cropped_image.byte().cpu().numpy())
+                filename = f"instance{i}_view{j}.png"
+                image.save(root / filename)

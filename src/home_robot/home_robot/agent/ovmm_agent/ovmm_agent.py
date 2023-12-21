@@ -2,14 +2,14 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-
 from datetime import datetime
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import torch
+from trimesh import transformations as tra
+
 from home_robot.agent.objectnav_agent.objectnav_agent import ObjectNavAgent
 from home_robot.core.interfaces import DiscreteNavigationAction, Observations
 from home_robot.manipulation import HeuristicPickPolicy, HeuristicPlacePolicy
@@ -19,7 +19,6 @@ from home_robot.perception.wrapper import (
     build_vocab_from_category_map,
     read_category_map_file,
 )
-from trimesh import transformations as tra
 
 
 class Skill(IntEnum):

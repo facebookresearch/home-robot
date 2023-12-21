@@ -38,8 +38,6 @@ from home_robot.utils.point_cloud import show_point_cloud
 from home_robot.utils.point_cloud_torch import get_bounds
 from home_robot.utils.voxel import drop_smallest_weight_points
 
-padding = 1.5
-
 logger = logging.getLogger(__name__)
 
 
@@ -130,6 +128,7 @@ class InstanceMemory:
         log_dir_overwrite_ok: bool = False,
         view_matching_config: ViewMatchingConfig = ViewMatchingConfig(),
         mask_cropped_instances: bool = True,
+        crop_padding: float = 1.5,
     ):
         """See class definition for information about InstanceMemory
 
@@ -149,6 +148,7 @@ class InstanceMemory:
         self.num_envs = num_envs
         self.du_scale = du_scale
         self.debug_visualize = debug_visualize
+        self.crop_padding = crop_padding
         # self.instance_association = instance_association
         # self.iou_threshold = iou_threshold
         self.erode_mask_num_pix = erode_mask_num_pix
@@ -810,6 +810,7 @@ class InstanceMemory:
         self.local_id_to_global_id_map[env_id] = {}
 
     def get_cropped_image(self, image, bbox):
+        padding = self.crop_padding
         # image = instance_memory.images[0][iv.timestep]
         im_h = image.shape[1]
         im_w = image.shape[2]

@@ -17,6 +17,10 @@ class Parameters(object):
         """Just a wrapper to the dictionary"""
         return self.data[key]
 
+    def __setitem__(self, key: str, value: Any):
+        """Just a wrapper to the dictionary"""
+        self.data[key] = value
+
     def __str__(self):
         result = ""
         for i, (key, value) in enumerate(self.data.items()):

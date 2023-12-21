@@ -95,9 +95,7 @@ def load_referit3d_data(
     :param scans_split:
     :return:
     """
-    assert (nr3d_csv_fpath is None) == (
-        sr3d_csv_fpath is None
-    ), "Cannot use sr3d without nr3d"
+    assert nr3d_csv_fpath is not None, "Cannot use sr3d without nr3d"
 
     referit_data = pd.read_csv(nr3d_csv_fpath)
 
@@ -140,7 +138,7 @@ def load_referit3d_data(
         pctile = 95
         logger.info(
             f"{pctile}-th percentile of token length for remaining (training) data"
-            + " is: {np.percentile(train_token_lens, 95):.1f}"
+            + f" is: {np.percentile(train_token_lens, 95):.1f}"
         )
     n_original = len(referit_data)
     referit_data = referit_data[
