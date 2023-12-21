@@ -425,6 +425,7 @@ class RobotAgent:
         self.voxel_map.add_obs(obs)
 
         # Add observation - helper function will unpack it
+        # TODO: test if this is for sim only
         voxel_obs = copy.deepcopy(obs)
         voxel_obs.rgb = voxel_obs.rgb / 255.0
         self.voxel_map.add_obs(voxel_obs)
