@@ -21,6 +21,7 @@ ENVIRONMENT:
   category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
   use_detic_viz: False
   evaluate_instance_tracking: False # whether to evaluate the built instance map against groundtruth instance ids
+  use_opencv_camera_pose: False # whether to convert camera pose to opencv convention, set False for OVMM challenge baseline and True for voxel code
 
 EVAL_VECTORIZED:
   simulator_gpu_ids: [1, 2, 3, 4, 5, 6, 7] # IDs of GPUs to use for vectorized environments

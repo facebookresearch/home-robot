@@ -13,8 +13,8 @@ import rospy
 
 from home_robot.agent.ovmm_agent.ovmm_agent import OpenVocabManipAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
+from home_robot.utils.config import load_config
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
-from home_robot_hw.utils.config import load_config
 
 
 @click.command()
@@ -25,14 +25,14 @@ from home_robot_hw.utils.config import load_config
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--pick-object", default="cup")
-@click.option("--start-recep", default="table")
-@click.option("--goal-recep", default="chair")
+@click.option("--start-recep", default="chair")
+@click.option("--goal-recep", default="table")
 @click.option(
     "--cat-map-file", default="projects/real_world_ovmm/configs/example_cat_map.json"
 )
 @click.option("--max-num-steps", default=200)
-@click.option("--visualize-maps", default=False, is_flag=True)
-@click.option("--visualize-grasping", default=False, is_flag=True)
+@click.option("--visualize-maps", default=True, is_flag=True)
+@click.option("--visualize-grasping", default=True, is_flag=True)
 @click.option(
     "--debug",
     default=False,
@@ -43,11 +43,11 @@ def main(
     test_pick=False,
     reset_nav=False,
     pick_object="cup",
-    start_recep="table",
-    goal_recep="chair",
+    start_recep="chair",
+    goal_recep="table",
     dry_run=False,
-    visualize_maps=False,
-    visualize_grasping=False,
+    visualize_maps=True,
+    visualize_grasping=True,
     test_place=False,
     cat_map_file=None,
     max_num_steps=200,

@@ -1,4 +1,4 @@
-_target_: home_robot.agent.ovmm_agent.ovmm_perception.OvmmPerception
+_target_: home_robot.perception.OvmmPerception
 config:
   ENVIRONMENT:
     use_detic_viz: False

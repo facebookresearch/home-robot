@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import copy
 import functools
 from typing import List
 
@@ -40,8 +41,8 @@ class Camera(object):
             (0, 0, 0, 1),
             height,
             width,
-            h_focal_length,
             v_focal_length,
+            h_focal_length,
             principal_point_x,
             principal_point_y,
             near_val,
@@ -50,6 +51,27 @@ class Camera(object):
             None,
             None,
             horizontal_fov_rad,
+        )
+
+    @staticmethod
+    def from_K(K: np.ndarray, width: float, height: float):
+        """return camera created from a 3x3 camera intrinsics matrix K"""
+        assert K.shape == (3, 3)
+        return Camera(
+            (0, 0, 0),
+            (0, 0, 0, 1),
+            height,
+            width,
+            K[0, 0],
+            K[1, 1],
+            K[0, 2],
+            K[1, 2],
+            0,
+            5,
+            np.eye(4),
+            None,
+            None,
+            None,
         )
 
     def __init__(
@@ -85,7 +107,8 @@ class Camera(object):
         self.pose_matrix = pose_matrix
         self.pos = pos
         self.orn = orn
-        self.K = np.array([[self.fx, 0, self.px], [0, self.fy, self.py], [0, 0, 1]])
+        # symmetric pinhole should have the same xy focal length
+        self.K = np.array([[self.fy, 0, self.px], [0, self.fy, self.py], [0, 0, 1]])
 
     def to_dict(self):
         """create a dictionary so that we can extract the necessary information for
@@ -147,6 +170,55 @@ def z_from_opengl_depth(depth, camera: Camera):
 # R_CORRECTION = R1 @ R2
 T_CORRECTION = tra.euler_matrix(0, 0, np.pi / 2)
 R_CORRECTION = T_CORRECTION[:3, :3]
+
+
+def opengl_to_opencv(pose):
+    transform = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+    pose = pose @ transform
+    return pose
+
+
+def convert_xz_y_to_xyz(camera_pose_xz_y):
+    # Extract rotation matrix and translation vector from the camera pose
+    rotation_matrix_xz_y = camera_pose_xz_y[:3, :3]
+    translation_vector_xz_y = camera_pose_xz_y[:3, 3]
+
+    # Convert rotation matrix from XZ-Y to XYZ convention
+    rotation_matrix_xyz = np.array(
+        [
+            [
+                rotation_matrix_xz_y[0, 0],
+                rotation_matrix_xz_y[0, 1],
+                rotation_matrix_xz_y[0, 2],
+            ],
+            [
+                -rotation_matrix_xz_y[2, 0],
+                -rotation_matrix_xz_y[2, 1],
+                -rotation_matrix_xz_y[2, 2],
+            ],
+            [
+                rotation_matrix_xz_y[1, 0],
+                rotation_matrix_xz_y[1, 1],
+                rotation_matrix_xz_y[1, 2],
+            ],
+        ]
+    )
+
+    # Convert translation vector from XZ-Y to XYZ convention
+    translation_vector_xyz = np.array(
+        [
+            translation_vector_xz_y[0],
+            -translation_vector_xz_y[2],
+            translation_vector_xz_y[1],
+        ]
+    )
+
+    # Create the new camera pose matrix in XYZ convention
+    camera_pose_xyz = np.eye(4)
+    camera_pose_xyz[:3, :3] = rotation_matrix_xyz
+    camera_pose_xyz[:3, 3] = translation_vector_xyz
+
+    return camera_pose_xyz
 
 
 def opengl_depth_to_xyz(depth, camera: Camera):
@@ -373,3 +445,34 @@ def interpolate_image(image: Tensor, scale_factor: float = 1.0, mode: str = "nea
         .bool()
     )
     return image_downsampled
+
+
+def adjust_intrinsics_matrix(K, old_size, new_size):
+    """
+    Adjusts the camera intrinsics matrix after resizing an image.
+
+    Args:
+        K (np.ndarray): the original 3x3 intrinsics matrix.
+        old_size (list[int]): the original size of the image in (width, height).
+        new_size (list[int]): the new size of the image in (width, height).
+    Returns:
+        np.ndarray: the adjusted 3x3 intrinsics matrix.
+
+    :example:
+    >>> K = np.array([[500, 0, 320], [0, 500, 240], [0, 0, 1]])
+    >>> old_size = (640, 480)
+    >>> new_size = (320, 240)
+    >>> K_new = adjust_intrinsics_matrix(K, old_size, new_size)
+    """
+    # Calculate the scale factors for width and height
+    scale_x = new_size[0] / old_size[0]
+    scale_y = new_size[1] / old_size[1]
+
+    # Adjust the intrinsics matrix
+    K_new = copy.deepcopy(K)
+    K_new[0, 0] *= scale_x  # Adjust f_x
+    K_new[1, 1] *= scale_y  # Adjust f_y
+    K_new[0, 2] *= scale_x  # Adjust c_x
+    K_new[1, 2] *= scale_y  # Adjust c_y
+
+    return K_new

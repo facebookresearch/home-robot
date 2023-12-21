@@ -17,9 +17,10 @@ install_requires = [
     "pybind11-global",
     "sophuspy",
     "trimesh",
-    "pin==2.6.17",
+    "pin>=2.6.17",
     "torch_cluster",
     "torch_scatter",
+    "pillow==9.5.0",  # For Detic compatibility
 ]
 
 setup(

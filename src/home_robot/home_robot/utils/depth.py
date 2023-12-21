@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import itertools
+import warnings
 from argparse import Namespace
 
 import numpy as np
@@ -25,6 +26,10 @@ def valid_depth_mask(depth: np.ndarray) -> np.ndarray:
 
 def get_camera_matrix(width, height, fov):
     """Returns a camera matrix from image size and fov."""
+    warnings.warn(
+        "This function is deprecated and will be removed in future versions. Use the Camera class from src/home_robot/utils/image.py instead.",
+        DeprecationWarning,
+    )
     xc = (width - 1.0) / 2.0
     zc = (height - 1.0) / 2.0
     f = (width / 2.0) / np.tan(np.deg2rad(fov / 2.0))

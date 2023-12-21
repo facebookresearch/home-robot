@@ -1,0 +1,3 @@
+_target_: home_robot.perception.encoders.ClipEncoder
+version: "ViT-B/32"
+device: 'cuda:0'

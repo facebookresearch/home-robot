@@ -237,11 +237,19 @@ class VoxelGraspGenerator(object):
         pc_color_segment = pc_colors[seg_idcs]
 
         # Build voxel map (in abs frame)
-        voxel_map = SparseVoxelMap(resolution=VOXEL_RES, feature_dim=3)
-        voxel_map.add(camera_pose, pc_segment, feats=pc_color_segment)
+        voxel_map = SparseVoxelMap(
+            resolution=VOXEL_RES, feature_dim=3, use_instance_memory=False
+        )
+        voxel_map.add(
+            camera_pose=camera_pose,
+            xyz=pc_segment,
+            rgb=pc_color_segment,
+            xyz_frame="camera",
+        )
 
         # Extract highest points
-        xyz, rgb = voxel_map.get_data()
+        xyz, rgb = voxel_map.get_xyz_rgb()
+        xyz, rgb = xyz.cpu().numpy(), rgb.cpu().numpy()
         if xyz.shape[0] < 1:
             return {}, {}, self.in_base_frame
 
@@ -304,7 +312,8 @@ class VoxelGraspGenerator(object):
 
         # Add an emergency grasp generator - just try to grab the top or something
         # This will work best on squishy objects
-        if len(scores_raw) == 0 and self._always_grasp:
+        # if len(scores_raw) == 0 and self._always_grasp:
+        if True:
             # we need to add an emergency grasp location
             # TODO: mean or median?
             # avg_top_xyz = np.mean(xyz_top, axis=0)

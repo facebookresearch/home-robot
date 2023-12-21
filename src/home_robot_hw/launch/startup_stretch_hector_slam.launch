@@ -8,7 +8,6 @@
 	<arg name="publish_master_clock" default="true"/>
 
 	<!-- bring up rviz? -->
-	<!--param name="/use_sim_time" value="true"/-->
 	<arg name="rviz" default="false" doc="whether to show Rviz" />
 	<include file="$(find home_robot_hw)/launch/master_clock.launch" if="$(arg publish_master_clock)"/>
 
@@ -25,15 +24,8 @@
 	<include file="$(find realsense2_camera)/launch/rs_aligned_depth.launch" if="$(arg start_rs_ros)">
 		<arg name="camera" value="camera"/>
 		<arg name="align_depth" value="true"/>
-		<arg name="filters" value="decimation,disparity,spatial,temporal"/>
-		<!--param name="serial_no" value="032622071943"/-->
-		<!--param name="serial_no" value="936322070007"/-->
+		<arg name="filters" value="decimation,disparity,spatial,temporal,pointcloud"/>
 	</include>
-	<!--include file="$(find realsense2_camera)/launch/rs_aligned_depth.launch" if="$(arg start_rs_ros)">
-		<arg name="camera" value="ee_camera"/>
-		<arg name="align_depth" value="true"/>
-		<param name="serial_no" value="134222070439"/>
-	</include-->
 
 	<!-- LASER RANGE FINDER -->
 	<include file="$(find home_robot_hw)/launch/rplidar.launch" />
@@ -63,5 +55,13 @@
 
 	<include file="$(find home_robot_hw)/launch/controller.launch" if="$(arg start_joy_node)"/>
 	<include file="$(find home_robot_hw)/launch/home_robot_nodes.launch"/>
+
+	<!-- Manipulation from FUNMAP -->
+	<!-- set this to true to start experimental funmap grasp/place code-->
+	<arg name="start_funmap" default="false"/>
+	<group if="$(arg start_funmap)">
+		<node name="funmap_grasping" pkg="stretch_demos" type="grasp_point" output="screen" />
+		<node name="funmap_placing" pkg="stretch_demos" type="place_point" output="screen" />
+	</group>
 
 </launch>

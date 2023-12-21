@@ -5,7 +5,6 @@
 from abc import ABC, abstractmethod
 from typing import Callable, List, Optional
 
-from home_robot.motion.robot import Robot
 from home_robot.motion.space import ConfigurationSpace
 
 """

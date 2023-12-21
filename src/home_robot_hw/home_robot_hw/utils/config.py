@@ -7,14 +7,11 @@
 from home_robot.utils.config import get_config
 
 
-def load_config(
-    visualize: bool = False, print_images: bool = True, config_path=None, **kwargs
-):
+def load_config(visualize: bool = False, print_images: bool = True, config_path=None):
     """Load config path for real world experiments and use proper presets."""
     if config_path is None:
-        # TODO: make sure this is the right default
         config_path = "projects/real_world_ovmm/configs/agent/eval.yaml"
-    config, config_str = get_config(config_path)
+    config, _ = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
     config.VISUALIZE = int(visualize)
@@ -27,10 +24,10 @@ def load_config(
 
 
 def load_slap_config(
-    visualize: bool = False, print_images: bool = True, config_path=None, **kwargs
+    visualize: bool = False, print_images: bool = True, config_path=None
 ):
     """Load config path for real world experiments and use proper presets."""
-    config, config_str = get_config(config_path)
+    config, _ = get_config(config_path)
     config.defrost()
     config.NUM_ENVIRONMENTS = 1
     config.VISUALIZE = int(visualize)

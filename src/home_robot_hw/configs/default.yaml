@@ -1,0 +1,50 @@
+# Encoder setup
+# Encoder is used to compute per-object embeddings.
+encoder: "clip"
+encoder_args: "ViT-B/32"
+
+# Sparse Voxel Map parameters
+voxel_size: 0.02
+obs_min_height: 0.05  # Ignore things less than this high when planning motions
+obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
+obs_min_density: 10  # This many points makes it an obstacle
+pad_obstacles: 1  # Add this many units (voxel_size) to the area around obstacles
+local_radius: 0.8  # Area around the robot to mark as explored (kind of a hack)
+smooth_kernel_size: 2
+min_depth: 0.1
+max_depth: 3.5
+
+# Exploration
+in_place_rotation_steps: 8
+
+# TAMP parameters
+guarantee_instance_is_reachable: True
+
+# Navigation space - used for motion planning and computing goals.
+step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
+rotation_step_size: 0.2 
+dilate_frontier_size: 12  # Used to shrink the frontier back from the edges of the world
+dilate_obstacle_size: 5  # Used when selecting goals and computing what the "frontier" is 
+
+# Trajectory following - how closely we follow intermediate waypoints
+# These should be less strict than whatever parameters the low-level controller is using; this will
+# make sure that the motions end up looking smooth.
+trajectory_pos_err_threshold: 0.15
+trajectory_rot_err_threshold: 0.3
+trajectory_per_step_timeout: 3.0
+
+# User interface
+# Choose one of: (object_to_find, location_to_place), command, or chat
+# Don't use all of them!
+name: "stretch_demo"  # for logging - currently not used
+chat: False
+start_ui_server: False
+vlm_context_length: 20  # How long messages sent to the vlm server can be if we are using it
+limited_obs_publish_sleep: 0.5
+
+# High level stuff: commands to execute 
+command: "pick up a bottle and put it on the chair"
+name: "stretch"
+exploration_steps: 10
+object_to_find: "bottle"
+location_to_place: "chair"

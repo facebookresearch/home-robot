@@ -1,0 +1,84 @@
+# Perception parameters
+encoder: "clip"
+clip: "ViT-B/32"
+category_map_file: "src/home_robot_spot/configs/demo_cat_map.json"
+
+# Planner parameters
+step_size: 1  # (originally .1, we can make it all the way to 2 maybe actually)
+rotation_step_size: 0.5
+visualize: False
+exploration_steps: 50
+shortcut_iter: 250
+extend_mode: "joint"  # joint = rotate and move at the same time
+# extend_mode: "separate"
+
+# Frontier search parameters
+frontier_step_dist: 0.5
+frontier_min_dist: 0.5
+
+# Voxel map
+min_depth: 0.4
+max_depth: 4
+obs_min_height: 0.3  # Originally .1, floor appears noisy in the 3d map of freemont so we're being super conservative
+obs_max_height: 1.3  # Originally 1.8, spot is shorter than stretch tho
+obs_min_density: 10  # Originally 10, making it bigger because theres a bunch on noise
+voxel_size: 0.07
+local_radius: 1.5  # Can probably be bigger than original (.15)
+
+# 2d parameters
+explore_methodical: True
+max_explore_failures: 1
+dilate_frontier_size: 25
+dilate_obstacle_size: 2  # Value used in pittsburgh lab
+# "dilate_obstacle_size": 5, # value from fremont
+smooth_kernel_size: 5
+
+# Frontier
+min_size: 20  # Can probably be bigger than original (10)
+max_size: 40  # Can probably be bigger than original (10)
+
+# Grasping and placing parameters
+plan_to_instance: True
+verify_before_grasp: False
+nbr_dist: 0.15  # Was originally 0.15 in Sasha's code
+residual_thresh: 0.03
+pick_place_radius: 2.0
+place_offset: 0.5  # after orienting to the place location, move until within this offset
+force_place_at_center: False
+# gripper_offset_x: 0.20
+gripper_offset_x: 0
+place_height: 0.2
+finish_grasping: True
+
+# Trajectory execution
+trajectory_pos_err_threshold: 0.5
+trajectory_rot_err_threshold: 0.5
+trajectory_per_step_timeout: 2.5
+
+# Data collection and sensors
+use_async_subscriber: False
+write_data: True
+use_zero_depth: False
+use_midas: False
+
+# Task setup
+pick_categories: ["bottle", "cup"]
+place_categories: ["table"]
+use_get_close: False
+best_view_metric: "area"
+# GOOD COMMANDS
+#command: "move a stuffed toy to a chair"
+#command: "I am on the chair, and need a cup to drink water, get me one"
+#command: "pick up the cup on the couch and place it on the chair"
+command: "pick up toy animal from the chair and place it on the table"
+#command: "Pick up the stuffed penguin from the chair and give it to me on the table"
+#command: "I want the stuffed penguin from the chair on the table"
+confirm_plan: False
+find_only: True
+
+# User interface
+chat: True
+limited_obs_publish_sleep: 0.5  # set to 0 for no limited obs
+context_length: 20
+sample_strategy: "all"
+our_vlm: False

@@ -8,24 +8,25 @@
 from typing import List, Optional, Tuple
 
 import click
+import matplotlib.pyplot as plt
 import rospy
 
 from home_robot.agent.ovmm_agent.pick_and_place_agent import PickAndPlaceAgent
 from home_robot.motion.stretch import STRETCH_HOME_Q
+from home_robot.utils.config import load_config
 from home_robot_hw.env.stretch_pick_and_place_env import StretchPickandPlaceEnv
-from home_robot_hw.utils.config import load_config
 
 
 @click.command()
 @click.option("--test-pick", default=False, is_flag=True)
 @click.option("--test-gaze", default=False, is_flag=True)
 @click.option("--test-place", default=False, is_flag=True)
-@click.option("--skip-gaze", default=True, is_flag=True)
+@click.option("--skip-gaze", default=False, is_flag=True)
 @click.option("--reset-nav", default=False, is_flag=True)
 @click.option("--dry-run", default=False, is_flag=True)
 @click.option("--pick-object", default="cup")
-@click.option("--start-recep", default="table")
-@click.option("--goal-recep", default="chair")
+@click.option("--start-recep", default="chair")
+@click.option("--goal-recep", default="table")
 @click.option("--visualize-maps", default=False, is_flag=True)
 @click.option("--show-observations", default=False, is_flag=True)
 @click.option(
@@ -50,7 +51,14 @@ def main(
     rospy.init_node("eval_episode_stretch_objectnav")
 
     print("- Loading configuration")
-    config = load_config(visualize=visualize_maps, **kwargs)
+    config = load_config(
+        visualize=visualize_maps,
+        config_path="projects/real_world_ovmm/configs/agent/eval.yaml",
+        **kwargs
+    )
+    config["start_recep"] = start_recep
+    config["pick_object"] = pick_object
+    config["goal_recep"] = goal_recep
 
     print("- Creating environment")
     env = StretchPickandPlaceEnv(
@@ -87,7 +95,6 @@ def main(
         t += 1
         print("STEP =", t)
         obs = env.get_observation()
-        import matplotlib.pyplot as plt
 
         if show_observations:
             plt.imshow(obs.rgb)

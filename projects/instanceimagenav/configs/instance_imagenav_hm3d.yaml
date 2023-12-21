@@ -44,7 +44,7 @@ semantic_map:
   map_size_cm: 4800                 # global map size (in centimeters)
   map_resolution: 5                 # size of map bins (in centimeters)
   vision_range: 100                 # diameter of local map region visible by the agent (in cells)
-  explored_radius: 150              # radius (in centimeters) of visually explored region
+  explored_radius: 50              # radius (in centimeters) of visually explored region
   been_close_to_radius: 200         # radius (in centimeters) of been close to region
   global_downscaling: 2             # ratio of global over local map
   du_scale: 4                       # frame downscaling before projecting to point cloud

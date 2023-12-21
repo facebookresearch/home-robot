@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation as R
 from std_srvs.srv import TriggerRequest
 
 from home_robot.core.state import ManipulatorBaseParams
-from home_robot.motion.robot import Robot
+from home_robot.motion.robot import RobotModel
 from home_robot.motion.stretch import STRETCH_HOME_Q, HelloStretchIdx
 from home_robot.utils.geometry import posquat2sophus, sophus2posquat, xyt2sophus
 
@@ -22,7 +22,7 @@ JOINT_ANG_TOL = 0.05
 
 
 class StretchManipulationClient(AbstractControlModule):
-    def __init__(self, ros_client, robot_model: Robot):
+    def __init__(self, ros_client, robot_model: RobotModel):
         super().__init__()
 
         self._ros_client = ros_client

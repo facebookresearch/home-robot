@@ -5,9 +5,4 @@
 
 
 from .ovmm_agent import OpenVocabManipAgent, Skill, get_skill_as_one_hot_dict
-from .ovmm_perception import (
-    OvmmPerception,
-    build_vocab_from_category_map,
-    read_category_map_file,
-)
 from .pick_and_place_agent import PickAndPlaceAgent

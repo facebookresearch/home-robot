@@ -2,14 +2,13 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-
 from enum import IntEnum
 from typing import Any, Dict, Optional, Union
 
 import habitat
 import numpy as np
 import torch
+import trimesh.transformations as tra
 from habitat.core.environments import GymHabitatEnv
 from habitat.core.simulator import Observations
 
@@ -31,6 +30,7 @@ from home_robot.utils.constants import (
     MAX_DEPTH_REPLACEMENT_VALUE,
     MIN_DEPTH_REPLACEMENT_VALUE,
 )
+from home_robot.utils.image import Camera, convert_xz_y_to_xyz, opengl_to_opencv
 from home_robot_sim.env.habitat_abstract_env import HabitatEnv
 from home_robot_sim.env.habitat_objectnav_env.visualizer import Visualizer
 
@@ -60,6 +60,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self.ground_truth_semantics = config.GROUND_TRUTH_SEMANTICS
         self._dataset = dataset
         self.visualize = config.VISUALIZE or config.PRINT_IMAGES
+        self.camera = None
         if self.visualize:
             self.visualizer = Visualizer(config, dataset)
 
@@ -139,6 +140,21 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         else:
             third_person_image = None
 
+        if self.camera is None:
+            height, width = habitat_obs["head_rgb"].shape[:2]
+            self.camera = Camera.from_width_height_fov(
+                width=480,
+                height=640,
+                fov_degrees=42,
+            )
+
+        camera_pose_transform = (
+            lambda habitat_camera_pose: convert_xz_y_to_xyz(
+                opengl_to_opencv(habitat_camera_pose)
+            )
+            if getattr(self.config.ENVIRONMENT, "use_opencv_camera_pose", False)
+            else self.convert_pose_to_real_world_axis(habitat_camera_pose)
+        )
         obs = home_robot.core.interfaces.Observations(
             rgb=habitat_obs["head_rgb"],
             depth=depth,
@@ -153,18 +169,16 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             joint=habitat_obs["joint"],
             relative_resting_position=habitat_obs["relative_resting_position"],
             third_person_image=third_person_image,
-            camera_pose=self.convert_pose_to_real_world_axis(
-                np.asarray(habitat_obs["camera_pose"])
-            ),
+            camera_pose=camera_pose_transform(np.asarray(habitat_obs["camera_pose"])),
+            camera_K=self.camera.K,
         )
+
         obs = self._preprocess_goal(obs, habitat_obs)
         obs = self._preprocess_semantic(obs, habitat_obs)
-        if "robot_head_panoptic" in habitat_obs:
+        if "head_panoptic" in habitat_obs:
             gt_instance_ids = np.maximum(
                 0,
-                habitat_obs["robot_head_panoptic"]
-                - self._instance_ids_start_in_panoptic
-                + 1,
+                habitat_obs["head_panoptic"] - self._instance_ids_start_in_panoptic + 1,
             )[..., 0]
             # to be used for evaluating the instance map
             obs.task_observations["gt_instance_ids"] = gt_instance_ids
@@ -177,20 +191,29 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         self, obs: home_robot.core.interfaces.Observations, habitat_obs
     ) -> home_robot.core.interfaces.Observations:
         if self.ground_truth_semantics:
-            semantic = torch.from_numpy(
-                habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
-            )
+            if "all_object_segmentation" in habitat_obs:
+                semantic = torch.from_numpy(
+                    habitat_obs["all_object_segmentation"].squeeze(-1).astype(np.int64)
+                )
+                obj_categories_in_seg = len(self._obj_id_to_name_mapping)
+            else:
+                semantic = torch.from_numpy(
+                    habitat_obs["object_segmentation"].squeeze(-1).astype(np.int64)
+                )
+                obj_categories_in_seg = 1
             recep_seg = (
                 habitat_obs["receptacle_segmentation"].squeeze(-1).astype(np.int64)
             )
-            recep_seg[recep_seg != 0] += 1
+            recep_seg[recep_seg != 0] += obj_categories_in_seg
             recep_seg = torch.from_numpy(recep_seg)
             semantic = semantic + recep_seg
-            semantic[semantic == 0] = len(self._rec_id_to_name_mapping) + 2
+            semantic[semantic == 0] = (
+                len(self._rec_id_to_name_mapping) + obj_categories_in_seg + 1
+            )
             obs.semantic = semantic.numpy()
-            obs.task_observations["recep_idx"] = 2
+            obs.task_observations["recep_idx"] = 1 + obj_categories_in_seg
             obs.task_observations["semantic_max_val"] = (
-                len(self._rec_id_to_name_mapping) + 2
+                len(self._rec_id_to_name_mapping) + obj_categories_in_seg + 1
             )
         return obs
 
@@ -217,15 +240,28 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
         goal_name = (
             "Move " + obj_name + " from " + start_receptacle + " to " + goal_receptacle
         )
-
-        obj_goal_id = 1  # semantic sensor returns binary mask for goal object
         if self.ground_truth_semantics:
-            start_rec_goal_id = self._rec_name_to_id_mapping[start_receptacle] + 2
-            end_rec_goal_id = self._rec_name_to_id_mapping[goal_receptacle] + 2
+            if "all_object_segmentation" in habitat_obs:
+                obj_goal_id = 1 + habitat_obs["object_category"]
+                obj_categories_in_seg = len(self._obj_id_to_name_mapping)
+            else:
+                obj_goal_id = 1
+                obj_categories_in_seg = 1
+            start_rec_goal_id = (
+                self._rec_name_to_id_mapping[start_receptacle]
+                + 1
+                + obj_categories_in_seg
+            )
+            end_rec_goal_id = (
+                self._rec_name_to_id_mapping[goal_receptacle]
+                + 1
+                + obj_categories_in_seg
+            )
         else:
             # To be populated by the agent
             start_rec_goal_id = -1
             end_rec_goal_id = -1
+            obj_goal_id = 1
 
         obs.task_observations["goal_name"] = goal_name
         obs.task_observations["object_name"] = obj_name
@@ -331,7 +367,7 @@ class HabitatOpenVocabManipEnv(HabitatEnv):
             )
         else:
             raise ValueError(
-                "Action needs to be of one of the following types: DiscreteNavigationAction, ContinuousNavigationAction or ContinuousFullBodyAction"
+                f"Action needs to be of one of the following types: DiscreteNavigationAction, ContinuousNavigationAction or ContinuousFullBodyAction, was: {type(action)}"
             )
         return np.array(cont_action, dtype=np.float32)
 

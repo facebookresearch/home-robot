@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -19,6 +19,8 @@ from home_robot.utils.constants import (
 hm3d_to_mp3d_path = Path(__file__).resolve().parent / "matterport_category_mappings.tsv"
 df = pd.read_csv(hm3d_to_mp3d_path, sep="    ", header=0, engine="python")
 hm3d_to_mp3d = {row["category"]: row["mpcat40index"] for _, row in df.iterrows()}
+hm3d_raw_to_hm3d = {row["raw_category"]: row["category"] for _, row in df.iterrows()}
+all_hm3d_categories = [row["category"] for _, row in df.iterrows()]
 
 
 # Color constants we use.
@@ -78,8 +80,10 @@ class SemanticCategoryMapping(ABC):
     the color palettes and legends to visualize these categories.
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, goal_id_to_goal_name: Dict[int, str]):
+        self.goal_id_to_goal_name = goal_id_to_goal_name
+        for gid, gname in self.goal_id_to_goal_name.items():
+            self.goal_name_to_goal_id[gname] = gid
 
     @abstractmethod
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
@@ -118,6 +122,24 @@ class SemanticCategoryMapping(ABC):
     @property
     def num_sem_obj_categories(self):
         return self.num_sem_categories()
+
+
+class PaletteIndices:
+    """
+    Indices of different types of maps maintained in the agent's map state.
+    """
+
+    EMPTY_SPACE = 0
+    OBSTACLES = 1
+    EXPLORED = 2
+    VISITED = 3
+    CLOSEST_GOAL = 4
+    REST_OF_GOAL = 5
+    BEEN_CLOSE = 6
+    SHORT_TERM_GOAL = 7
+    BLACKLISTED_TARGETS_MAP = 8
+    INSTANCE_BORDER = 9
+    SEM_START = 10
 
 
 # ----------------------------------------------------
@@ -250,6 +272,9 @@ coco_map_color_palette = [
         0.0,
         1.0,
         0.0,  # short term goal
+        0.6,
+        0.17,
+        0.54,  # blacklisted targets map
         0.0,
         0.0,
         0.0,  # instance border
@@ -276,7 +301,6 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
     """
 
     def __init__(self):
-        super().__init__()
         self.goal_id_to_goal_name = {idx: name for name, idx in coco_categories.items()}
         self.hm3d_goal_id_to_coco_goal_name = {
             0: "chair",
@@ -295,6 +319,7 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
             5: 1,  # couch
         }
         self._instance_id_to_category_id = None
+        super().__init__(self.goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (
@@ -335,6 +360,124 @@ class HM3DtoCOCOIndoor(SemanticCategoryMapping):
         return 16
 
 
+languagenav_2categories_indexes = {
+    1: "target",
+    2: "landmark",
+}
+
+languagenav_2categories_padded = (
+    ["."] + [languagenav_2categories_indexes[i] for i in range(1, 3)] + ["other"]
+)
+
+languagenav_2categories_legend_path = str(
+    Path(__file__).resolve().parent / "rearrange_3categories_legend.png"
+)
+
+# languagenav_2categories_color_palette = [255, 255, 255] + list(
+#     d3_40_colors_rgb[1:3].flatten()
+# )
+languagenav_2categories_color_palette = [255, 255, 255] + list(
+    d3_40_colors_rgb[1:].flatten()
+)
+languagenav_2categories_frame_color_palette = languagenav_2categories_color_palette + [
+    255,
+    255,
+    255,
+]
+
+languagenav_2categories_map_color_palette = [
+    int(x * 255.0)
+    for x in [
+        1.0,
+        1.0,
+        1.0,  # empty space
+        0.6,
+        0.6,
+        0.6,  # obstacles
+        0.95,
+        0.95,
+        0.95,  # explored area
+        0.96,
+        0.36,
+        0.26,  # visited area
+        0.12,
+        0.46,
+        0.70,  # closest goal
+        0.63,
+        0.78,
+        0.95,  # rest of goal
+        0.6,
+        0.87,
+        0.54,  # been close map
+        0.0,
+        1.0,
+        0.0,  # short term goal
+        0.6,
+        0.17,
+        0.54,  # blacklisted targets map
+        0.0,
+        0.0,
+        0.0,  # instance border
+        *[x / 255.0 for x in languagenav_2categories_color_palette],
+    ]
+]
+
+
+class LanguageNavCategories(SemanticCategoryMapping):
+    """
+    Mapping for LanguageNav episode visualizations and instance ID -> semantic category conversion.
+    """
+
+    def __init__(self):
+        self.goal_id_to_goal_name = languagenav_2categories_indexes
+        self._instance_id_to_category_id = None
+        super().__init__(self.goal_id_to_goal_name)
+
+    def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
+        return (goal_id, self.goal_id_to_goal_name[goal_id])
+
+    def reset_instance_id_to_category_id(self, env):
+        self._instance_id_to_category_id = []
+        for obj in env.sim.semantic_annotations().objects:
+            raw_category = obj.category.name().lower().strip()
+            category = hm3d_raw_to_hm3d.get(raw_category)
+            if category is None:
+                self._instance_id_to_category_id.append(
+                    self.all_hm3d_categories.index("unknown")
+                )
+            else:
+                self._instance_id_to_category_id.append(
+                    self.all_hm3d_categories.index(category)
+                )
+
+        self._instance_id_to_category_id = np.array(self._instance_id_to_category_id)
+
+    @property
+    def all_hm3d_categories(self):
+        return list(set(all_hm3d_categories))
+
+    @property
+    def instance_id_to_category_id(self) -> np.ndarray:
+        return self._instance_id_to_category_id
+
+    @property
+    def map_color_palette(self):
+        return languagenav_2categories_map_color_palette
+
+    @property
+    def frame_color_palette(self):
+        return languagenav_2categories_frame_color_palette
+
+    @property
+    def categories_legend_path(self):
+        return languagenav_2categories_legend_path
+
+    @property
+    def num_sem_categories(self):
+        # 0 is unused, 1 is object category, 2 is start receptacle category, 3 is goal receptacle category, 4 is "other/misc"
+        return 4
+
+
 rearrange_3categories_indexes = {
     1: "object",
     2: "start_receptacle",
@@ -357,19 +500,6 @@ rearrange_3categories_frame_color_palette = rearrange_3categories_color_palette 
     255,
     255,
 ]
-
-
-class PaletteIndices:
-    EMPTY_SPACE = 0
-    OBSTACLES = 1
-    EXPLORED = 2
-    VISITED = 3
-    CLOSEST_GOAL = 4
-    REST_OF_GOAL = 5
-    BEEN_CLOSE = 6
-    SHORT_TERM_GOAL = 7
-    INSTANCE_BORDER = 8
-    SEM_START = 9
 
 
 rearrange_3categories_map_color_palette = [
@@ -399,6 +529,9 @@ rearrange_3categories_map_color_palette = [
         0.0,
         1.0,
         0.0,  # short term goal
+        0.6,
+        0.17,
+        0.54,  # blacklisted targets map
         0.0,
         0.0,
         0.0,  # instance border
@@ -489,6 +622,9 @@ mukul_33categories_map_color_palette = [
         0.0,
         1.0,
         0.0,  # short term goal
+        0.6,
+        0.17,
+        0.54,  # blacklisted targets map
         0.0,
         0.0,
         0.0,  # instance border
@@ -505,9 +641,9 @@ class FloorplannertoMukulIndoor(SemanticCategoryMapping):
     """
 
     def __init__(self):
-        super().__init__()
         self.floorplanner_goal_id_to_goal_name = mukul_33categories_indexes
         self._instance_id_to_category_id = None
+        super().__init__(self.floorplanner_goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.floorplanner_goal_id_to_goal_name[goal_id])
@@ -618,6 +754,9 @@ hssd_28categories_map_color_palette = [
         0.0,
         1.0,
         0.0,  # short term goal
+        0.6,
+        0.17,
+        0.54,  # blacklisted targets map
         0.0,
         0.0,
         0.0,  # instance border
@@ -630,9 +769,9 @@ class HM3DtoHSSD28Indoor(SemanticCategoryMapping):
     """ """
 
     def __init__(self):
-        super().__init__()
         self.floorplanner_goal_id_to_goal_name = hssd_28categories_indexes
         self._instance_id_to_category_id = None
+        super().__init__(self.floorplanner_goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.floorplanner_goal_id_to_goal_name[goal_id])
@@ -665,9 +804,10 @@ class HM3DtoHSSD28Indoor(SemanticCategoryMapping):
 
 class RearrangeBasicCategories(SemanticCategoryMapping):
     def __init__(self):
-        super().__init__()
         self.goal_id_to_goal_name = rearrange_3categories_indexes
         self._instance_id_to_category_id = None
+        self.goal_name_to_goal_id: Dict[str, int] = {}
+        super().__init__(self.goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.goal_id_to_goal_name[goal_id])
@@ -710,10 +850,11 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
     Uses a default list of categories if no category list is passed."""
 
     def __init__(self, categories_indexes, num_sem_objects=None):
-        super().__init__()
         self.goal_id_to_goal_name = categories_indexes
         self._num_sem_obj_categories = num_sem_objects
         self._instance_id_to_category_id = None
+        self.goal_name_to_goal_id: Dict[str, int] = {}
+        super().__init__(self.goal_id_to_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (goal_id, self.goal_id_to_goal_name[goal_id])
@@ -763,6 +904,9 @@ class RearrangeDETICCategories(SemanticCategoryMapping):
                 0.0,
                 1.0,
                 0.0,  # short term goal
+                0.6,
+                0.17,
+                0.54,  # blacklisted targets map
                 0.0,
                 0.0,
                 0.0,  # instance border
@@ -1663,7 +1807,6 @@ hm3d_to_longtail_indoor = {
 
 class HM3DtoLongTailIndoor(SemanticCategoryMapping):
     def __init__(self):
-        super().__init__()
         self.hm3d_goal_id_to_longtail_goal_name = {
             0: "chair",
             1: "bed",
@@ -1681,6 +1824,7 @@ class HM3DtoLongTailIndoor(SemanticCategoryMapping):
             5: long_tail_indoor_categories.index("couch"),
         }
         self._instance_id_to_category_id = None
+        super().__init__(self.hm3d_goal_id_to_longtail_goal_name)
 
     def map_goal_id(self, goal_id: int) -> Tuple[int, str]:
         return (

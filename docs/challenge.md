@@ -63,6 +63,7 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
     docker build . \
         -f docker/ovmm_baseline.Dockerfile \
         -t ovmm_baseline_submission
+        --network host
     ```
     *Note 1:* Please, make sure that you keep your local version of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023` image up to date with the image we have hosted on [dockerhub](https://hub.docker.com/r/fairembodied/habitat-challenge/tags). This can be done by pruning all cached images, using:
     ```
@@ -76,6 +77,7 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
     docker build . \
         -f docker/ovmm_random_agent.Dockerfile \
         -t ovmm_random_agent_submission
+        --network host
     ```
 
 1. Download all the required data into the `home-robot/data` directory (see [Habitat OVMM readme](../projects/habitat_ovmm/README.md)). Then in your `docker run` command mount `home-robot/data` data folder to the `home-robot/data` folder in the Docker image (see `./scripts/test_local.sh` for reference).
@@ -170,4 +172,52 @@ evalai push <image>:<tag> --phase neurips-ovmm-test-challenge-2023-2100 --privat
 ### DD-PPO Training Starter Code
 Please refer to the Training DD-PPO skills section of the [Habitat OVMM readme](../projects/habitat_ovmm/README.md#training-dd-ppo-skills) for more details.
 
+### Instructions (Temporary)
+Install Docker via 
+```
+# Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add the repository to Apt sources:
+echo \
+  "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+Login to Docker 
+```
+docker login
+```
+Build the Docker image
+```
+cd $HOME_ROBOT_ROOT/projects/habitat_ovmm/
+docker build . --network="host" -f docker/ovmm_baseline.Dockerfile -t ovmm_baseline_submission
+```
+Once the image is built, run the RPC server
+```
+python src/home_robot_hw/home_robot_hw/utils/eval.py
+```
+Run the Docker image via sudo
+```
+sudo docker run --runtime=nvidia --gpus all  --network="host" -e OPENBLAS_NUM_THREADS=1 -e NUMEXPR_NUM_THREADS=1 -e MKL_NUM_THREADS=1 --privileged  ovmm_baseline_submission
+```
+If nvidia not found
+```
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list \
+  && \
+    sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+sudo apt install -y nvidia-docker2
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
 
