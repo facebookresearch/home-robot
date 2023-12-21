@@ -164,10 +164,9 @@ class GraspPlanner(GraspClient):
             cv2.imwrite("semframe.png", obs.task_observations["semantic_frame"])
 
         # Pull object goal from task spec if it was provided by the environment
-        # if object_goal is None:
-        object_goal = self.env.task_info[
-            "object_name"
-        ]  # obs.task_observations["object_goal"]
+        if object_goal is None:
+            # Overwrite with goal from environment
+            object_goal = self.env.task_info["object_name"]
         print("object goal --", object_goal)
         if isinstance(object_goal, str):
             object_goal = self.semantic_sensor.get_class_id_for_name(object_goal)
