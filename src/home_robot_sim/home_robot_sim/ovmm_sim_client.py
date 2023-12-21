@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import imageio
 import numpy as np
 import torch
+
 from home_robot.core.interfaces import (
     ContinuousNavigationAction,
     DiscreteNavigationAction,
@@ -85,6 +86,7 @@ class OvmmSimClient(RobotClient):
         """Reset everything in the robot's internal state"""
         self.obs = self.env.reset()
         self.video_frames = [self.obs.third_person_image]
+        self.fpv_video_frames = [self.obs.rgb]
         self.num_action_applied = 0
         self.done = False
         self.force_quit = False
