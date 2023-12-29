@@ -77,6 +77,8 @@ class StretchHeadClient(AbstractControlModule):
         self._register_wait(self._ros_client.wait_for_trajectory_action)
         if blocking:
             self.wait()
+            # TODO: we should not need sleeps to make sure observations and head poses are aligned. But we keep seeing issues with this, so let's add one anyway
+            rospy.sleep(2.5)
 
     def look_close(self, blocking: bool = True):
         """Point camera sideways towards the gripper"""
@@ -86,6 +88,11 @@ class StretchHeadClient(AbstractControlModule):
     def look_at_ee(self, blocking: bool = True):
         """Point camera sideways towards the gripper"""
         pan, tilt = self._robot_model.look_at_ee
+        self.set_pan_tilt(pan, tilt, blocking=blocking)
+
+    def look_down(self, blocking: bool = True):
+        """Look at the floor"""
+        pan, tilt = self._robot_model.look_down
         self.set_pan_tilt(pan, tilt, blocking=blocking)
 
     def look_front(self, blocking: bool = True):

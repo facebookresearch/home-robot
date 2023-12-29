@@ -2,6 +2,8 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+from typing import Optional
+
 import torch
 import torch.nn.functional as F
 
@@ -52,8 +54,11 @@ def binary_denoising(binary_image, kernel):
     return binary_opening(binary_closing(binary_image, kernel), kernel)
 
 
-def get_edges(mask: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
-    """Extract edges from a torch tensor."""
+def get_edges(mask: torch.Tensor, threshold: Optional[float] = 0.5) -> torch.Tensor:
+    """Extract edges from a torch tensor.
+
+    Args:
+        threshold(float): what derivative determines its an edge. If none, returns derivative."""
 
     mask = mask.float()
 
@@ -84,7 +89,9 @@ def get_edges(mask: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
 
     # Combine x and y edge responses to get the magnitude of edges
     edges = torch.sqrt(edges_x**2 + edges_y**2)
-    edges = edges[0, 0] > threshold
+    edges = edges[0, 0]
+    if threshold is not None:
+        edges = edges > threshold
     assert (
         edges.shape == mask.shape
     ), "something went wrong when computing padding, most likely - shape not preserved"
