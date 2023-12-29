@@ -47,7 +47,7 @@ exploration_steps: 100
 # location_to_place: "chair"
 
 # VLM Query parameters
-sample_strategy: "all"
+sample_strategy: "clip"
 perception_only: True
 planning_only: True
 explore_once: True

@@ -249,10 +249,7 @@ class RobotAgent:
         assert self.rpc_stub is not None, "must have RPC stub to connect to remote VLM"
         # This is not a very stable import
         # So we guard it under this part where it's necessary
-        from home_robot.utils.rpc import (
-            get_obj_centric_world_representation,
-            get_output_from_world_representation,
-        )
+        from home_robot.utils.rpc import get_output_from_world_representation
 
         world_representation = self.get_observations()
         output = get_output_from_world_representation(
@@ -260,17 +257,15 @@ class RobotAgent:
         )
         return output
 
-    def get_observations(self):
-        from home_robot.utils.rpc import (
-            get_obj_centric_world_representation,
-            get_output_from_world_representation,
-        )
+    def get_observations(self, task=None):
+        from home_robot.utils.rpc import get_obj_centric_world_representation
 
         instances = self.voxel_map.get_instances()
         world_representation = get_obj_centric_world_representation(
             instances,
             self.parameters["vlm_context_length"],
             self.parameters["sample_strategy"],
+            task=task,
         )
         # self.save_svm()
         return world_representation
