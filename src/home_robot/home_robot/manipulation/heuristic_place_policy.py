@@ -268,7 +268,7 @@ class HeuristicPlacePolicy(nn.Module):
                 thickness=2,
             )
 
-            if vis_inputs is not None:
+            if vis_inputs is not None and vis_inputs["semantic_frame"] is not None:
                 vis_inputs["semantic_frame"][..., :3] = rgb_vis_tmp
 
             # Add placement margin to the best voxel that we chose
