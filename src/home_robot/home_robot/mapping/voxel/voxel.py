@@ -643,7 +643,7 @@ class SparseVoxelMap(object):
             )
         ):
             # Handle the case where we dont actually want to load everything
-            if num_frames > 0 and i < num_frames:
+            if num_frames > 0 and i >= num_frames:
                 break
 
             camera_pose = self.fix_data_type(camera_pose)
