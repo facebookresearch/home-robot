@@ -18,16 +18,23 @@ from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
     default="output.pkl",
     help="Input path with default value 'output.npy'",
 )
+@click.option(
+    "--frame",
+    type=int,
+    default=-1,
+    help="number of frames to read",
+)
 def main(
     input_path,
     voxel_size: float = 0.01,
     show_maps: bool = True,
+    frame: int = -1,
 ):
     """Simple script to load a voxel map"""
     input_path = Path(input_path)
     print("Loading:", input_path)
     voxel_map = SparseVoxelMap(resolution=voxel_size)
-    voxel_map.read_from_pickle(input_path)
+    voxel_map.read_from_pickle(input_path, num_frames=frame)
     voxel_map.show(instances=True)
     voxel_map.get_2d_map(debug=show_maps)
 
