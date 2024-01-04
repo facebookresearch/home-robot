@@ -48,7 +48,7 @@ cd $HOME_ROBOT_ROOT
 mkdir -p data/datasets
 
 cd $HOME_ROBOT_ROOT/data
-git clone https://huggingface.co/datasets/hssd/hssd-hab --recursive
+git clone https://huggingface.co/datasets/hssd/hssd-hab --recursive --branch ovmm
 git clone https://huggingface.co/datasets/ai-habitat/OVMM_objects objects --recursive
 
 cd $HOME_ROBOT_ROOT/data/datasets
