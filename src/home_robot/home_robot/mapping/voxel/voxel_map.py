@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +11,7 @@ import skfmm
 import skimage
 import skimage.morphology
 import torch
+
 from home_robot.mapping.voxel import SparseVoxelMap
 from home_robot.motion import XYT, RobotModel
 from home_robot.utils.geometry import angle_difference, interpolate_angles
@@ -392,27 +393,10 @@ class SparseVoxelMapNavigationSpace(XYT):
         # Return True if both True and False values are present
         return has_true_values and has_false_values
 
-    def sample_closest_frontier(
-        self,
-        xyt: np.ndarray,
-        max_tries: int = 1000,
-        expand_size: int = 5,
-        debug: bool = False,
-        verbose: bool = False,
-        step_dist: float = 0.5,
-        min_dist: float = 0.5,
-    ) -> Optional[torch.Tensor]:
-        """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
-
-        Args:
-            xyt(np.ndrray): [x, y, theta] of the agent; must be of size 2 or 3.
-            max_tries(int): number of attempts to make for rejection sampling
-            debug(bool): show visualizations of frontiers
-            step_dist(float): how far apart in geo dist these points should be
-        """
-        assert (
-            len(xyt) == 2 or len(xyt) == 3
-        ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
+    def get_frontier(
+        self, xyt: np.ndarray, expand_size: int = 5, debug: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compute frontier regions of the map"""
 
         obstacles, explored = self.voxel_map.get_2d_map()
         # Extract edges from our explored mask
@@ -448,6 +432,34 @@ class SparseVoxelMapNavigationSpace(XYT):
             plt.imshow((frontier_edges).cpu().numpy())
             plt.title("just frontiers")
             plt.show()
+
+        return frontier, outside_frontier, traversible
+
+    def sample_closest_frontier(
+        self,
+        xyt: np.ndarray,
+        max_tries: int = 1000,
+        expand_size: int = 5,
+        debug: bool = False,
+        verbose: bool = False,
+        step_dist: float = 0.5,
+        min_dist: float = 0.5,
+    ) -> Optional[torch.Tensor]:
+        """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
+
+        Args:
+            xyt(np.ndrray): [x, y, theta] of the agent; must be of size 2 or 3.
+            max_tries(int): number of attempts to make for rejection sampling
+            debug(bool): show visualizations of frontiers
+            step_dist(float): how far apart in geo dist these points should be
+        """
+        assert (
+            len(xyt) == 2 or len(xyt) == 3
+        ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
+
+        frontier, outside_frontier, traversible = self.get_frontier(
+            xyt=xyt, expand_size=expand_size, debug=debug
+        )
 
         # from scipy.ndimage.morphology import distance_transform_edt
         m = np.ones_like(traversible)
@@ -661,6 +673,22 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         # We failed to find anything useful
         yield None
+
+    def show(
+        self,
+        instances: bool = False,
+        orig: Optional[np.ndarray] = None,
+        norm: float = 255.0,
+        backend: str = "open3d",
+    ):
+        """Tool for debugging map representations that we have created"""
+        geoms = self.voxel_map._get_open3d_geometries(instances, orig, norm)
+
+        # lazily import open3d - it's a tough dependency
+        import open3d
+
+        # Show the geometries of where we have explored
+        open3d.visualization.draw_geometries(geoms)
 
     def sample_valid_location(self, max_tries: int = 100) -> Optional[torch.Tensor]:
         """Return a state that's valid and that we can move to.

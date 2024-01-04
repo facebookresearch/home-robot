@@ -62,7 +62,7 @@ class RobotClient(ABC):
         return False
 
     @abstractmethod
-    def get_robot_model() -> RobotModel:
+    def get_robot_model(self) -> RobotModel:
         """return a model of the robot for planning"""
         raise NotImplementedError()
 

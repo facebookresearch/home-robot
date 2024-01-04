@@ -975,7 +975,7 @@ class SparseVoxelMap(object):
     def postprocess_instances(self):
         self.instances.global_box_compression_and_nms(env_id=0)
 
-    def _show_open3d(
+    def _get_open3d_geometries(
         self,
         instances: bool,
         orig: Optional[np.ndarray] = None,
@@ -1034,7 +1034,23 @@ class SparseVoxelMap(object):
                 # Get the colors and add to wireframe
                 wireframe.colors = open3d.utility.Vector3dVector(colors)
                 geoms.append(wireframe)
+        return geoms
+
+    def _show_open3d(
+        self,
+        instances: bool,
+        orig: Optional[np.ndarray] = None,
+        norm: float = 255.0,
+        **backend_kwargs,
+    ):
+        """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
+
+        # get geometries so we can use them
+        geoms = self._get_open3d_geometries(instances, orig, norm)
 
         # Show the geometries of where we have explored
         open3d.visualization.draw_geometries(geoms)
+
+        # Returns xyz and rgb for further inspection
+        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
         return points, rgb
