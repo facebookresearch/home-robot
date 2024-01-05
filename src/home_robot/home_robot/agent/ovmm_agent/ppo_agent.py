@@ -8,7 +8,7 @@
 import copy
 import random
 from collections import OrderedDict
-from typing import Any, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import gym.spaces as spaces
 import numba
@@ -17,8 +17,10 @@ import torch
 from habitat.core.agent import Agent
 from habitat.core.spaces import EmptySpace
 from habitat.gym.gym_wrapper import (
+    action_dict_to_continuous_vector,
     continuous_vector_action_to_hab_dict,
     create_action_space,
+    reset_action_dict,
 )
 from habitat.utils.visualizations.utils import observations_to_image
 from habitat_baselines.common.baseline_registry import baseline_registry
@@ -349,6 +351,54 @@ class PPOAgent(Agent):
             hab_obs["receptacle_segmentation"] = self._get_receptacle_segmentation(obs)
         return hab_obs
 
+    def populate_hidden_states(
+        self,
+        last_k_observations_actions: List[
+            Tuple[
+                Observations,
+                Union[
+                    ContinuousFullBodyAction,
+                    ContinuousNavigationAction,
+                    DiscreteNavigationAction,
+                ],
+            ]
+        ],
+    ):
+        sample_random_seed()
+        # the hidden state for this skill is teacher forced k steps before it is actually executed
+        self.skill_start_gps = last_k_observations_actions[0][0].gps
+        self.skill_start_compass = last_k_observations_actions[0][0].compass
+        for observations, actions in last_k_observations_actions:
+            # TODO: Code repetition below, refactor
+            obs = self.convert_to_habitat_obs_space(observations)
+            viz_obs = {k: obs[k] for k in self.skill_obs_keys}
+            batch = batch_obs([obs], device=self.device)
+            batch = apply_obs_transforms_batch(batch, self.obs_transforms)
+            for k in self.skill_obs_keys:
+                viz_obs[k + "_resized"] = batch[k][0].cpu().numpy()
+            batch = OrderedDict([(k, batch[k]) for k in self.skill_obs_keys])
+
+            with torch.no_grad():
+                action_data = self.actor_critic.act(
+                    batch,
+                    self.test_recurrent_hidden_states,
+                    self.prev_actions,
+                    self.not_done_masks,
+                    deterministic=True,
+                )
+
+                # we will ignore actions from the policy and teacher force the actions that was
+                # actually executed
+                _, self.test_recurrent_hidden_states = (
+                    action_data.actions,
+                    action_data.rnn_hidden_states,
+                )
+
+                #  Make masks not done till reset (end of episode) will be called
+                self.not_done_masks.fill_(True)
+                # convert to policy action space for teacher forcing
+                self.prev_actions.copy_(self.convert_homerobot_actions_to_policy_action_space(actions).unsqueeze(0))  # type: ignore
+
     def act(
         self, observations: Observations, info
     ) -> Tuple[
@@ -382,7 +432,7 @@ class PPOAgent(Agent):
                 self.test_recurrent_hidden_states,
                 self.prev_actions,
                 self.not_done_masks,
-                deterministic=False,
+                deterministic=True,
             )
 
             actions, self.test_recurrent_hidden_states = (
@@ -488,3 +538,52 @@ class PPOAgent(Agent):
         else:
             raise ValueError
         return ContinuousNavigationAction(cont_action)
+
+    def convert_homerobot_actions_to_policy_action_space(
+        self,
+        action: Union[
+            ContinuousNavigationAction,
+            ContinuousFullBodyAction,
+            DiscreteNavigationAction,
+        ],
+    ):
+        action_dict = self.filtered_action_space.sample()
+        reset_action_dict(
+            action_dict,
+            default_value_dict={
+                "arm_action": 0,
+                "base_vel": 0,
+                "grip_action": -1,
+                "manipulation_mode": -1,
+                "rearrange_stop": -1,
+            },
+        )
+        # this is used for teacher forcing actions to RNN
+        if type(action) == ContinuousNavigationAction:
+            assert self.continuous_actions  # Continuous->discrete not implemented
+            xyt = action.xyt
+            sel = int(xyt[2] == 0) * 2 - 1
+            wp_limits = (
+                (self.min_displacement, self.max_displacement)
+                if sel == 1
+                else (self.min_turn, self.max_turn)
+            )
+            raw_wp_value = xyt[0 if sel >= 0 else 2]
+            rel_wp_value = np.clip(
+                raw_wp_value / wp_limits[1], -1, 1
+            )  # The policy expects [-20, 20] but the emitted actions for base waypoint action are always clipped to [-1, 1]
+            if (
+                "base_velocity" in action_dict
+                and "base_vel" in action_dict["base_velocity"]
+            ):
+                action_dict["base_velocity"]["base_vel"][2] = sel
+                action_dict["base_velocity"]["base_vel"][
+                    0 if sel >= 0 else 1
+                ] = rel_wp_value
+        else:
+            raise NotImplementedError
+            # Only implement the one (nav discrete->manip full body) we are using currently
+
+        return torch.tensor(
+            action_dict_to_continuous_vector(action_dict), device=self.device
+        )

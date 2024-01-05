@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
+from collections import deque
 from datetime import datetime
 from enum import IntEnum, auto
 from typing import Any, Dict, Optional, Tuple
@@ -53,6 +54,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.place_start_step = None
         self.pick_start_step = None
         self.gaze_at_obj_start_step = None
+        self.nav_to_rec_start_step = None
         self.fall_wait_start_step = None
         self.is_gaze_done = None
         self.place_done = None
@@ -124,7 +126,20 @@ class OpenVocabManipAgent(ObjectNavAgent):
                 device_id=device_id,
             )
         self._fall_wait_steps = getattr(config.AGENT, "fall_wait_steps", 0)
+        self._obs_propagate_steps = getattr(config.AGENT, "obs_propagate_steps", 0)
+        self.reset_last_k_observations_actions()
         self.config = config
+
+    def reset_last_k_observations_actions(self):
+        self._last_k_observations_actions = [
+            deque(maxlen=self._obs_propagate_steps)
+            for _ in range(self.num_environments)
+        ]
+
+    def reset_last_k_observations_actions_for_env(self, env_id: int):
+        self._last_k_observations_actions[env_id] = deque(
+            maxlen=self._obs_propagate_steps
+        )
 
     def _get_info(self, obs: Observations) -> Dict[str, torch.Tensor]:
         """Get inputs for visual skill."""
@@ -177,10 +192,12 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.pick_start_step = torch.tensor([0] * self.num_environments)
         self.gaze_at_obj_start_step = torch.tensor([0] * self.num_environments)
         self.place_start_step = torch.tensor([0] * self.num_environments)
+        self.nav_to_rec_start_step = torch.tensor([0] * self.num_environments)
         self.gaze_at_obj_start_step = torch.tensor([0] * self.num_environments)
         self.fall_wait_start_step = torch.tensor([0] * self.num_environments)
         self.is_gaze_done = torch.tensor([0] * self.num_environments)
         self.place_done = torch.tensor([0] * self.num_environments)
+        self.reset_last_k_observations_actions()
         if self.place_policy is not None:
             self.place_policy.reset()
         if self.pick_policy is not None:
@@ -194,6 +211,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.states[e] = Skill.NAV_TO_OBJ
         self.place_start_step[e] = 0
         self.pick_start_step[e] = 0
+        self.nav_to_rec_start_step[0] = 0
         self.gaze_at_obj_start_step[e] = 0
         self.fall_wait_start_step[e] = 0
         self.is_gaze_done[e] = 0
@@ -211,6 +229,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.place_agent.reset_vectorized_for_env(e)
         if self.nav_to_rec_agent is not None:
             self.nav_to_rec_agent.reset_vectorized_for_env(e)
+        self.reset_last_k_observations_actions_for_env(e)
 
     def _init_episode(self, obs: Observations):
         """
@@ -252,6 +271,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             self.pick_start_step[e] = self.timesteps[e]
         elif next_skill == Skill.NAV_TO_REC:
             self.timesteps_before_goal_update[e] = 0
+            self.nav_to_rec_start_step[e] = self.timesteps[e]
             if not self.skip_skills.nav_to_rec:
                 action = DiscreteNavigationAction.NAVIGATION_MODE
                 if (
@@ -370,6 +390,10 @@ class OpenVocabManipAgent(ObjectNavAgent):
     def _rl_place(self, obs: Observations, info: Dict[str, Any]):
         place_step = self.timesteps[0] - self.place_start_step[0]
         if place_step == 0:
+            self.place_agent.populate_hidden_states(
+                self._last_k_observations_actions[0]
+            )
+            # this action does nothing. replace with EMPTY_ACTION
             action = DiscreteNavigationAction.POST_NAV_MODE
         elif self.place_done[0] == 1:
             action = DiscreteNavigationAction.STOP
@@ -418,6 +442,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
         if self.skip_skills.gaze_at_obj:
             terminate = True
         elif gaze_step == 0:
+            self.gaze_agent.populate_hidden_states(self._last_k_observations_actions[0])
+            # this action does nothing. replace with EMPTY_ACTION
             return DiscreteNavigationAction.POST_NAV_MODE, info, None
         else:
             action, info, terminate = self.gaze_agent.act(obs, info)
@@ -480,6 +506,11 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self, obs: Observations, info: Dict[str, Any]
     ) -> Tuple[DiscreteNavigationAction, Any, Optional[Skill]]:
         nav_to_rec_type = self.config.AGENT.SKILLS.NAV_TO_REC.type
+        nav_to_rec_step = self.timesteps[0] - self.nav_to_rec_start_step[0]
+        if nav_to_rec_step == 1:
+            # first step was used for navigation mode
+            # Currently hidden state only passed from navigation->manipulation, where handoff errors could occur due to misdetections
+            self.reset_last_k_observations_actions_for_env(0)
         if self.skip_skills.nav_to_rec:
             terminate = True
         elif nav_to_rec_type == "heuristic":
@@ -587,4 +618,5 @@ class OpenVocabManipAgent(ObjectNavAgent):
             print(
                 f'Executing skill {info["curr_skill"]} at timestep {self.timesteps[0]}'
             )
+        self._last_k_observations_actions[0].append((obs, action))
         return action, info, obs
