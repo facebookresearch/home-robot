@@ -76,10 +76,12 @@ if __name__ == "__main__":
     )
 
     # get baseline config
-    baseline_config = get_omega_config(args.baseline_config_path)
+    baseline_config = get_omega_config(
+        args.baseline_config_path, overrides=agent_overrides
+    )
 
     # get env config
-    env_config = get_omega_config(args.env_config_path)
+    env_config = get_omega_config(args.env_config_path, overrides=env_overrides)
 
     # merge habitat and env config to create env config
     env_config = create_env_config(

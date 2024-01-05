@@ -5,7 +5,7 @@
 
 
 import os
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from habitat_baselines.config.default import _BASELINES_CFG_DIR
 from habitat_baselines.config.default import get_config as _get_habitat_config
@@ -13,10 +13,33 @@ from omegaconf import DictConfig, OmegaConf
 
 
 def split_config_overrides(overrides):
-    agent_overrides = {}
-    env_overrides = {}
-    habitat_overrides = {}
-    return agent_overrides, env_overrides, overrides
+    # TODO; eventually replace with hydra config so that override specific params becomes simple
+    agent_overrides = [o[len("agent.") :] for o in overrides if o.startswith("agent.")]
+    env_overrides = [o[len("env.") :] for o in overrides if o.startswith("env.")]
+    habitat_overrides = [o for o in overrides if o.startswith("habitat")]
+
+    return agent_overrides, env_overrides, habitat_overrides
+
+
+def convert_to_appropriate_type(value):
+    # Check and convert to integer
+    if value.isnumeric():
+        return int(value)
+
+    # Check and convert to float
+    try:
+        return float(value)
+    except ValueError:
+        pass
+
+    # Check and convert to boolean
+    if value.lower() == "true":
+        return True
+    elif value.lower() == "false":
+        return False
+
+    # If none of the above, return the value as it is (string)
+    return value
 
 
 def get_habitat_config(
@@ -31,9 +54,20 @@ def get_habitat_config(
     return config, ""
 
 
-def get_omega_config(config_path: str) -> DictConfig:
+def get_omega_config(
+    config_path: str, overrides: Optional[List[str]] = None
+) -> DictConfig:
     """Returns the baseline configuration."""
     config = OmegaConf.load(config_path)
+    for override in overrides:
+        # Split each override into path and value
+        path, value = override.split("=")
+
+        # Convert value to the appropriate type
+        converted_value = convert_to_appropriate_type(value)
+
+        # Use OmegaConf's update method to apply the override
+        OmegaConf.update(config, path, converted_value, merge=True)
     OmegaConf.set_readonly(config, True)
     return config
 
