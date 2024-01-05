@@ -6,6 +6,9 @@ fall_wait_steps: 200    # number of steps to wait after the object has been drop
 store_all_categories: False  # whether to store all semantic categories in the map or just task-relevant ones
 detection_module: detic # the detector to use for perception in case ground_truth_semantics are turned off
 
+VISION:
+  confidence_threshold: 0.45 # detic object detection confidence threshold
+
 SEMANTIC_MAP:
   semantic_categories: rearrange # map semantic channel categories ("coco_indoor", "longtail_indoor", "mukul_indoor", "rearrange")
   num_sem_categories: 5    # Following 5 categories: ["misc", "object_category", "start_receptacle", "goal_receptacle", "others"]
