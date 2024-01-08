@@ -49,6 +49,10 @@ mkdir -p data/datasets
 
 cd $HOME_ROBOT_ROOT/data
 git clone https://huggingface.co/datasets/hssd/hssd-hab --recursive --branch ovmm
+cd hssd-hab
+git checkout 4e0292b16b32c92267be1ac8a94628deccd2ef09
+
+cd $HOME_ROBOT_ROOT/data
 git clone https://huggingface.co/datasets/ai-habitat/OVMM_objects objects --recursive
 
 cd $HOME_ROBOT_ROOT/data/datasets
