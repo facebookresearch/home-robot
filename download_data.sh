@@ -59,6 +59,8 @@ git checkout 3893a735352b92d46505f35d759553f5fc82a39b
 
 cd $HOME_ROBOT_ROOT/data/datasets
 git clone https://huggingface.co/datasets/ai-habitat/OVMM_episodes ovmm --recursive
+cd ovmm
+git checkout 9ad25fbd86a3fd352c7a0fc1f99132fbb5802378
 
 echo ""
 echo "Download the robot model Habitat uses..."
