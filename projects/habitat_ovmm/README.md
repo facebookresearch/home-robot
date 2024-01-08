@@ -22,13 +22,10 @@ If anything goes wrong, you can check out this explanation of the different step
 
 #### Scene dataset setup 
 
-Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them. You will need your login information to proceed.
+Please sign in [here](https://huggingface.co/datasets/hssd/hssd-hab/tree/ovmm) and accept the license for using HSSD scenes before proceeding to download them using the [data download script](../../download_data.sh). You will need your login information to proceed.
 ```
-# Download the scenes
-git submodule update --init data/hssd-hab
-
-# Download the objects and metadata
-git submodule update --init data/objects
+cd $HOME_ROBOT_ROOT
+./download_data.sh
 ```
 
 If this didn't trigger a download of the datasets, you may be running an older version of git. Either upgrade your git version, or try the following commands:
