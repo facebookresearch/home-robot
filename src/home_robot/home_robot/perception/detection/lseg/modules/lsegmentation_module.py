@@ -22,6 +22,8 @@ from data import get_available_datasets, get_dataset
 
 
 class LSegmentationModule(pl.LightningModule):
+    """Segmentation module to make it easier to use LSeg."""
+
     def __init__(self, data_path, dataset, batch_size, base_lr, max_epochs, **kwargs):
         super().__init__()
 
