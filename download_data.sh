@@ -54,6 +54,8 @@ git checkout 4e0292b16b32c92267be1ac8a94628deccd2ef09
 
 cd $HOME_ROBOT_ROOT/data
 git clone https://huggingface.co/datasets/ai-habitat/OVMM_objects objects --recursive
+cd objects
+git checkout 3893a735352b92d46505f35d759553f5fc82a39b
 
 cd $HOME_ROBOT_ROOT/data/datasets
 git clone https://huggingface.co/datasets/ai-habitat/OVMM_episodes ovmm --recursive
