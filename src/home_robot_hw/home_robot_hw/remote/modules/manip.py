@@ -119,6 +119,7 @@ class StretchManipulationClient(AbstractControlModule):
         blocking: bool = True,
         debug: bool = False,
         move_base: bool = True,
+        velocities = None,
     ):
         """
         list of robot arm joint positions:
@@ -158,7 +159,7 @@ class StretchManipulationClient(AbstractControlModule):
         self.base_x = joint_pos_goal[0]
 
         # Send command to trajectory server
-        self._ros_client.send_trajectory_goals(joint_goals)
+        self._ros_client.send_trajectory_goals(joint_goals, velocities=velocities)
 
         # Wait logic
         def joint_move_wait():
