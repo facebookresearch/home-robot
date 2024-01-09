@@ -8,7 +8,7 @@ repos:
     rev: 5.11.5
     hooks:
       - id: isort
-        args: ["--profile", "black", "--filter-files"]
+        args: ["--profile", "black", "--filter-files", "--recursive", "--atomic"]
 
   - repo: https://github.com/pycqa/flake8
     rev: 5.0.4
