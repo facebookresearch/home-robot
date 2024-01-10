@@ -1027,3 +1027,127 @@ class SpotDemoAgent(RobotAgent):
             if self.step % 1 == 0 and self.should_visualize():
                 self.visualize(start, goal)
         self.current_state = old_state
+
+    def run_teleop_data(self):
+        """Run exploration in different environments. Will explore until there's nothing else to find."""
+        # Track the number of times exploration failed
+        explore_failures = 0
+        old_state = self.current_state
+        self.current_state = "EXPLORE"
+        for exploration_step in range(int(self.parameters["exploration_steps"])):
+            # logger.log("DEMO", "\n----------- Step {} -----------", step + 1)
+            print(
+                "-" * 20,
+                exploration_step + 1,
+                "/",
+                int(self.parameters["exploration_steps"]),
+                "-" * 20,
+            )
+
+            # Get current position and goal
+            start = self.spot.current_position
+            goal = None
+            logger.info("Start xyt: {}", start)
+            start_is_valid = self.navigation_space.is_valid(start)
+            if start_is_valid:
+                logger.success("Start is valid: {}", start_is_valid)
+            else:
+                # TODO do something is start is not valid
+                logger.error("!!!!!!!! INVALID START POSITION !!!!!!")
+                self.backup_from_invalid_state()
+                continue
+
+            logger.info("Start is safe: {}", self.voxel_map.xyt_is_safe(start))
+
+            if self.parameters["explore_methodical"]:
+                logger.info("Generating the next closest frontier point...")
+
+                # Sampling along the frontier
+                if explore_failures <= self.parameters["max_explore_failures"]:
+                    #! TODO: Check if this is the exploration, if yes -> replace with keyboard teleop
+                    res = self.plan_to_frontier()
+                else:
+                    res = None
+
+                # Handle the case where we could not get to nearby frontier
+                if res is not None and res.success:
+                    explore_failures = 0
+                else:
+                    explore_failures += 1
+                    logger.warning("Exploration failed: " + str(res.reason))
+                    #! TODO: Most likely not needed for teleop 
+                    if explore_failures > self.parameters["max_explore_failures"]:
+                        logger.debug("Switching to random exploration")
+                        goal = next(
+                            self.navigation_space.sample_random_frontier(
+                                min_size=self.parameters["min_size"],
+                                max_size=self.parameters["max_size"],
+                            )
+                        )
+                        if goal is None:
+                            # Nowhere to go
+                            logger.info("Done exploration!")
+                            return
+
+                        goal = goal.cpu().numpy()
+                        goal_is_valid = self.navigation_space.is_valid(goal)
+                        logger.info(f" Goal is valid: {goal_is_valid}")
+                        if not goal_is_valid:
+                            # really we should sample a new goal
+                            continue
+
+                        #  Build plan
+                        res = self.planner.plan(start, goal)
+                        logger.info(goal)
+                        if res.success:
+                            logger.success("Plan success: {}", res.success)
+                            explore_failures = 0
+                        else:
+                            logger.error("Plan success: {}", res.success)
+                            logger.error("Failed to plan to the frontier.")
+            #! TODO: also random exp, not needed
+            else:
+                logger.info(
+                    "picking a random frontier point and trying to move there..."
+                )
+                # Sample a goal in the frontier (TODO change to closest frontier)
+                goal = self.sample_random_frontier()
+                if goal is None:
+                    logger.info("Done exploration!")
+                    return
+
+                goal_is_valid = self.navigation_space.is_valid(goal)
+                logger.info(
+                    f" Goal is valid: {goal_is_valid}",
+                )
+                if not goal_is_valid:
+                    # really we should sample a new goal
+                    continue
+
+                #  Build plan
+                res = self.planner.plan(start, goal)
+                logger.info(goal)
+                if res.success:
+                    logger.success("Res success: {}", res.success)
+                else:
+                    logger.error("Res success: {}", res.success)
+
+            if res.success:
+                self.spot.execute_plan(
+                    res,
+                    pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
+                    rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
+                    per_step_timeout=self.parameters["trajectory_per_step_timeout"],
+                    verbose=False,
+                )
+            elif goal is not None and len(goal) > 0:
+                logger.warning("Just go ahead and try it anyway")
+                self.spot.navigate_to(goal)
+
+            if not self.parameters["use_async_subscriber"]:
+                # Synchronous updates
+                self.update()
+
+            if self.step % 1 == 0 and self.should_visualize():
+                self.visualize(start, goal)
+        self.current_state = old_state
