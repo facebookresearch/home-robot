@@ -22,6 +22,8 @@ JOINT_ANG_TOL = 0.05
 
 
 class StretchManipulationClient(AbstractControlModule):
+    """Manages stretch arm control and "manipulation mode" base motions (forward and backward)."""
+
     def __init__(self, ros_client, robot_model: RobotModel):
         super().__init__()
 
@@ -119,7 +121,7 @@ class StretchManipulationClient(AbstractControlModule):
         blocking: bool = True,
         debug: bool = False,
         move_base: bool = True,
-        velocities = None,
+        velocities=None,
     ):
         """
         list of robot arm joint positions:
