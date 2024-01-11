@@ -73,7 +73,12 @@ class OpenVocabManipAgent(ObjectNavAgent):
         self.skip_skills = config.AGENT.skip_skills
         self.max_pick_attempts = 100
         if config.GROUND_TRUTH_SEMANTICS == 0:
-            self.semantic_sensor = OvmmPerception(config, device_id, self.verbose)
+            self.semantic_sensor = OvmmPerception(
+                config,
+                device_id,
+                self.verbose,
+                confidence_threshold=config.AGENT.VISION.confidence_threshold,
+            )
             self.obj_name_to_id, self.rec_name_to_id = read_category_map_file(
                 config.ENVIRONMENT.category_map_file
             )
