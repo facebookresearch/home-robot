@@ -13,15 +13,6 @@
 [submodule "src/third_party/contact_graspnet"]
 	path = src/third_party/contact_graspnet
 	url = https://github.com/cpaxton/contact_graspnet.git
-[submodule "data/datasets/ovmm"]
-	path = data/datasets/ovmm
-	url = https://huggingface.co/datasets/ai-habitat/OVMM_episodes
-[submodule "data/objects"]
-	path = data/objects
-	url = https://huggingface.co/datasets/ai-habitat/OVMM_objects
-[submodule "data/hssd-hab"]
-	path = data/hssd-hab
-	url = https://huggingface.co/datasets/hssd/hssd-hab
 [submodule "spot-sim2real"]
 	path = src/third_party/spot-sim2real
 	url = git@github.com:jdvakil/spot-sim2real.git
