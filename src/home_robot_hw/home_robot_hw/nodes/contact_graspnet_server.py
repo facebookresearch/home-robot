@@ -29,9 +29,9 @@ BASE_DIR = os.path.abspath(
 )
 os.chdir(BASE_DIR)
 sys.path.append(BASE_DIR)
+
 import config_utils  # noqa: E402
 from contact_grasp_estimator import GraspEstimator  # noqa: E402
-from visualization_utils import show_image, visualize_grasps  # noqa: E402
 
 from data import (  # noqa: E402
     depth2pc,
@@ -43,6 +43,7 @@ GRIPPER_LENGTH = 0.1
 
 
 def setup_gpu():
+    """Prepare GPUs for use with contact graspnet."""
     gpus = tf.config.list_physical_devices("GPU")
     if gpus:
         # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
@@ -121,6 +122,7 @@ def inference(
             filter_grasps=filter_grasps,
             forward_passes=forward_passes,
         )
+        # from visualization_utils import show_image, visualize_grasps  # noqa: E402
         # show_image(rgb, segmap)
         # visualize_grasps(pc_full, pred_grasps_cam, scores, plot_opencv_cam=True, pc_colors=pc_colors)
         # apply the correction here

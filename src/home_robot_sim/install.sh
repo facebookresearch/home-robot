@@ -43,4 +43,4 @@ pip install -e src/third_party/habitat-lab/habitat-baselines
 echo ""
 echo "Download data from submodules..."
 cd $HOME_ROBOT_ROOT
-git submodule update --init --recursive data/objects
+./download_data.sh -y
