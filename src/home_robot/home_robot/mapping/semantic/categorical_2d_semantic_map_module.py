@@ -641,7 +641,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             filled = fill_convex_hull(fp_exp_pred[0, 0].cpu())
             assert fp_exp_pred.shape[:2] == (1, 1)
             fp_exp_pred[0, 0] = torch.tensor(filled)
-
         # uses a fixed cone infront of the camerea
         elif self.exploration_type == "gaze":
             fp_exp_pred = torch.zeros_like(fp_map_pred)
@@ -732,7 +731,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         rot_mat, trans_mat = ru.get_grid(st_pose, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
-        plt.imshow(rotated[0, 0].cpu())
 
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0).float()
