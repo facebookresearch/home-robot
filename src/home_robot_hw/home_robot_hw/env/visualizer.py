@@ -265,7 +265,7 @@ class Visualizer:
             print(self.image_vis.shape, SEMANTIC_MAP_ORIG_X, SEMANTIC_MAP_ORIG_Y, width)
 
         # First-person semantic frame
-        semantic_frame = cv2.cvtColor(semantic_frame, cv2.COLOR_BGR2RGB)
+        semantic_frame = cv2.cvtColor(semantic_frame[:, :, :3], cv2.COLOR_BGR2RGB)
         self.image_vis[50:530, 15:375] = cv2.resize(semantic_frame, (360, 480))
 
         if self.show_images:
