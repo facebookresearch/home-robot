@@ -31,6 +31,7 @@ EVAL_VECTORIZED:
   record_planner_videos: 0  # 1: record planner videos (if record videos), 0: don't
   metrics_save_freq: 5      # save metrics after every n episodes
 
+# The below goal names are used only in real world, in simulation these come from episodes
 start_recep: "chair"
 pick_object: "bowl"
 goal_recep: "table"

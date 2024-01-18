@@ -155,9 +155,7 @@ class OpenVocabManipAgent(ObjectNavAgent):
             semantic_frame = np.concatenate(
                 [obs.rgb, obs.semantic[:, :, np.newaxis]], axis=2
             ).astype(np.uint8)
-        goal_name = getattr(
-            self.config, "pick_object", obs.task_observations["goal_name"]
-        )
+        goal_name = obs.task_observations["goal_name"]
         info = {
             "semantic_frame": semantic_frame,
             "semantic_category_mapping": semantic_category_mapping,
@@ -295,15 +293,9 @@ class OpenVocabManipAgent(ObjectNavAgent):
         :update_full_vocabulary: if False, only updates simple vocabulary
         True by default
         """
-        object_name = getattr(
-            self.config, "pick_object", obs.task_observations["object_name"]
-        )
-        start_recep_name = getattr(
-            self.config, "start_recep", obs.task_observations["start_recep_name"]
-        )
-        goal_recep_name = getattr(
-            self.config, "goal_recep", obs.task_observations["place_recep_name"]
-        )
+        object_name = obs.task_observations["object_name"]
+        start_recep_name = obs.task_observations["start_recep_name"]
+        goal_recep_name = obs.task_observations["place_recep_name"]
         obj_id_to_name = {
             0: object_name,
         }
