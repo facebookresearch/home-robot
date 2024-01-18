@@ -134,7 +134,7 @@ def main(dock: Optional[int] = None, args=None):
 
         # logger.critical("Not running explore")
         demo.rotate_in_place()
-        demo.run_explore()
+        demo.run_teleop_data()
 
         logger.info("Exploration complete!")
         demo.run_task(stub, center=np.array([x0, y0, theta0]), data=data)

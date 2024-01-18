@@ -1065,6 +1065,7 @@ class SpotDemoAgent(RobotAgent):
                 # Sampling along the frontier
                 if explore_failures <= self.parameters["max_explore_failures"]:
                     #! TODO: Check if this is the exploration, if yes -> replace with keyboard teleop
+                    breakpoint()
                     res = self.plan_to_frontier()
                 else:
                     res = None
