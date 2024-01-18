@@ -201,7 +201,7 @@ class Categorical2DSemanticMapModule(nn.Module):
              that indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
              flags that indicate whether to update the global map and pose
-            seq_camera_poses: sequence of (batch_size, 4, 4) extrinsic camera
+            seq_camera_poses: sequence of (batch_size, sequence_length, 4, 4) extrinsic camera
              matrices
             init_local_map: initial local map before any updates of shape
              (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
@@ -277,7 +277,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 seq_pose_delta[:, t],
                 local_map,
                 local_pose,
-                seq_camera_poses,
+                seq_camera_poses[:, t],
                 origins,
                 lmb,
                 seq_obstacle_locations[:, t]
