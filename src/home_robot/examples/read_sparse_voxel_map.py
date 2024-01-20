@@ -18,18 +18,21 @@ from home_robot.utils.dummy_stretch_client import DummyStretchClient
 @click.command()
 @click.option(
     "--input-path",
+    "-i",
     type=click.Path(),
     default="output.pkl",
     help="Input path with default value 'output.npy'",
 )
 @click.option(
     "--config-path",
+    "-c",
     type=click.Path(),
     default="src/home_robot_hw/configs/default.yaml",
     help="Path to planner config.",
 )
 @click.option(
     "--frame",
+    "-f",
     type=int,
     default=-1,
     help="number of frames to read",
@@ -61,11 +64,12 @@ def main(
     else:
         voxel_map = SparseVoxelMap(resolution=voxel_size)
         voxel_map.read_from_pickle(input_path, num_frames=frame)
+
     if agent is not None:
         print(agent)
-    else:
+        # Display with agent overlay
         voxel_map.show(instances=True)
-        voxel_map.get_2d_map(debug=show_maps)
+        voxel_map.get_2d_map(debug=False)
 
 
 if __name__ == "__main__":
