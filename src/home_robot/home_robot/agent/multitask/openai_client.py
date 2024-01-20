@@ -1,8 +1,7 @@
-from typing import List, Optional, Tuple
 import copy
+from typing import List, Optional, Tuple
 
 from openai import OpenAI
-
 
 DEFAULT_OBJECTS = "fanta can, tennis ball, black head band, purple shampoo bottle, toothpaste, orange packaging, green hair cream jar, green detergent pack,  blue moisturizer, green plastic cover, storage container, blue hair oil bottle, blue pretzels pack, blue hair gel tube, red bottle, blue bottle,  wallet"
 
@@ -62,9 +61,17 @@ You will respond ONLY with the executable commands, i.e. the part following "Ret
 
 
 class OpenaiClient:
-    """Simple client for creating agents using an OpenAI API call."""
+    """Simple client for creating agents using an OpenAI API call.
 
-    def __init__(self, objects: Optional[str] = None, locations: Optional[str] = None, use_specific_objects: bool = True):
+    Parameters:
+        use_specific_objects(bool): override list of objects and have the AI only return those."""
+
+    def __init__(
+        self,
+        objects: Optional[str] = None,
+        locations: Optional[str] = None,
+        use_specific_objects: bool = True,
+    ):
         self.use_specific_objects = use_specific_objects
         if objects is None:
             objects = DEFAULT_OBJECTS
@@ -88,18 +95,18 @@ class OpenaiClient:
             action, target = command.split("=")
             plan.append((action, target))
         return plan
-        
+
     def __call__(self, command: str, verbose: bool = False):
         # prompt = copy.copy(self.prompt)
         # prompt = prompt.replace("$COMMAND", command)
         if verbose:
             print(f"{self.prompt=}")
         completion = self._openai.chat.completions.create(
-          model="gpt-3.5-turbo",
-          messages=[
-            {"role": "system", "content": self.prompt},
-            {"role": "user", "content": command},
-          ]
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": self.prompt},
+                {"role": "user", "content": command},
+            ],
         )
         plan = self.parse(completion.choices[0].message.content)
         if verbose:
@@ -108,8 +115,10 @@ class OpenaiClient:
         return plan
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     client = OpenaiClient()
-    plan = client("this room is a mess, could you put away the dirty towel?", verbose=True)
+    plan = client(
+        "this room is a mess, could you put away the dirty towel?", verbose=True
+    )
     print("\n\n")
     print("OpenAI client returned this plan:", plan)
