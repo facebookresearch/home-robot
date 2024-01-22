@@ -611,7 +611,7 @@ class SparseVoxelMap(object):
         else:
             raise NotImplementedError("unsupported data type for tensor:", tensor)
 
-    def read_from_pickle(self, filename: str):
+    def read_from_pickle(self, filename: str, num_frames: int = -1):
         """Read from a pickle file as above. Will clear all currently stored data first."""
         self.reset_cache()
         if isinstance(filename, str):
@@ -619,17 +619,33 @@ class SparseVoxelMap(object):
         assert filename.exists(), f"No file found at {filename}"
         with filename.open("rb") as f:
             data = pickle.load(f)
-        for camera_pose, xyz, rgb, feats, depth, base_pose, obs, K, world_xyz in zip(
-            data["camera_poses"],
-            data["xyz"],
-            data["rgb"],
-            data["feats"],
-            data["depth"],
-            data["base_poses"],
-            data["obs"],
-            data["camera_K"],
-            data["world_xyz"],
+        for i, (
+            camera_pose,
+            xyz,
+            rgb,
+            feats,
+            depth,
+            base_pose,
+            obs,
+            K,
+            world_xyz,
+        ) in enumerate(
+            zip(
+                data["camera_poses"],
+                data["xyz"],
+                data["rgb"],
+                data["feats"],
+                data["depth"],
+                data["base_poses"],
+                data["obs"],
+                data["camera_K"],
+                data["world_xyz"],
+            )
         ):
+            # Handle the case where we dont actually want to load everything
+            if num_frames > 0 and i >= num_frames:
+                break
+
             camera_pose = self.fix_data_type(camera_pose)
             xyz = self.fix_data_type(xyz)
             rgb = self.fix_data_type(rgb)
@@ -962,7 +978,7 @@ class SparseVoxelMap(object):
     def postprocess_instances(self):
         self.instances.global_box_compression_and_nms(env_id=0)
 
-    def _show_open3d(
+    def _get_open3d_geometries(
         self,
         instances: bool,
         orig: Optional[np.ndarray] = None,
@@ -1021,7 +1037,23 @@ class SparseVoxelMap(object):
                 # Get the colors and add to wireframe
                 wireframe.colors = open3d.utility.Vector3dVector(colors)
                 geoms.append(wireframe)
+        return geoms
+
+    def _show_open3d(
+        self,
+        instances: bool,
+        orig: Optional[np.ndarray] = None,
+        norm: float = 255.0,
+        **backend_kwargs,
+    ):
+        """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
+
+        # get geometries so we can use them
+        geoms = self._get_open3d_geometries(instances, orig, norm)
 
         # Show the geometries of where we have explored
         open3d.visualization.draw_geometries(geoms)
+
+        # Returns xyz and rgb for further inspection
+        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
         return points, rgb
