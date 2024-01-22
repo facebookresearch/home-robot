@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import cv2
 import numpy as np
 import torch
+from PIL import Image
 from torch import Tensor
 
 from home_robot.core.interfaces import Observations
@@ -748,6 +749,23 @@ class InstanceMemory:
             else:
                 embedding = None
 
+            # im = Image.fromarray(np.array(cropped_image.to(torch.uint8)))
+            # im.save('test1.png')
+
+            def filter_background_preds_using_clip(
+                background_classes=["wall", "ceiling", "floor", "others"],
+                clip_threshold=1,
+            ):
+                img_embeddings = embedding.unsqueeze(0)
+                class_embeddings = torch.cat(
+                    [encoder.encode_text(bgc) for bgc in background_classes]
+                ).to(cropped_image.device)
+                img_embeddings /= img_embeddings.norm(dim=-1, keepdim=True)
+                class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
+                # print ((100.0 * img_embeddings @ class_embeddings.T).softmax(dim=-1))
+
+            filter_background_preds_using_clip()
+
             # get point cloud
             point_mask_downsampled = (
                 instance_mask_downsampled & valid_points_downsampled
@@ -768,6 +786,18 @@ class InstanceMemory:
                 if volume < 1e-6:
                     warnings.warn(
                         f"Skipping box with {n_points} points in cloud and {n_points} points in mask and {volume} volume",
+                        UserWarning,
+                    )
+                elif (
+                    min(
+                        bounds[0][1] - bounds[0][0],
+                        bounds[1][1] - bounds[1][0],
+                        bounds[2][1] - bounds[2][0],
+                    )
+                    < 0.03
+                ):
+                    warnings.warn(
+                        f"Skipping a flat instance with {n_points} points",
                         UserWarning,
                     )
                 else:

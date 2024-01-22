@@ -431,14 +431,7 @@ class RobotAgent:
         # Semantic prediction
         obs = self.semantic_sensor.predict(obs)
         self.voxel_map.add_obs(obs)
-
         # Add observation - helper function will unpack it
-        # TODO: test if this is for sim only
-        voxel_obs = copy.deepcopy(obs)
-        voxel_obs.rgb = voxel_obs.rgb / 255.0
-        self.voxel_map.add_obs(voxel_obs)
-        # obs.rgb = obs.rgb / 255.0
-        # self.voxel_map.add_obs(obs)
         if visualize_map:
             # Now draw 2d maps to show waht was happening
             self.voxel_map.get_2d_map(debug=True)
@@ -446,6 +439,9 @@ class RobotAgent:
         # Send message to user interface
         if self.chat is not None:
             publish_obs(self.space, self.path, self.current_state, obs_count)
+
+        # self.save_svm("")
+        # print('SVM logged')
 
     def plan_to_instance(
         self,

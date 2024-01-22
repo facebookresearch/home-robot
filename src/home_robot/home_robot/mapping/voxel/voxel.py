@@ -860,6 +860,9 @@ class SparseVoxelMap(object):
 
         points, rgb = self.get_xyz_rgb()
 
+        # TODO: Xiaohan--need to normalize for older versions of pytorch3d. remove before merge
+        rgb = rgb / 128.0
+
         traces = {}
 
         # Show points

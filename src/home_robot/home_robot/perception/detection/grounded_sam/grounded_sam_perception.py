@@ -96,7 +96,7 @@ class GroundedSAMPerception(PerceptionModule):
     def predict(
         self,
         obs: Observations,
-        depth_threshold: Optional = None,
+        depth_threshold: Optional[float] = None,
         draw_instance_predictions: bool = False,
     ):
         """

@@ -61,6 +61,16 @@ class OvmmPerception:
                 verbose=verbose,
                 **module_kwargs,
             )
+        elif self._detection_module == "mobile_sam":
+            from home_robot.perception.detection.grounded_sam.sam_perception import (
+                SAMPerception,
+            )
+
+            self._segmentation = SAMPerception(
+                custom_vocabulary=".",
+                verbose=verbose,
+                **module_kwargs,
+            )
         else:
             raise NotImplementedError
 
