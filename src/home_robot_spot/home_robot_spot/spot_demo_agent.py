@@ -22,7 +22,7 @@ from atomicwrites import atomic_write
 from loguru import logger
 
 import home_robot.utils.planar as nc
-from examples.demo_utils.mock_agent import MockSpotDemoAgent
+#from examples.demo_utils.mock_agent import MockSpotDemoAgent
 
 # Simple IO tool for robot agents
 from home_robot.agent.multitask.robot_agent import RobotAgent, publish_obs
@@ -149,18 +149,18 @@ class SpotDemoAgent(RobotAgent):
             hor_grasp=True,
         )
 
-        if parameters["chat"]:
-            self.chat = DemoChat(f"{self.path}/viz_data/demo_chat.json")
-            if self.parameters["limited_obs_publish_sleep"] > 0:
-                self._publisher = Interval(
-                    self.publish_limited_obs,
-                    sleep_time=self.parameters["limited_obs_publish_sleep"],
-                )
-            else:
-                self._publisher = None
-        else:
-            self.chat = None
-            self._publisher = None
+        # if parameters["chat"]:
+        #     self.chat = DemoChat(f"{self.path}/viz_data/demo_chat.json")
+        #     if self.parameters["limited_obs_publish_sleep"] > 0:
+        #         self._publisher = Interval(
+        #             self.publish_limited_obs,
+        #             sleep_time=self.parameters["limited_obs_publish_sleep"],
+        #         )
+        #     else:
+        #         self._publisher = None
+        # else:
+        self.chat = None
+        self._publisher = None
 
     def start(self):
         if self._publisher is not None:
@@ -1065,86 +1065,10 @@ class SpotDemoAgent(RobotAgent):
                 # Sampling along the frontier
                 if explore_failures <= self.parameters["max_explore_failures"]:
                     #! TODO: Check if this is the exploration, if yes -> replace with keyboard teleop
-                    breakpoint()
-                    res = self.plan_to_frontier()
-                else:
-                    res = None
-
-                # Handle the case where we could not get to nearby frontier
-                if res is not None and res.success:
-                    explore_failures = 0
-                else:
-                    explore_failures += 1
-                    logger.warning("Exploration failed: " + str(res.reason))
-                    #! TODO: Most likely not needed for teleop 
-                    if explore_failures > self.parameters["max_explore_failures"]:
-                        logger.debug("Switching to random exploration")
-                        goal = next(
-                            self.navigation_space.sample_random_frontier(
-                                min_size=self.parameters["min_size"],
-                                max_size=self.parameters["max_size"],
-                            )
-                        )
-                        if goal is None:
-                            # Nowhere to go
-                            logger.info("Done exploration!")
-                            return
-
-                        goal = goal.cpu().numpy()
-                        goal_is_valid = self.navigation_space.is_valid(goal)
-                        logger.info(f" Goal is valid: {goal_is_valid}")
-                        if not goal_is_valid:
-                            # really we should sample a new goal
-                            continue
-
-                        #  Build plan
-                        res = self.planner.plan(start, goal)
-                        logger.info(goal)
-                        if res.success:
-                            logger.success("Plan success: {}", res.success)
-                            explore_failures = 0
-                        else:
-                            logger.error("Plan success: {}", res.success)
-                            logger.error("Failed to plan to the frontier.")
-            #! TODO: also random exp, not needed
-            else:
-                logger.info(
-                    "picking a random frontier point and trying to move there..."
-                )
-                # Sample a goal in the frontier (TODO change to closest frontier)
-                goal = self.sample_random_frontier()
-                if goal is None:
-                    logger.info("Done exploration!")
-                    return
-
-                goal_is_valid = self.navigation_space.is_valid(goal)
-                logger.info(
-                    f" Goal is valid: {goal_is_valid}",
-                )
-                if not goal_is_valid:
-                    # really we should sample a new goal
-                    continue
-
-                #  Build plan
-                res = self.planner.plan(start, goal)
-                logger.info(goal)
-                if res.success:
-                    logger.success("Res success: {}", res.success)
-                else:
-                    logger.error("Res success: {}", res.success)
-
-            if res.success:
-                self.spot.execute_plan(
-                    res,
-                    pos_err_threshold=self.parameters["trajectory_pos_err_threshold"],
-                    rot_err_threshold=self.parameters["trajectory_rot_err_threshold"],
-                    per_step_timeout=self.parameters["trajectory_per_step_timeout"],
-                    verbose=False,
-                )
-            elif goal is not None and len(goal) > 0:
-                logger.warning("Just go ahead and try it anyway")
-                self.spot.navigate_to(goal)
-
+                    linear = input("enter linear: ")
+                    angular = input("enter angular: ")
+                    self.spot.move_base(float(linear), float(angular))
+                    # res = self.plan_to_frontier()
             if not self.parameters["use_async_subscriber"]:
                 # Synchronous updates
                 self.update()

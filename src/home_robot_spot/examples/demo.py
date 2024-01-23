@@ -21,7 +21,7 @@ from atomicwrites import atomic_write
 from loguru import logger
 
 import home_robot.utils.planar as nc
-from examples.demo_utils.mock_agent import MockSpotDemoAgent
+#from examples.demo_utils.mock_agent import MockSpotDemoAgent
 
 # Simple IO tool for robot agents
 from home_robot.agent.multitask.robot_agent import publish_obs
@@ -51,7 +51,7 @@ from home_robot.utils.rpc import (
     get_vlm_rpc_stub,
     parse_pick_and_place_plan,
 )
-from home_robot.utils.threading import Interval
+# from home_robot.utils.threading import Interval
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
@@ -133,7 +133,7 @@ def main(dock: Optional[int] = None, args=None):
             demo.update()
 
         # logger.critical("Not running explore")
-        demo.rotate_in_place()
+        #demo.rotate_in_place()
         demo.run_teleop_data()
 
         logger.info("Exploration complete!")

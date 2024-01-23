@@ -77,7 +77,7 @@ confirm_plan: False
 find_only: True
 
 # User interface
-chat: True
+chat: False
 limited_obs_publish_sleep: 0.5  # set to 0 for no limited obs
 context_length: 20
 sample_strategy: "all"
