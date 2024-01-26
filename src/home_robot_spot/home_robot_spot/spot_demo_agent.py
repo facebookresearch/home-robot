@@ -22,7 +22,6 @@ from atomicwrites import atomic_write
 from loguru import logger
 
 import home_robot.utils.planar as nc
-#from examples.demo_utils.mock_agent import MockSpotDemoAgent
 
 # Simple IO tool for robot agents
 from home_robot.agent.multitask.robot_agent import RobotAgent, publish_obs
@@ -56,6 +55,9 @@ from home_robot.utils.threading import Interval
 from home_robot.utils.visualization import get_x_and_y_from_path
 from home_robot_spot import SpotClient, VoxelMapSubscriber
 from home_robot_spot.grasp_env import GraspController
+
+# from examples.demo_utils.mock_agent import MockSpotDemoAgent
+
 
 
 class SpotDemoAgent(RobotAgent):
