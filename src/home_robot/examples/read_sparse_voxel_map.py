@@ -41,12 +41,13 @@ from home_robot.utils.dummy_stretch_client import DummyStretchClient
     help="number of frames to read",
 )
 @click.option("--show-svm", "-s", type=bool, is_flag=True, default=False)
+@click.option("--pkl-is-svm", "-p", type=bool, is_flag=True, default=False)
 def main(
     input_path,
     config_path,
     voxel_size: float = 0.01,
     show_maps: bool = True,
-    pkl_is_svm: bool = False,
+    pkl_is_svm: bool = True,
     frame: int = -1,
     show_svm: bool = False,
     try_to_plan_iter: int = 10,
