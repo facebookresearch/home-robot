@@ -8,6 +8,7 @@ import pickle
 from pathlib import Path
 
 import click
+import matplotlib.pyplot as plt
 
 from home_robot.agent.multitask import get_parameters
 from home_robot.agent.multitask.robot_agent import RobotAgent
@@ -66,10 +67,19 @@ def main(
         voxel_map.read_from_pickle(input_path, num_frames=frame)
 
     if agent is not None:
-        print(agent)
+        print("Agent loaded:", agent)
         # Display with agent overlay
         voxel_map.show(instances=True)
-        voxel_map.get_2d_map(debug=False)
+        explored, obstacles = voxel_map.get_2d_map(debug=False)
+        plt.subplot(1, 2, 1)
+        plt.imshow(explored)
+        plt.axis("off")
+        plt.title("Explored")
+        plt.subplot(1, 2, 2)
+        plt.imshow(obstacles)
+        plt.axis("off")
+        plt.title("Obstacles")
+        plt.show()
 
 
 if __name__ == "__main__":
