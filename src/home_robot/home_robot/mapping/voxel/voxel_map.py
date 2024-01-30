@@ -394,8 +394,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         return has_true_values and has_false_values
 
     def get_frontier(
-        self, xyt: np.ndarray, expand_size: int = 5, debug: bool = False
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, expand_size: int = 5, debug: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute frontier regions of the map"""
 
         obstacles, explored = self.voxel_map.get_2d_map()
@@ -458,7 +458,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
 
         frontier, outside_frontier, traversible = self.get_frontier(
-            xyt=xyt, expand_size=expand_size, debug=debug
+            expand_size=expand_size, debug=debug
         )
 
         # from scipy.ndimage.morphology import distance_transform_edt

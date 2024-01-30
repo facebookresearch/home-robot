@@ -24,7 +24,7 @@ from home_robot.mapping.voxel import (
     SparseVoxelMapNavigationSpace,
     plan_to_frontier,
 )
-from home_robot.motion import PlanResult, RRTConnect, Shortcut
+from home_robot.motion import ConfigurationSpace, PlanResult, RRTConnect, Shortcut
 from home_robot.perception.encoders import get_encoder
 from home_robot.utils.demo_chat import (
     DemoChat,
@@ -116,6 +116,7 @@ class RobotAgent:
         semantic_sensor,
         parameters: Dict[str, Any],
         grasp_client: Optional[GraspClient] = None,
+        voxel_map: Optional[SparseVoxelMap] = None,
         rpc_stub=None,
     ):
         if isinstance(parameters, Dict):
@@ -138,31 +139,34 @@ class RobotAgent:
         self.guarantee_instance_is_reachable = (
             parameters.guarantee_instance_is_reachable
         )
-        # Wrapper for SparseVoxelMap which connects to ROS
-        self.voxel_map = SparseVoxelMap(
-            resolution=parameters["voxel_size"],
-            local_radius=parameters["local_radius"],
-            obs_min_height=parameters["obs_min_height"],
-            obs_max_height=parameters["obs_max_height"],
-            min_depth=parameters["min_depth"],
-            max_depth=parameters["max_depth"],
-            add_local_radius_points=parameters.get(
-                "add_local_radius_points", default=True
-            ),
-            remove_visited_from_obstacles=parameters.get(
-                "remove_visited_from_obstacles", default=False
-            ),
-            obs_min_density=parameters["obs_min_density"],
-            smooth_kernel_size=parameters["smooth_kernel_size"],
-            encoder=self.encoder,
-            use_median_filter=parameters.get("use_median_filter", False),
-            median_filter_size=parameters.get("median_filter_size", 5),
-            median_filter_max_error=parameters.get("median_filter_max_error", 0.01),
-            use_derivative_filter=parameters.get("use_derivative_filter", False),
-            derivative_filter_threshold=parameters.get(
-                "derivative_filter_threshold", 0.5
-            ),
-        )
+
+        if voxel_map is not None:
+            self.voxel_map = voxel_map
+        else:
+            self.voxel_map = SparseVoxelMap(
+                resolution=parameters["voxel_size"],
+                local_radius=parameters["local_radius"],
+                obs_min_height=parameters["obs_min_height"],
+                obs_max_height=parameters["obs_max_height"],
+                min_depth=parameters["min_depth"],
+                max_depth=parameters["max_depth"],
+                add_local_radius_points=parameters.get(
+                    "add_local_radius_points", default=True
+                ),
+                remove_visited_from_obstacles=parameters.get(
+                    "remove_visited_from_obstacles", default=False
+                ),
+                obs_min_density=parameters["obs_min_density"],
+                smooth_kernel_size=parameters["smooth_kernel_size"],
+                encoder=self.encoder,
+                use_median_filter=parameters.get("use_median_filter", False),
+                median_filter_size=parameters.get("median_filter_size", 5),
+                median_filter_max_error=parameters.get("median_filter_max_error", 0.01),
+                use_derivative_filter=parameters.get("use_derivative_filter", False),
+                derivative_filter_threshold=parameters.get(
+                    "derivative_filter_threshold", 0.5
+                ),
+            )
 
         # Create planning space
         self.space = SparseVoxelMapNavigationSpace(
@@ -210,6 +214,10 @@ class RobotAgent:
         else:
             self.chat = None
             self._publisher = None
+
+    def get_navigation_space(self) -> ConfigurationSpace:
+        """Returns reference to the navigation space."""
+        return self.space
 
     def place(self, object_goal: Optional[str] = None, **kwargs) -> bool:
         """Try to place an object."""
