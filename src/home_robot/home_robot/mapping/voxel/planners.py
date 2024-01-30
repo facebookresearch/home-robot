@@ -32,6 +32,7 @@ def plan_to_frontier(
     res = None
     start_is_valid = space.is_valid(start)
     print("\n----------- Planning to frontier -----------")
+    print("Starting at:", start)
     print("Start is valid:", start_is_valid)
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
