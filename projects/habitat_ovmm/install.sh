@@ -21,19 +21,11 @@ cd $HOME_ROBOT_ROOT
 echo "Download the episodes..."
 git submodule update --init data/datasets/ovmm
 
+echo "Call the data download script!"
 echo "Safety; make sure you have downloaded everything."
 echo "If these are empty, you may have too old a git version."
-cd $HOME_ROBOT_ROOT/data/hssd-hab
-git lfs pull
-cd -
-
-cd $HOME_ROBOT_ROOT/data/objects
-git lfs pull
-cd -
-
-cd $HOME_ROBOT_ROOT/data/datasets/ovmm
-git lfs pull
-cd -
+cd $HOME_ROBOT_ROOT
+./download_data.sh
 
 echo "Download the robot model..."
 mkdir -p $HOME_ROBOT_ROOT/data/robots/hab_stretch

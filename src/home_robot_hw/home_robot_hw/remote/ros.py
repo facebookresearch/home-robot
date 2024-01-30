@@ -130,7 +130,9 @@ class StretchRosInterface:
         with self._js_lock:
             return self.pos, self.vel, self.frc
 
-    def send_trajectory_goals(self, joint_goals: Dict[str, float]):
+    def send_trajectory_goals(self, joint_goals: Dict[str, float], velocities=None):
+        """Send trajectory goals to the robot. Goals are a dictionary of joint names and strings. Can optionally provide velicities as well."""
+
         # Preprocess arm joints (arm joints are actually 4 joints in one)
         if self.ARM_JOINT in joint_goals:
             arm_joint_goal = joint_goals.pop(self.ARM_JOINT)
@@ -155,6 +157,8 @@ class StretchRosInterface:
         # Construct goal positions
         point_msg = JointTrajectoryPoint()
         point_msg.positions = joint_values
+        if velocities is not None:
+            point_msg.velocities = velocities
 
         # Construct goal msg
         goal_msg = FollowJointTrajectoryGoal()

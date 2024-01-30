@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -36,8 +37,10 @@ class ObjectNavAgent(Agent):
         device_id: int = 0,
         min_goal_distance_cm: float = 50.0,
         continuous_angle_tolerance: float = 30.0,
+        get_timing: bool = False,
     ):
         self.config = config
+        self.get_timing = get_timing
         self.max_steps = config.AGENT.max_steps
         self.num_environments = config.NUM_ENVIRONMENTS
         self.store_all_categories_in_map = getattr(
@@ -208,6 +211,7 @@ class ObjectNavAgent(Agent):
             start_recep_goal_category = start_recep_goal_category.unsqueeze(1)
         if end_recep_goal_category is not None:
             end_recep_goal_category = end_recep_goal_category.unsqueeze(1)
+
         if instance_id is not None:
             instance_id = instance_id.unsqueeze(1)
         (
@@ -225,7 +229,7 @@ class ObjectNavAgent(Agent):
             pose_delta.unsqueeze(1),
             dones.unsqueeze(1),
             update_global.unsqueeze(1),
-            camera_pose,
+            camera_pose.unsqueeze(1),
             self.semantic_map.local_map,
             self.semantic_map.global_map,
             self.semantic_map.local_pose,
@@ -341,7 +345,8 @@ class ObjectNavAgent(Agent):
 
     def act(self, obs: Observations) -> Tuple[DiscreteNavigationAction, Dict[str, Any]]:
         """Act end-to-end."""
-        # t0 = time.time()
+        if self.get_timing:
+            t0 = time.time()
 
         # 1 - Obs preprocessing
         (
@@ -387,8 +392,9 @@ class ObjectNavAgent(Agent):
         else:
             free_locations = None
 
-        # t1 = time.time()
-        # print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
+        if self.get_timing:
+            t1 = time.time()
+            print(f"[Agent] Obs preprocessing time: {t1 - t0:.2f}")
 
         semantic_max_val = None
         if "semantic_max_val" in obs.task_observations:
@@ -409,8 +415,9 @@ class ObjectNavAgent(Agent):
             free_locations=free_locations,
         )
 
-        # t2 = time.time()
-        # print(f"[Agent] Semantic mapping and policy time: {t2 - t1:.2f}")
+        if self.get_timing:
+            t2 = time.time()
+            print(f"[Agent] Semantic mapping and policy time: {t2 - t1:.2f}")
 
         # 3 - Planning
         closest_goal_map = None
@@ -439,9 +446,10 @@ class ObjectNavAgent(Agent):
             # self.closest_goal_map[0] = closest_goal_map
             self.closest_goal_map[0] = closest_goal_map
 
-        # t3 = time.time()
-        # print(f"[Agent] Planning time: {t3 - t2:.2f}")
-        # print(f"[Agent] Total time: {t3 - t0:.2f}")
+        if self.get_timing:
+            t3 = time.time()
+            print(f"[Agent] Planning time: {t3 - t2:.2f}")
+            print(f"[Agent] Total time: {t3 - t0:.2f}")
 
         vis_inputs[0]["goal_name"] = obs.task_observations["goal_name"]
         if self.visualize:
@@ -563,9 +571,10 @@ class ObjectNavAgent(Agent):
             print("[ObjectNav] Goal name: ", goal_name)
 
         camera_pose = obs.camera_pose
+
         if camera_pose is not None:
             camera_pose = torch.tensor(np.asarray(camera_pose)).unsqueeze(0)
-        # import pdb; pbd.set_trace()
+
         return (
             obs_preprocessed,
             pose_delta,

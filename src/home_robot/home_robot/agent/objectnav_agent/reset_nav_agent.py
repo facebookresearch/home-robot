@@ -225,7 +225,7 @@ class ResetNavAgent(Agent):
             pose_delta.unsqueeze(1),
             dones.unsqueeze(1),
             update_global.unsqueeze(1),
-            camera_pose,
+            camera_pose.unsqueeze(1),
             self.semantic_map.local_map,
             self.semantic_map.global_map,
             self.semantic_map.local_pose,

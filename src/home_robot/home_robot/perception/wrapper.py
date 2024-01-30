@@ -26,6 +26,7 @@ class OvmmPerception:
         config,
         gpu_device_id: int = 0,
         verbose: bool = False,
+        confidence_threshold: float = 0.5,
         module: str = "grounded_sam",
         module_kwargs: Dict[str, Any] = {},
     ):
@@ -42,12 +43,12 @@ class OvmmPerception:
                 DeticPerception,
             )
 
-            # TODO Specify confidence threshold as a parameter
             self._segmentation = DeticPerception(
                 vocabulary="custom",
                 custom_vocabulary=".",
                 sem_gpu_id=gpu_device_id,
                 verbose=verbose,
+                confidence_threshold=confidence_threshold,
                 **module_kwargs,
             )
         elif self._detection_module == "grounded_sam":

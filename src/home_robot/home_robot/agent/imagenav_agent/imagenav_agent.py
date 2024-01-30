@@ -140,7 +140,7 @@ class IINAgentModule(nn.Module):
              indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
              flags that indicate whether to update the global map and pose
-            seq_camera_poses: sequence of (batch_size, 4, 4) camera poses
+            seq_camera_poses: sequence of (batch_size, sequence_length, 4, 4) camera poses
             init_local_map: initial local map before any updates of shape
              (batch_size, 4 + num_sem_categories, M, M)
             init_global_map: initial global map before any updates of shape
@@ -394,7 +394,7 @@ class ImageNavAgent(Agent):
             pose_delta.unsqueeze(1),
             dones.unsqueeze(1),
             update_global.unsqueeze(1),
-            camera_pose,
+            camera_pose.unsqueeze(1),
             self.found_goal,
             self.goal_map,
             self.semantic_map.local_map,

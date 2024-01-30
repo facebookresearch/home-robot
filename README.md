@@ -150,7 +150,15 @@ Then you can run the OVMM example script:
 ```
 cd $HOME_ROBOT_ROOT
 python projects/real_world_ovmm/eval_episode.py
+
+# Alternate test - heuristic agent only
+python projects/real_world_ovmm/tests/test_heuristic_policies.py
 ```
+
+#### 5. Troubleshooting
+
+See our [troubleshooting doc](docs/troubleshooting.md) for some common errors.
+
 
 ## Code Contribution
 

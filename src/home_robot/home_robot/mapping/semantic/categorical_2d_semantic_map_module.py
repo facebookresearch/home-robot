@@ -201,7 +201,7 @@ class Categorical2DSemanticMapModule(nn.Module):
              that indicate episode restarts
             seq_update_global: sequence of (batch_size, sequence_length) binary
              flags that indicate whether to update the global map and pose
-            seq_camera_poses: sequence of (batch_size, 4, 4) extrinsic camera
+            seq_camera_poses: sequence of (batch_size, sequence_length, 4, 4) extrinsic camera
              matrices
             init_local_map: initial local map before any updates of shape
              (batch_size, MC.NON_SEM_CHANNELS + num_sem_categories, M, M)
@@ -277,7 +277,7 @@ class Categorical2DSemanticMapModule(nn.Module):
                 seq_pose_delta[:, t],
                 local_map,
                 local_pose,
-                seq_camera_poses,
+                seq_camera_poses[:, t],
                 origins,
                 lmb,
                 seq_obstacle_locations[:, t]
@@ -641,7 +641,6 @@ class Categorical2DSemanticMapModule(nn.Module):
             filled = fill_convex_hull(fp_exp_pred[0, 0].cpu())
             assert fp_exp_pred.shape[:2] == (1, 1)
             fp_exp_pred[0, 0] = torch.tensor(filled)
-
         # uses a fixed cone infront of the camerea
         elif self.exploration_type == "gaze":
             fp_exp_pred = torch.zeros_like(fp_map_pred)
@@ -732,7 +731,6 @@ class Categorical2DSemanticMapModule(nn.Module):
         rot_mat, trans_mat = ru.get_grid(st_pose, agent_view.size(), dtype)
         rotated = F.grid_sample(agent_view, rot_mat, align_corners=True)
         translated = F.grid_sample(rotated, trans_mat, align_corners=True)
-        plt.imshow(rotated[0, 0].cpu())
 
         # Clamp to [0, 1] after transform agent view to map coordinates
         translated = torch.clamp(translated, min=0.0, max=1.0).float()
