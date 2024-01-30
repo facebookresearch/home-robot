@@ -14,6 +14,7 @@ import numpy as np
 from home_robot.agent.multitask import get_parameters
 from home_robot.agent.multitask.robot_agent import RobotAgent
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
+from home_robot.mapping.voxel import plan_to_frontier
 from home_robot.utils.dummy_stretch_client import DummyStretchClient
 
 
@@ -48,6 +49,7 @@ def main(
     pkl_is_svm: bool = True,
     frame: int = -1,
     show_svm: bool = False,
+    try_to_plan_iter: int = 10,
 ):
     """Simple script to load a voxel map"""
     input_path = Path(input_path)
@@ -115,10 +117,22 @@ def main(
         print("--- Sampling goals ---")
         x0 = np.array([0, 0, 0])
         sampler = space.sample_closest_frontier(x0)
+        planner = agent.planner
+
         print(f"Closest frontier to {x0}:")
+        start = x0
         for i, g in enumerate(sampler):
             print(i, "sampled", g)
             # Try to plan
+            res = plan_to_frontier(
+                start,
+                planner,
+                space,
+                voxel_map,
+                try_to_plan_iter=try_to_plan_iter,
+                visualize=False,
+            )
+            print("Planning result:", res)
 
 
 if __name__ == "__main__":
