@@ -88,7 +88,7 @@ def main(
         # Display with agent overlay
         if show_svm:
             voxel_map.show(instances=True)
-        explored, obstacles = voxel_map.get_2d_map(debug=False)
+        obstacles, explored = voxel_map.get_2d_map(debug=False)
         space = agent.get_navigation_space()
         # TODO: read the parameter from the agent
         frontier, outside, traversible = space.get_frontier()
@@ -123,18 +123,22 @@ def main(
 
         print(f"Closest frontier to {x0}:")
         start = x0
-        for i, g in enumerate(sampler):
-            print(i, "sampled", g)
+        for i, goal in enumerate(sampler):
+            if goal is None:
+                # No more positions to sample
+                break
+            res = planner.plan(start, goal.cpu().numpy())
+            print(i, "sampled", goal, "success =", res.success)
             # Try to plan
-            res = plan_to_frontier(
-                start,
-                planner,
-                space,
-                voxel_map,
-                try_to_plan_iter=try_to_plan_iter,
-                visualize=False,
-            )
-            print("Planning result:", res)
+            # res = plan_to_frontier(
+            #     start,
+            #    planner,
+            #    space,
+            #    voxel_map,
+            #    try_to_plan_iter=try_to_plan_iter,
+            #    visualize=False,
+            # )
+            # print("Planning result:", res)
 
 
 if __name__ == "__main__":
