@@ -873,6 +873,10 @@ class SparseVoxelMap(object):
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
+        from home_robot.utils.plotly_vis.camera import (
+            add_camera_poses,
+            colormap_to_rgb_strings,
+        )
 
         points, rgb = self.get_xyz_rgb()
 
@@ -923,7 +927,7 @@ class SparseVoxelMap(object):
             zaxis={"backgroundcolor": "rgb(200, 200, 230)"},
             axis_args=AxisArgs(showgrid=True),
             pointcloud_marker_size=3,
-            pointcloud_max_points=200_000,
+            pointcloud_max_points=800_000,
             boxes_plot_together=True,
             boxes_wireframe_width=3,
             aspectmode="cube",
@@ -932,6 +936,9 @@ class SparseVoxelMap(object):
             plots={"Global scene": traces},
             **update(_default_plot_args, plot_scene_kwargs),
         )
+        # Show cameras
+        poses = [obs.camera_pose for obs in self.observations]
+        add_camera_poses(fig, poses)
         return fig
 
     def sample_explored(self) -> Optional[np.ndarray]:
