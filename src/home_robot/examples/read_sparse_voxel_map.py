@@ -116,13 +116,17 @@ def main(
         plt.show()
 
         print("--- Sampling goals ---")
-        x0 = np.array([0, 0, 0])
+        # x0 = np.array([0, 0, 0])
+        x0 = np.array([-0.17516428, -0.23404302, 5.562937])
         sampler = space.sample_closest_frontier(x0)
         planner = agent.planner
 
         print(f"Closest frontier to {x0}:")
         start = x0
         for i, goal in enumerate(sampler):
+            if goal is None:
+                # No more positions to sample
+                break
             res = planner.plan(start, goal.cpu().numpy())
             print(i, "sampled", goal, "success =", res.success)
             # Try to plan
