@@ -24,7 +24,13 @@ from home_robot.mapping.voxel import (
     SparseVoxelMapNavigationSpace,
     plan_to_frontier,
 )
-from home_robot.motion import ConfigurationSpace, PlanResult, RRTConnect, Shortcut
+from home_robot.motion import (
+    ConfigurationSpace,
+    PlanResult,
+    RRTConnect,
+    Shortcut,
+    Simplify,
+)
 from home_robot.perception.encoders import get_encoder
 from home_robot.utils.demo_chat import (
     DemoChat,
@@ -186,6 +192,8 @@ class RobotAgent:
 
         # Create a simple motion planner
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
+        if parameters["simplify_plans"]:
+            self.planner = Simplify(self.planner)
 
         timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
         self.path = os.path.expanduser(

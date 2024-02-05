@@ -34,6 +34,7 @@ step_size: 0.1
 rotation_step_size: 0.2 
 dilate_frontier_size: 12  # Used to shrink the frontier back from the edges of the world
 dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
+simplify_plans: True
 
 # Trajectory following - how closely we follow intermediate waypoints
 # These should be less strict than whatever parameters the low-level controller is using; this will

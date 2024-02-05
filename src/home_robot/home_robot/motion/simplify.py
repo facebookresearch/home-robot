@@ -26,3 +26,31 @@ class Simplify(Planner):
         self.min_step = min_step
         self.max_step = max_step
         self.min_angle = min_angle
+        self.planner = planner
+        self.reset()
+
+    def reset(self):
+        self.nodes = None
+
+    def plan(self, start, goal, verbose: bool = False, **kwargs) -> PlanResult:
+        """Do plan simplification"""
+        self.planner.reset()
+        if verbose:
+            print("Call internal planner")
+        res = self.planner.plan(start, goal, verbose=verbose, **kwargs)
+        self.nodes = self.planner.nodes
+        if not res.success or len(res.trajectory) < 4:
+            # Planning failed so nothing to do here
+            return res
+
+        prev_node = None
+        prev_theta = 0
+        for node in self.nodes:
+            # loop over nodes
+            if prev_node is None:
+                prev_node = node
+                prev_theta = node.state[-1]
+                continue
+            else:
+                theta_dist = node.state[-1] - prev_theta
+                print(theta_dist)

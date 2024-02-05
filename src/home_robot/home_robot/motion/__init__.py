@@ -7,4 +7,5 @@ from .robot import RobotModel
 from .rrt import RRT
 from .rrt_connect import RRTConnect
 from .shortcut import Shortcut
+from .simplify import Simplify
 from .space import XYT, ConfigurationSpace, Node
