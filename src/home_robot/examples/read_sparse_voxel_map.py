@@ -64,7 +64,7 @@ def main(
 
     if len(config_path) > 0:
         print("- Load parameters")
-        parameters = get_parameters("src/home_robot_hw/configs/default.yaml")
+        parameters = get_parameters(config_path)
         print(parameters)
         dummy_robot = DummyStretchClient()
         agent = RobotAgent(
