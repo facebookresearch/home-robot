@@ -44,13 +44,18 @@ class Simplify(Planner):
             return res
 
         prev_node = None
+        idx0 = 0
         prev_theta = 0
-        for node in self.nodes:
+        for i, node in enumerate(self.nodes):
             # loop over nodes
             if prev_node is None:
                 prev_node = node
                 prev_theta = node.state[-1]
+                idx0 = i
                 continue
             else:
                 theta_dist = node.state[-1] - prev_theta
+                print(idx0)
                 print(theta_dist)
+
+        return res  # PlanResult(True, new_trajectory)
