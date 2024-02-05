@@ -72,7 +72,8 @@ class OvmmSimClient(RobotClient):
         """Move to xyt in global coordinates or relative coordinates."""
         if not relative:
             xyt = xyt_global_to_base(xyt, self.get_base_pose())
-
+        # TODO: verify this is correct
+        xyt = [xyt[1], -xyt[0], xyt[2]]
         if type(xyt) == np.ndarray:
             xyt = ContinuousNavigationAction(xyt)
         elif type(xyt) == list:
