@@ -149,6 +149,7 @@ class OvmmSimClient(RobotClient):
         xyt0 = self.get_base_pose()
         if verbose:
             print("STARTED AT:", xyt0)
+            print("ACTION:", action)
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
         self.num_action_applied += 1
         if verbose:

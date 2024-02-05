@@ -30,7 +30,7 @@ in_place_rotation_steps: 8
 guarantee_instance_is_reachable: True
 
 # Navigation space - used for motion planning and computing goals.
-step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
+step_size: 0.1
 rotation_step_size: 0.2 
 dilate_frontier_size: 12  # Used to shrink the frontier back from the edges of the world
 dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
