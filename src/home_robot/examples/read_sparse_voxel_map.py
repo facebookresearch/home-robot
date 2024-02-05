@@ -117,7 +117,11 @@ def main(
 
         print("--- Sampling goals ---")
         # x0 = np.array([0, 0, 0])
-        x0 = np.array([-0.17516428, -0.23404302, 5.562937])
+        x0 = np.array([0.0, -0.0, 1.5707968])
+        start_is_valid = space.is_valid(x0, verbose=True, debug=True)
+        if not start_is_valid:
+            print("you need to manually set the start pose to be valid")
+            return
         sampler = space.sample_closest_frontier(x0)
         planner = agent.planner
 

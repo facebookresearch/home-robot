@@ -30,8 +30,8 @@ AGENT:
   radius: 0.05            # robot radius (in meters)
   fall_wait_steps: 0      # number of steps to wait after the object has been dropped
   clip_embeddings_file: data/objects/clip_embeddings.pickle
-  # detection_module: detic
-  detection_module: mobile_sam
+  detection_module: detic
+  # detection_module: mobile_sam
 
   VISION:
     confidence_threshold: 0.45 # detic object detection confidence threshold

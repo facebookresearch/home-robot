@@ -156,6 +156,7 @@ class RobotAgent:
                 obs_max_height=parameters["obs_max_height"],
                 min_depth=parameters["min_depth"],
                 max_depth=parameters["max_depth"],
+                pad_obstacles=parameters["pad_obstacles"],
                 add_local_radius_points=parameters.get(
                     "add_local_radius_points", default=True
                 ),
@@ -325,7 +326,6 @@ class RobotAgent:
         )
 
         plan = output.action
-        breakpoint()
 
         def confirm_plan(p):
             return True  # might need to merge demo_refactor to find this function
@@ -785,6 +785,7 @@ class RobotAgent:
         visualize: bool = False,
         task_goal: str = None,
         go_home_at_end: bool = False,
+        go_to_start_pose: bool = True,
         show_goal: bool = False,
     ) -> Optional[Instance]:
         """Go through exploration. We use the voxel_grid map created by our collector to sample free space, and then use our motion planner (RRT for now) to get there. At the end, we plan back to (0,0,0).
@@ -794,8 +795,9 @@ class RobotAgent:
         self.current_state = "EXPLORE"
         self.robot.move_to_nav_posture()
 
-        print("Go to (0, 0, 0) to start with...")
-        self.robot.navigate_to([0, 0, 0])
+        if go_to_start_pose:
+            print("Go to (0, 0, 0) to start with...")
+            self.robot.navigate_to([0, 0, 0])
 
         # Explore some number of times
         matches = []
@@ -842,6 +844,13 @@ class RobotAgent:
             if self.robot.last_motion_failed():
                 print("!!!!!!!!!!!!!!!!!!!!!!")
                 print("ROBOT IS STUCK! Move back!")
+
+                # help with debug
+                self.update()
+                self.save_svm("")
+                print(f"robot base pose: {self.robot.get_base_pose()}")
+                breakpoint()
+
                 r = np.random.randint(3)
                 if r == 0:
                     self.robot.navigate_to([-0.1, 0, 0], relative=True, blocking=True)
