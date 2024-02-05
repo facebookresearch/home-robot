@@ -167,11 +167,12 @@ class SAMPerception(PerceptionModule):
 
         masks = np.array(self.generate(image))
 
-        # plt.figure(figsize=(20,20))
-        # plt.imshow(image)
-        # show_anns(masks)
-        # plt.axis('off')
-        # plt.savefig('test.png', dpi=100)
+        plt.figure(figsize=(20, 20))
+        plt.imshow(image)
+        plt.savefig("original.png", dpi=100)
+        show_anns(masks)
+        plt.axis("off")
+        plt.savefig("segmented.png", dpi=100)
 
         if depth_threshold is not None and obs.depth is not None:
             masks = np.array(

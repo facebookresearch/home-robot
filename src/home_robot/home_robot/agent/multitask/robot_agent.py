@@ -456,8 +456,14 @@ class RobotAgent:
         if self.chat is not None:
             publish_obs(self.space, self.path, self.current_state, obs_count)
 
-        # self.save_svm("")
-        # print('SVM logged')
+        self.save_svm("")
+        print("SVM logged")
+        # TODO: remove stupid debug things
+        # instances = self.voxel_map.get_instances()
+        # for ins in instances:
+        #     if len(ins.instance_views) >= 10:
+        #         import pdb; pdb.set_trace()
+        # self.voxel_map.show()
 
     def plan_to_instance(
         self,

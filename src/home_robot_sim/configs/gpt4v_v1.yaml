@@ -5,15 +5,16 @@ encoder_args: "ViT-B/32"
 
 # Sparse Voxel Map parameters
 voxel_size: 0.05
-obs_min_height: 0.1  # Ignore things less than this high
+obs_min_height: 0.05  # Ignore things less than this high when planning motions
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
-obs_min_density: 5  # This many points makes it an obstacle
-local_radius: 0.4  # Area around the robot to mark as explored (kind of a hack)
-smooth_kernel_size: 1
-pad_obstacles: 10 # was 5
+obs_min_density: 10  # This many points makes it an obstacle
+pad_obstacles: 2  # Add this many units (voxel_size) to the area around obstacles
+local_radius: 0.6  # Area around the robot to mark as explored (kind of a hack)
+smooth_kernel_size: 2
 remove_visited_from_obstacles: False
-min_depth: 0.0
-max_depth: 5.0
+min_depth: 0.5
+max_depth: 3.0
+
 
 # Point cloud cleanup
 use_median_filter: True
@@ -30,10 +31,10 @@ in_place_rotation_steps: 8
 guarantee_instance_is_reachable: True
 
 # Navigation space - used for motion planning and computing goals.
-step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually) 
-rotation_step_size: 0.1
+step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
+rotation_step_size: 0.2 
 dilate_frontier_size: 12  # Used to shrink the frontier back from the edges of the world
-dilate_obstacle_size: 6  # Used when selecting goals and computing what the "frontier" is 
+dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
 
 # Trajectory following - how closely we follow intermediate waypoints
 # These should be less strict than whatever parameters the low-level controller is using; this will
@@ -55,6 +56,7 @@ limited_obs_publish_sleep: 0.5
 # command: "pick up a bottle and put it on the chair"
 # name: "spot"
 exploration_steps: 100
+# object_to_find: "bottle"
 # object_to_find: "bottle"
 # location_to_place: "chair"
 
