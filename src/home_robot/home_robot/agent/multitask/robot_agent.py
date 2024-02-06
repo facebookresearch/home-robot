@@ -300,11 +300,14 @@ class RobotAgent:
         # self.save_svm()
         return world_representation
 
-    def save_svm(self, path):
-        import pickle
-
-        with open(os.path.join(path, "svm.pkl"), "wb") as f:
+    def save_svm(self, path, filename: Optional[str] = None):
+        """Debugging code for saving out an SVM"""
+        if filename is None:
+            filename = "debug_svm.pkl"
+        filename = os.path.join(path, filename)
+        with open(filename, "wb") as f:
             pickle.dump(self.voxel_map, f)
+        print(f"SVM logged to {filename}")
 
     def execute_vlm_plan(self):
         """Get plan from vlm and execute it"""
@@ -456,8 +459,7 @@ class RobotAgent:
         if self.chat is not None:
             publish_obs(self.space, self.path, self.current_state, obs_count)
 
-        self.save_svm("")
-        print("SVM logged")
+        self.save_svm(".")
         # TODO: remove stupid debug things
         # instances = self.voxel_map.get_instances()
         # for ins in instances:
@@ -847,9 +849,9 @@ class RobotAgent:
 
                 # help with debug
                 self.update()
-                self.save_svm("")
+                self.save_svm(".")
                 print(f"robot base pose: {self.robot.get_base_pose()}")
-                breakpoint()
+                # breakpoint()
 
                 r = np.random.randint(3)
                 if r == 0:

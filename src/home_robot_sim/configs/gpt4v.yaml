@@ -8,8 +8,8 @@ voxel_size: 0.05
 obs_min_height: 0.1  # Ignore things less than this high
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
 obs_min_density: 5  # This many points makes it an obstacle
-local_radius: 0.85  # Area around the robot to mark as explored (kind of a hack)
-smooth_kernel_size: 1
+local_radius: 1.0  # Area around the robot to mark as explored (kind of a hack)
+smooth_kernel_size: 0
 pad_obstacles: 2 # was 5
 remove_visited_from_obstacles: False
 min_depth: 0.0
@@ -30,10 +30,10 @@ in_place_rotation_steps: 8
 guarantee_instance_is_reachable: True
 
 # Navigation space - used for motion planning and computing goals.
-step_size: 0.25  # (originally .1, we can make it all the way to 2 maybe actually) 
-rotation_step_size: 0.1
+step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
+rotation_step_size: 0.2
 dilate_frontier_size: 12  # Used to shrink the frontier back from the edges of the world
-dilate_obstacle_size: 6  # Used when selecting goals and computing what the "frontier" is 
+dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
 simplify_plans: False
 
 # Trajectory following - how closely we follow intermediate waypoints
