@@ -172,7 +172,7 @@ class SparseVoxelMap(object):
         self.voxel_resolution = resolution
         self.min_depth = min_depth
         self.max_depth = max_depth
-        self.pad_obstacles = pad_obstacles
+        self.pad_obstacles = int(pad_obstacles)
         self.background_instance_label = background_instance_label
         self.instance_memory_kwargs = update(
             copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
