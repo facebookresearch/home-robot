@@ -816,7 +816,7 @@ class RobotAgent:
 
                 # TODO: debug here -- why start is not valid?
                 self.update()
-                self.save_svm("")
+                self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
                 print(f"robot base pose: {self.robot.get_base_pose()}")
                 breakpoint()
 
