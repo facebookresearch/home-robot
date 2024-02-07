@@ -297,7 +297,6 @@ class RobotAgent:
             self.parameters["sample_strategy"],
             task=task,
         )
-        # self.save_svm()
         return world_representation
 
     def save_svm(self, path, filename: Optional[str] = None):
@@ -801,6 +800,9 @@ class RobotAgent:
             print("Go to (0, 0, 0) to start with...")
             self.robot.navigate_to([0, 0, 0])
 
+        all_starts = []
+        all_goals = []
+
         # Explore some number of times
         matches = []
         no_success_explore = True
@@ -818,10 +820,22 @@ class RobotAgent:
                 self.update()
                 self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
                 print(f"robot base pose: {self.robot.get_base_pose()}")
+
+                print("--- STARTS ---")
+                for a_start, a_goal in zip(all_starts, all_goals):
+                    print(
+                        "start =",
+                        a_start,
+                        self.space.is_valid(a_start),
+                        "goal =",
+                        a_goal,
+                        self.space.is_valid(a_goal),
+                    )
                 breakpoint()
 
                 self.robot.navigate_to([-0.1, 0, 0], relative=True)
                 continue
+
             print("       Start:", start)
             # sample a goal
             if random_goals:
@@ -840,6 +854,8 @@ class RobotAgent:
             if res.success:
                 no_success_explore = False
                 print("Plan successful!")
+                all_starts.append(start)
+                all_goals.append(res.trajectory[-1].state)
                 if not dry_run:
                     self.robot.execute_trajectory(
                         [pt.state for pt in res.trajectory],
@@ -874,6 +890,7 @@ class RobotAgent:
 
             # Append latest observations
             self.update()
+            self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
             if visualize:
                 # After doing everything - show where we will move to
                 self.voxel_map.show()

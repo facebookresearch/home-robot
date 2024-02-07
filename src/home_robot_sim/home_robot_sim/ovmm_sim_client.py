@@ -155,7 +155,7 @@ class OvmmSimClient(RobotClient):
         # constraints
         if isinstance(action, ContinuousNavigationAction):
             for axis, delta in enumerate(action.xyt[:2]):
-                if abs(delta) <= 0.1 and delta != 0:
+                if abs(delta) < 0.1 and delta != 0:
                     print(
                         "the robot is trying to make tiny movement along an axis, set it to 0"
                     )
