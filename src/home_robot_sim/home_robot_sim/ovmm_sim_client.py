@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import math
 import os
 import shutil
 import time
@@ -30,7 +31,7 @@ class OvmmSimClient(RobotClient):
     """Defines the ovmm simulation robot as a RobotClient child
     class so the sim can be used with the cortex demo code"""
 
-    _success_tolerance = 1e-4
+    _success_tolerance = 1e-2
 
     def __init__(
         self,
@@ -62,6 +63,38 @@ class OvmmSimClient(RobotClient):
         self.num_action_applied = 0
         self.force_quit = False
 
+        # TODO: remove debug logs
+        self.waypoints = [[0, 0]]
+        self.actions = []
+        self.predefined_actions = [
+            [0.0, 0.0, 0.7853981633974483],
+            [0.0, 0.0, 0.7853981633974483],
+            [0.0, 0.0, 0.7853981633974483],
+            [0.0, 0.0, 0.7853981633974483],
+            [0.0, 0.0, 0.7853981633974483],
+            [0.0, 0.0, 0.7853981633974483],
+            [0.0, 0.0, 0.7853981633974483],
+            [0.0, 0.0, 0.7853981633974483],
+            [0.0, -0.0, 0.0],
+            [0.0, -0.0, 0.10000000000000028],
+            [0.0, -0.0, 0.10000069141388004],
+            [0.0, -0.0, 0.09999995231628532],
+            [0.014684243548439224, -0.24956836994916118, 0.05877080161720806],
+            [0.26425223326029057, -0.23488401454702498, 0.15877080161720786],
+            [0.4975009614767583, -0.0499165358817531, 0.10000024039894537],
+            [0.5541616010807875, 0.21703012557683887, 0.007958650588989145],
+            [0.0, -0.0, 0.0],
+            [0.0, -0.0, 0.10000000000000006],
+            [0.0, -0.0, 0.10000009536743204],
+            [0.0, -0.0, 0.10000019073486344],
+            [0.0, -0.0, 0.10000028610229542],
+            [0.0, -0.0, 0.10000014305114793],
+            [0.015416585980305486, -0.2495242073213454, 0.06170549387054476],
+            [0.2803570266867872, -0.4836312014101075, 0.06170558124802417],
+            [0.7794049437319668, -0.4527988553615232, 0.06170549387054476],
+            [1.2476200626449168, 0.07708245331800478, 0.06170549387054476],
+        ]
+
     def navigate_to(
         self,
         xyt: ContinuousNavigationAction,
@@ -73,15 +106,35 @@ class OvmmSimClient(RobotClient):
         if not relative:
             xyt = xyt_global_to_base(xyt, self.get_base_pose())
         # TODO: verify this is correct
-        xyt = [xyt[1], -xyt[0], xyt[2]]
-        if type(xyt) == np.ndarray:
-            xyt = ContinuousNavigationAction(xyt)
-        elif type(xyt) == list:
-            xyt = ContinuousNavigationAction(np.array(xyt))
+        # xyt = [xyt[1], -xyt[0], xyt[2]]
 
+        if type(xyt) != np.ndarray:
+            xyt = np.array(xyt)
+            # if torch.from_numpy(xyt).allclose(
+            #     torch.zeros_like(torch.from_numpy(xyt)), atol=0.01
+            # ):
+            #     print("waypoints are too close, skip")
+            #     return
+        # elif type(xyt) == list:
+        # xyt = ContinuousNavigationAction(np.array(xyt))
+
+        xyt = ContinuousNavigationAction(xyt)
         if verbose:
             print("NAVIGATE TO", xyt.xyt, relative, blocking)
+
         self.apply_action(xyt, verbose=verbose)
+
+        # TODO: remove this
+        # manually driven with predefined actions
+
+        # pre_xy = self.predefined_actions[0]
+        # # pre_xy = [pre_xy[1], pre_xy[0], pre_xy[2]]
+        # self.apply_action(ContinuousNavigationAction(np.array(pre_xy)), verbose=verbose)
+        # self.predefined_actions.pop(0)
+
+        xy = np.array(self.waypoints[-1]) + xyt.xyt[:2]
+        self.waypoints.append(list(xy))
+        self.actions.append(list(xyt.xyt))
 
     def reset(self):
         """Reset everything in the robot's internal state"""
@@ -151,6 +204,22 @@ class OvmmSimClient(RobotClient):
         if verbose:
             print("STARTED AT:", xyt0)
             print("ACTION:", action)
+
+        # constraints
+        if isinstance(action, ContinuousNavigationAction):
+            for axis, delta in enumerate(action.xyt[:2]):
+                if abs(delta) <= 0.1 and delta != 0:
+                    print(
+                        "the robot is trying to make tiny movement along an axis, set it to 0"
+                    )
+                    action.xyt[axis] = 0.0
+            if abs(action.xyt[2]) <= math.radians(5):
+                print("the robot is trying to rotate by a tiny angle, set it to 0")
+                action.xyt[2] = 0.0
+            # return
+            if verbose:
+                print("NEW ACTION:", action)
+
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
         self.num_action_applied += 1
         if verbose:
@@ -165,6 +234,8 @@ class OvmmSimClient(RobotClient):
             )
         else:
             self._last_motion_failed = True
+        # if self._last_motion_failed:
+        #     breakpoint()
         self.video_frames.append(self.obs.third_person_image)
         self.fpv_video_frames.append(self.obs.rgb)
 

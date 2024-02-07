@@ -813,6 +813,13 @@ class RobotAgent:
             # if start is not valid move backwards a bit
             if not start_is_valid:
                 print("Start not valid. back up a bit.")
+
+                # TODO: debug here -- why start is not valid?
+                self.update()
+                self.save_svm("")
+                print(f"robot base pose: {self.robot.get_base_pose()}")
+                breakpoint()
+
                 self.robot.navigate_to([-0.1, 0, 0], relative=True)
                 continue
             print("       Start:", start)
@@ -847,7 +854,7 @@ class RobotAgent:
                 print("!!!!!!!!!!!!!!!!!!!!!!")
                 print("ROBOT IS STUCK! Move back!")
 
-                # help with debug
+                # help with debug TODO: remove
                 self.update()
                 self.save_svm(".")
                 print(f"robot base pose: {self.robot.get_base_pose()}")
