@@ -31,7 +31,7 @@ class OvmmSimClient(RobotClient):
     """Defines the ovmm simulation robot as a RobotClient child
     class so the sim can be used with the cortex demo code"""
 
-    _success_tolerance = 1e-2
+    _success_tolerance = 1e-4
 
     def __init__(
         self,
@@ -63,38 +63,6 @@ class OvmmSimClient(RobotClient):
         self.num_action_applied = 0
         self.force_quit = False
 
-        # TODO: remove debug logs
-        self.waypoints = [[0, 0]]
-        self.actions = []
-        self.predefined_actions = [
-            [0.0, 0.0, 0.7853981633974483],
-            [0.0, 0.0, 0.7853981633974483],
-            [0.0, 0.0, 0.7853981633974483],
-            [0.0, 0.0, 0.7853981633974483],
-            [0.0, 0.0, 0.7853981633974483],
-            [0.0, 0.0, 0.7853981633974483],
-            [0.0, 0.0, 0.7853981633974483],
-            [0.0, 0.0, 0.7853981633974483],
-            [0.0, -0.0, 0.0],
-            [0.0, -0.0, 0.10000000000000028],
-            [0.0, -0.0, 0.10000069141388004],
-            [0.0, -0.0, 0.09999995231628532],
-            [0.014684243548439224, -0.24956836994916118, 0.05877080161720806],
-            [0.26425223326029057, -0.23488401454702498, 0.15877080161720786],
-            [0.4975009614767583, -0.0499165358817531, 0.10000024039894537],
-            [0.5541616010807875, 0.21703012557683887, 0.007958650588989145],
-            [0.0, -0.0, 0.0],
-            [0.0, -0.0, 0.10000000000000006],
-            [0.0, -0.0, 0.10000009536743204],
-            [0.0, -0.0, 0.10000019073486344],
-            [0.0, -0.0, 0.10000028610229542],
-            [0.0, -0.0, 0.10000014305114793],
-            [0.015416585980305486, -0.2495242073213454, 0.06170549387054476],
-            [0.2803570266867872, -0.4836312014101075, 0.06170558124802417],
-            [0.7794049437319668, -0.4527988553615232, 0.06170549387054476],
-            [1.2476200626449168, 0.07708245331800478, 0.06170549387054476],
-        ]
-
     def navigate_to(
         self,
         xyt: ContinuousNavigationAction,
@@ -105,36 +73,15 @@ class OvmmSimClient(RobotClient):
         """Move to xyt in global coordinates or relative coordinates."""
         if not relative:
             xyt = xyt_global_to_base(xyt, self.get_base_pose())
-        # TODO: verify this is correct
-        # xyt = [xyt[1], -xyt[0], xyt[2]]
 
         if type(xyt) != np.ndarray:
             xyt = np.array(xyt)
-            # if torch.from_numpy(xyt).allclose(
-            #     torch.zeros_like(torch.from_numpy(xyt)), atol=0.01
-            # ):
-            #     print("waypoints are too close, skip")
-            #     return
-        # elif type(xyt) == list:
-        # xyt = ContinuousNavigationAction(np.array(xyt))
 
         xyt = ContinuousNavigationAction(xyt)
         if verbose:
             print("NAVIGATE TO", xyt.xyt, relative, blocking)
 
         self.apply_action(xyt, verbose=verbose)
-
-        # TODO: remove this
-        # manually driven with predefined actions
-
-        # pre_xy = self.predefined_actions[0]
-        # # pre_xy = [pre_xy[1], pre_xy[0], pre_xy[2]]
-        # self.apply_action(ContinuousNavigationAction(np.array(pre_xy)), verbose=verbose)
-        # self.predefined_actions.pop(0)
-
-        xy = np.array(self.waypoints[-1]) + xyt.xyt[:2]
-        self.waypoints.append(list(xy))
-        self.actions.append(list(xyt.xyt))
 
     def reset(self):
         """Reset everything in the robot's internal state"""
@@ -234,8 +181,6 @@ class OvmmSimClient(RobotClient):
             )
         else:
             self._last_motion_failed = True
-        # if self._last_motion_failed:
-        #     breakpoint()
         self.video_frames.append(self.obs.third_person_image)
         self.fpv_video_frames.append(self.obs.rgb)
 
