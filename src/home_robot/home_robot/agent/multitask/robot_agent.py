@@ -116,6 +116,8 @@ def publish_obs(
 class RobotAgent:
     """Basic demo code. Collects everything that we need to make this work."""
 
+    _retry_on_fail = False
+
     def __init__(
         self,
         robot: RobotClient,
@@ -867,8 +869,12 @@ class RobotAgent:
                         rot_err_threshold=self.rot_err_threshold,
                     )
             else:
-                print("Failed. Try again!")
-                continue
+                if self._retry_on_fail:
+                    print("Failed. Try again!")
+                    continue
+                else:
+                    print("Failed. Quitting!")
+                    break
 
             if self.robot.last_motion_failed():
                 print("!!!!!!!!!!!!!!!!!!!!!!")
