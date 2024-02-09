@@ -160,7 +160,7 @@ class OvmmSimClient(RobotClient):
                         "the robot is trying to make tiny movement along an axis, set it to 0"
                     )
                     action.xyt[axis] = 0.0
-            if abs(action.xyt[2]) <= math.radians(5):
+            if abs(action.xyt[2]) <= math.radians(5) and abs(action.xyt[2]) > 1e-8:
                 print("the robot is trying to rotate by a tiny angle, set it to 0")
                 action.xyt[2] = 0.0
             # return

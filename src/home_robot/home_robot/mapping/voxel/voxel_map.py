@@ -219,7 +219,7 @@ class SparseVoxelMapNavigationSpace(XYT):
     def is_valid(
         self,
         state: torch.Tensor,
-        is_safe_threshold=0.95,
+        is_safe_threshold=1.0,
         debug: bool = False,
         verbose: bool = False,
     ) -> bool:
@@ -255,7 +255,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         p_is_safe = (
             torch.sum((crop_exp & mask) | ~mask) / (mask.shape[0] * mask.shape[1])
         ).item()
-        is_safe = p_is_safe > is_safe_threshold
+        is_safe = p_is_safe >= is_safe_threshold
         if verbose:
             print(f"{collision=}, {is_safe=}, {p_is_safe=}, {is_safe_threshold=}")
 
