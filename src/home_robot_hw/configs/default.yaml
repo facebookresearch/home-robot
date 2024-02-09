@@ -36,7 +36,7 @@ guarantee_instance_is_reachable: True
 # Navigation space - used for motion planning and computing goals.
 step_size: 0.1
 rotation_step_size: 0.2 
-dilate_frontier_size: 4  # Used to shrink the frontier back from the edges of the world
+dilate_frontier_size: 3  # Used to shrink the frontier back from the edges of the world
 dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
 default_expand_frontier_size: 10  # margin along the frontier where final robot position can be
 simplify_plans: True
