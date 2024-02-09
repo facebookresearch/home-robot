@@ -56,20 +56,28 @@ class SparseVoxelMapNavigationSpace(XYT):
         else:
             self.dof = 2
 
-        self.dilate_explored_kernel = torch.nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(dilate_frontier_size))
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .float(),
-            requires_grad=False,
-        )
-        self.dilate_obstacles_kernel = torch.nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(dilate_obstacle_size))
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .float(),
-            requires_grad=False,
-        )
+        self._kernels = {}
+
+        if dilate_frontier_size > 0:
+            self.dilate_explored_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(dilate_frontier_size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.dilate_explored_kernel = None
+        if dilate_obstacle_size > 0:
+            self.dilate_obstacles_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(dilate_obstacle_size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.dilate_obstacles_kernel = None
 
     def draw_state_on_grid(
         self, img: np.ndarray, state: np.ndarray, weight: int = 10
@@ -297,11 +305,6 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         # Extract edges from our explored mask
 
-        # TODO: we might still need this, but should set it separately when not exploring
-        # less_explored = binary_erosion(
-        #     explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
-        # )[0, 0]
-
         # Radius computed from voxel map measurements
         radius = np.ceil(radius_m / self.voxel_map.grid_resolution)
         expanded_mask = expand_mask(mask, radius)
@@ -393,6 +396,21 @@ class SparseVoxelMapNavigationSpace(XYT):
         # Return True if both True and False values are present
         return has_true_values and has_false_values
 
+    def _get_kernel(self, size: int):
+        """Return a kernel for expanding/shrinking areas."""
+        if size <= 0:
+            return None
+        if size not in self._kernels:
+            kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+            self._kernels[size] = kernel
+        return self._kernels[size]
+
     def get_frontier(
         self, expand_size: int = 5, debug: bool = False
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -403,16 +421,27 @@ class SparseVoxelMapNavigationSpace(XYT):
         obstacles = binary_dilation(
             obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
         )[0, 0].bool()
+        less_explored = binary_erosion(
+            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
+        )[0, 0]
+
         # Get the masks from our 3d map
-        edges = get_edges(explored)
+        edges = get_edges(less_explored)
 
         # Do not explore obstacles any more
         traversible = explored & ~obstacles
         frontier_edges = edges & ~obstacles
-        expanded_frontier = binary_dilation(
-            frontier_edges.float().unsqueeze(0).unsqueeze(0),
-            self.dilate_explored_kernel,
-        )[0, 0].bool()
+
+        kernel = self._get_kernel(expand_size)
+        if kernel is not None:
+            expanded_frontier = binary_dilation(
+                frontier_edges.float().unsqueeze(0).unsqueeze(0),
+                kernel,
+            )[0, 0].bool()
+        else:
+            # This is a bad idea, planning will probably fail
+            expanded_frontier = frontier_edges
+
         outside_frontier = expanded_frontier & ~explored
         frontier = expanded_frontier & ~obstacles & explored
 

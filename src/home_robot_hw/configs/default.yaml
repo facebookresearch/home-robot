@@ -8,7 +8,11 @@ voxel_size: 0.05
 obs_min_height: 0.05  # Ignore things less than this high when planning motions
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
 obs_min_density: 10  # This many points makes it an obstacle
+
+# Padding
 pad_obstacles: 2  # Add this many units (voxel_size) to the area around obstacles
+min_pad_obstacles: 1  # Do not pad LESS than this amount, for safety.
+
 local_radius: 0.6  # Area around the robot to mark as explored (kind of a hack)
 smooth_kernel_size: 2
 remove_visited_from_obstacles: False
@@ -32,7 +36,7 @@ guarantee_instance_is_reachable: True
 # Navigation space - used for motion planning and computing goals.
 step_size: 0.1
 rotation_step_size: 0.2 
-dilate_frontier_size: 12  # Used to shrink the frontier back from the edges of the world
+dilate_frontier_size: 4  # Used to shrink the frontier back from the edges of the world
 dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
 simplify_plans: True
 
