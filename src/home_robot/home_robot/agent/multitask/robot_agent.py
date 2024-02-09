@@ -146,6 +146,9 @@ class RobotAgent:
             parameters.guarantee_instance_is_reachable
         )
 
+        # Expanding frontier - how close to frontier are we allowed to go?
+        self.default_expand_frontier_size = parameters["default_expand_frontier_size"]
+
         if voxel_map is not None:
             self.voxel_map = voxel_map
         else:
@@ -848,6 +851,7 @@ class RobotAgent:
                     self.voxel_map,
                     try_to_plan_iter=try_to_plan_iter,
                     visualize=visualize,
+                    expand_frontier_size=self.default_expand_frontier_size,
                 )
 
             # if it succeeds, execute a trajectory to this position

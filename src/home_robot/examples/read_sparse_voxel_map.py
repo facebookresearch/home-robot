@@ -84,9 +84,9 @@ def main(
         voxel_map = SparseVoxelMap(resolution=voxel_size)
 
     # TODO: read this from file or something
-    # x0 = np.array([0, 0, 0])
+    x0 = np.array([0, 0, 0])
     # x0 = np.array([0.0, -0.0, 1.5707968])
-    x0 = np.array([1.1499997, -0.60000074, -1.4168407])
+    # x0 = np.array([1.1499997, -0.60000074, -1.4168407])
     start_xy = [x0[0], x0[1], 0]
 
     if agent is not None:

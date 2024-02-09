@@ -38,6 +38,7 @@ step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually
 rotation_step_size: 0.1
 dilate_frontier_size: 4  # Used to shrink the frontier back from the edges of the world
 dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
+default_expand_frontier_size: 10  # margin along the frontier where final robot position can be
 simplify_plans: False
 
 # Trajectory following - how closely we follow intermediate waypoints
