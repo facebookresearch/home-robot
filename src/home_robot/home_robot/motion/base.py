@@ -30,6 +30,12 @@ class PlanResult(object):
         """Return the trajectory"""
         return self.trajectory
 
+    def get_length(self):
+        """Length of a plan"""
+        if not self.success:
+            return 0
+        return len(self.trajectory)
+
 
 class Planner(ABC):
     """planner base class"""

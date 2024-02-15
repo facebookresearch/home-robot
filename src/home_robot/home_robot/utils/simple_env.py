@@ -55,10 +55,10 @@ class SimpleEnv(Env):
         np.random.seed(seed)
         self.obstacle_pos = np.random.random(2) * (self.size - self.obstacle_size)
 
-    def show(self, states, backend="mpl", show: bool = True):
+    def show(self, states, backend: str = "mpl", show: bool = True):
         """Display the scene + states"""
 
-        if not backend == "mlp":
+        if backend != "mpl":
             raise NotImplementedError(f"Backend {backend} not yet supported.")
 
         # Create a figure and axis without axes
