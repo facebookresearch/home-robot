@@ -121,3 +121,11 @@ This means there was an error installing `pytorch3d`
 pip uninstall pytorch3d
 pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py39_cu117_pyt201/download.html
 ```
+
+```
+ImportError: cannot import name 'build_py_2to3' from 'distutils.command.build_py' (/opt/conda/envs/home-robot/lib/python3.9/site-packages/setuptools/_distutils/command/build_py.py)
+```
+This originates from setup tools:
+```
+pip install setuptools==57.5.0
+```
