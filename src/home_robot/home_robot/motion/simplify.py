@@ -37,6 +37,18 @@ class SimplifyXYT(Planner):
     def reset(self):
         self.nodes = None
 
+    def _verify(self, new_nodes):
+        """Check to see if new nodes are spaced enough apart and nothing is within min_dist"""
+        prev_node = None
+        for node in new_nodes:
+            if prev_node is None:
+                continue
+            else:
+                dist = np.linalg.norm(prev_node.state[:2] - node.state[:2])
+                if dist < self.min_dist:
+                    return False
+        return True
+
     def plan(self, start, goal, verbose: bool = False, **kwargs) -> PlanResult:
         """Do plan simplification"""
         self.planner.reset()
@@ -131,7 +143,12 @@ class SimplifyXYT(Planner):
                     # breakpoint()
                     prev_node = node
                     prev_theta = cur_theta
-            break
+
+                # Check to make sure things are spaced out enough
+                if self._verify(new_nodes):
+                    break
+                else:
+                    new_nodes = None
 
         if new_nodes is not None:
             return PlanResult(True, new_nodes)
