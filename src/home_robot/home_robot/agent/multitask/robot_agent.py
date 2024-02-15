@@ -29,7 +29,7 @@ from home_robot.motion import (
     PlanResult,
     RRTConnect,
     Shortcut,
-    Simplify,
+    SimplifyXYT,
 )
 from home_robot.perception.encoders import get_encoder
 from home_robot.utils.demo_chat import (
@@ -199,7 +199,9 @@ class RobotAgent:
         # Create a simple motion planner
         self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
         if parameters["simplify_plans"]:
-            self.planner = Simplify(self.planner)
+            self.planner = SimplifyXYT(
+                self.planner, min_step=0.05, max_step=1.0, num_steps=8
+            )
 
         timestamp = f"{datetime.datetime.now():%Y-%m-%d-%H-%M-%S}"
         self.path = os.path.expanduser(

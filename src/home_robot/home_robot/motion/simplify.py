@@ -19,6 +19,9 @@ class SimplifyXYT(Planner):
     # For floating point comparisons
     theta_tol = 1e-8
 
+    # Debug info
+    verbose = False
+
     def __init__(
         self,
         planner: Planner,
@@ -40,6 +43,8 @@ class SimplifyXYT(Planner):
     def _verify(self, new_nodes):
         """Check to see if new nodes are spaced enough apart and nothing is within min_dist"""
         prev_node = None
+        if len(new_nodes) < 2:
+            return False
         for node in new_nodes:
             if prev_node is None:
                 continue
@@ -52,7 +57,7 @@ class SimplifyXYT(Planner):
     def plan(self, start, goal, verbose: bool = False, **kwargs) -> PlanResult:
         """Do plan simplification"""
         self.planner.reset()
-        verbose = True
+        verbose = verbose or self.verbose
         if verbose:
             print("Call internal planner")
         res = self.planner.plan(start, goal, verbose=verbose, **kwargs)
@@ -78,7 +83,7 @@ class SimplifyXYT(Planner):
                 if verbose:
                     print()
                     print()
-                    print(i + 1, "/", len(self.nodes))
+                    print(i + 1, "/", res.get_length())
                     print(
                         "anchor =",
                         anchor_node.state if anchor_node is not None else None,
@@ -109,7 +114,7 @@ class SimplifyXYT(Planner):
                         print("theta dist =", theta_dist)
                         print("dist", dist)
                         print("cumulative", cum_dist)
-                    if i == len(self.nodes) - 1:
+                    if i == res.get_length() - 1:
                         new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
                         # We're done
                         if verbose:
@@ -144,11 +149,11 @@ class SimplifyXYT(Planner):
                     prev_node = node
                     prev_theta = cur_theta
 
-                # Check to make sure things are spaced out enough
-                if self._verify(new_nodes):
-                    break
-                else:
-                    new_nodes = None
+            # Check to make sure things are spaced out enough
+            if self._verify(new_nodes):
+                break
+            else:
+                new_nodes = None
 
         if new_nodes is not None:
             return PlanResult(True, new_nodes)
