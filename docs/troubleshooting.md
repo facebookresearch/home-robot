@@ -121,6 +121,7 @@ This means there was an error installing `pytorch3d`
 pip uninstall pytorch3d
 pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py39_cu117_pyt201/download.html
 ```
+Note: Replace *py39*, *cu117*, and *pyt201* with your environment's python, cuda, and pytorch versions. Find corresponding pytorch versions [here](https://pytorch.org/get-started/previous-versions/)
 
 ```
 ImportError: cannot import name 'build_py_2to3' from 'distutils.command.build_py' (/opt/conda/envs/home-robot/lib/python3.9/site-packages/setuptools/_distutils/command/build_py.py)
