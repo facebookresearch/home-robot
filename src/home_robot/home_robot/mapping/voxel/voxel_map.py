@@ -177,6 +177,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             xy = q0[:2] + step
             # First, turn in the right direction
             yield np.array([xy[0], xy[1], new_theta])
+
             # Now take steps towards the right goal
             while np.linalg.norm(xy - q1[:2]) > self.step_size:
                 xy = xy + step
@@ -471,8 +472,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         expand_size: int = 5,
         debug: bool = False,
         verbose: bool = False,
-        step_dist: float = 0.5,
-        min_dist: float = 0.5,
+        step_dist: float = 0.1,
+        min_dist: float = 0.1,
     ) -> Optional[torch.Tensor]:
         """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
 
@@ -493,7 +494,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         # from scipy.ndimage.morphology import distance_transform_edt
         m = np.ones_like(traversible)
         start_x, start_y = self.voxel_map.xy_to_grid_coords(xyt[:2]).int().cpu().numpy()
-        if debug:
+        if verbose or debug:
             print("--- Coordinates ---")
             print(f"{xyt=}")
             print(f"{start_x=}, {start_y=}")
@@ -506,6 +507,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         #     pickle.dump(m, f)
         # print (~traversible)
         if not self.has_zero_contour(m):
+            if verbose:
+                print("traversible frontier had zero contour! no where to go.")
             return None
 
         distance_map = skfmm.distance(m, dx=1)
@@ -529,6 +532,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             plt.axis("off")
             plt.show()
 
+        if verbose or debug:
             print(f"-> found {len(distances)} items")
 
         assert len(xs) == len(ys) and len(xs) == len(distances)

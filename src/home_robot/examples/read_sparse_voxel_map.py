@@ -84,16 +84,18 @@ def main(
         voxel_map = SparseVoxelMap(resolution=voxel_size)
 
     # TODO: read this from file or something
-    x0 = np.array([0, 0, 0])
+    # x0 = np.array([0, 0, 0])
+    # x0 = np.array([2.6091852, 3.2328937, 0.8379814])
+    x0 = np.array([3.1000001, 0.0, 4.2857614])
     # x0 = np.array([0.0, -0.0, 1.5707968])
     # x0 = np.array([1.1499997, -0.60000074, -1.4168407])
-    start_xy = [x0[0], x0[1], 0]
+    start_xyz = [x0[0], x0[1], 0]
 
     if agent is not None:
         print("Agent loaded:", agent)
         # Display with agent overlay
         if show_svm:
-            voxel_map.show(instances=True, orig=start_xy)
+            voxel_map.show(instances=True, orig=start_xyz)
         obstacles, explored = voxel_map.get_2d_map(debug=False)
         space = agent.get_navigation_space()
         # TODO: read the parameter from the agent
@@ -122,11 +124,15 @@ def main(
         plt.show()
 
         print("--- Sampling goals ---")
-        start_is_valid = space.is_valid(x0, verbose=True, debug=True)
+        start_is_valid = space.is_valid(x0, verbose=True, debug=False)
         if not start_is_valid:
             print("you need to manually set the start pose to be valid")
             return
-        sampler = space.sample_closest_frontier(x0)
+
+        # Get frontier sampler
+        sampler = space.sample_closest_frontier(
+            x0, verbose=False, min_dist=0.1, step_dist=0.1
+        )
         planner = agent.planner
 
         print(f"Closest frontier to {x0}:")
@@ -147,6 +153,8 @@ def main(
             #    visualize=False,
             # )
             # print("Planning result:", res)
+
+    print("... done sampling frontier points.")
 
 
 if __name__ == "__main__":
