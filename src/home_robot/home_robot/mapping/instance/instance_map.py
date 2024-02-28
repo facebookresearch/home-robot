@@ -49,10 +49,10 @@ class ViewMatchingConfig:
     box_match_mode: Bbox3dOverlapMethodEnum = Bbox3dOverlapMethodEnum.ONE_SIDED_IOU
     box_overlap_eps: float = 1e-7
     box_min_iou_thresh: float = 0.4
-    box_overlap_weight: float = 1.0
+    box_overlap_weight: float = 0.15
 
     visual_similarity_weight: float = 1.0
-    min_similarity_thresh: float = 0.1
+    min_similarity_thresh: float = 0.8
 
 
 def get_similarity(
@@ -71,23 +71,24 @@ def get_similarity(
         overlap_eps=view_matching_config.box_overlap_eps,
         mode=view_matching_config.box_match_mode,
     )
-
+    # print (f'bbox score: {overlap_similarity}')
     similarity = overlap_similarity * view_matching_config.box_overlap_weight
 
     if view_matching_config.visual_similarity_weight > 0.0:
         visual_similarity = dot_product_similarity(
             visual_embedding1, visual_embedding2, normalize=False
         )
+        # print (f'clip score: {visual_similarity}')
         # Handle the case where there is no embedding to examine
         # If we return visual similarity, only then do we use it
         if visual_similarity is not None:
             visual_similarity[
                 overlap_similarity < view_matching_config.box_min_iou_thresh
             ] = 0.0
+            # print (f'valid clip score: {visual_similarity}')
             similarity += (
                 visual_similarity * view_matching_config.visual_similarity_weight
             )
-
     return similarity
 
 
@@ -337,6 +338,9 @@ class InstanceMemory:
                     if self.view_matching_config.within_class
                     else None
                 )
+                # image_array = np.array(instance_view.cropped_image, dtype=np.uint8)
+                # image_debug = Image.fromarray(image_array)
+                # image_debug.show()
                 if instance_view.embedding is not None:
                     instance_view_embedding = instance_view.embedding / torch.norm(
                         instance_view.embedding, dim=-1, keepdim=True
@@ -390,7 +394,6 @@ class InstanceMemory:
                     text_embedding2=None,
                     view_matching_config=self.view_matching_config,
                 )
-
                 max_similarity, matched_idx = similarity.max(dim=1)
                 total_weight = (
                     self.view_matching_config.visual_similarity_weight
@@ -670,7 +673,7 @@ class InstanceMemory:
                 continue
             # get instance mask
             instance_mask = instance_seg == instance_id
-
+            # print (np.count_nonzero(instance_mask))
             category_id = None
             if instance_classes is not None:
                 category_id = instance_classes[instance_id]
@@ -742,10 +745,15 @@ class InstanceMemory:
             cropped_image = self.get_cropped_image(image, bbox)
             instance_mask = self.get_cropped_image(instance_mask.unsqueeze(0), bbox)
             # instance_mask = instance_mask.bool()
-
+            # image_array = np.array(cropped_image*instance_mask, dtype=np.uint8)
+            # image_debug = Image.fromarray(image_array)
+            # image_debug.show()
             # get embedding
             if encoder is not None:
-                embedding = encoder.encode_image(cropped_image).to(cropped_image.device)
+                # embedding = encoder.encode_image(cropped_image).to(cropped_image.device)
+                embedding = encoder.encode_image(cropped_image * instance_mask).to(
+                    cropped_image.device
+                )
             else:
                 embedding = None
 
@@ -794,7 +802,7 @@ class InstanceMemory:
                         bounds[1][1] - bounds[1][0],
                         bounds[2][1] - bounds[2][0],
                     )
-                    < 0.03
+                    < 0.05
                 ):
                     warnings.warn(
                         f"Skipping a flat instance with {n_points} points",
@@ -818,6 +826,11 @@ class InstanceMemory:
                     )
                     # append instance view to list of instance views
                     self.unprocessed_views[env_id][instance_id.item()] = instance_view
+            else:
+                warnings.warn(
+                    f"Skipping a small instance with {n_mask} pixels",
+                    UserWarning,
+                )
 
             # save cropped image with timestep in filename
             if self.debug_visualize:

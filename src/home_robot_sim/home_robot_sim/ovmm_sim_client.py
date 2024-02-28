@@ -219,7 +219,7 @@ class OvmmSimClient(RobotClient):
             assert (
                 len(pt) == 3 or len(pt) == 2
             ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
-            self.navigate_to(pt, relative)
+            self.navigate_to(pt, relative, verbose=verbose)
             if self.last_motion_failed():
                 return False
         return True

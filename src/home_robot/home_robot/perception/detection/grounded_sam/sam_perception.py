@@ -116,7 +116,7 @@ class SAMPerception(PerceptionModule):
         """
         self.custom_vocabulary = new_vocab
 
-    def generate(self, image, min_area=1600):
+    def generate(self, image, min_area=1000):
         masks = self.mask_generator.generate(image)
         returned_masks = []
         for mask in masks:
@@ -167,13 +167,21 @@ class SAMPerception(PerceptionModule):
 
         masks = np.array(self.generate(image))
 
-        plt.figure(figsize=(20, 20))
-        plt.imshow(image)
-        plt.savefig("original.png", dpi=100)
-        show_anns(masks)
-        plt.axis("off")
-        plt.savefig("segmented.png", dpi=100)
+        # from PIL import Image
+        # for mask in masks:
+        #     mm = np.expand_dims(mask, axis=-1)
+        #     image_array = np.array(mm * image, dtype=np.uint8)
+        #     image_debug = Image.fromarray(image_array)
+        #     image_debug.show()
+        #     breakpoint()
 
+        # plt.figure(figsize=(20, 20))
+        # plt.imshow(image)
+        # plt.savefig("original.png", dpi=100)
+        # show_anns(masks)
+        # plt.axis("off")
+        # plt.savefig("segmented.png", dpi=100)
+        masks = sorted(masks, key=lambda x: np.count_nonzero(x), reverse=True)
         if depth_threshold is not None and obs.depth is not None:
             masks = np.array(
                 [filter_depth(mask, obs.depth, depth_threshold) for mask in masks]
