@@ -32,6 +32,7 @@ class OvmmSimClient(RobotClient):
     class so the sim can be used with the cortex demo code"""
 
     _success_tolerance = 1e-4
+    _zero_tolerance = 1e-8
 
     def __init__(
         self,
@@ -81,7 +82,9 @@ class OvmmSimClient(RobotClient):
         if verbose:
             print("NAVIGATE TO", xyt.xyt, relative, blocking)
 
+        print("Before:", self.get_base_pose())
         self.apply_action(xyt, verbose=verbose)
+        print("After:", self.get_base_pose())
 
     def reset(self):
         """Reset everything in the robot's internal state"""
@@ -155,12 +158,15 @@ class OvmmSimClient(RobotClient):
         # constraints
         if isinstance(action, ContinuousNavigationAction):
             for axis, delta in enumerate(action.xyt[:2]):
-                if abs(delta) < 0.1 and delta != 0:
+                if abs(delta) < 0.1 and abs(delta) > self._zero_tolerance:
                     print(
                         "the robot is trying to make tiny movement along an axis, set it to 0"
                     )
                     action.xyt[axis] = 0.0
-            if abs(action.xyt[2]) <= math.radians(5) and abs(action.xyt[2]) > 1e-8:
+            if (
+                abs(action.xyt[2]) <= math.radians(5)
+                and abs(action.xyt[2]) > self._zero_tolerance
+            ):
                 print("the robot is trying to rotate by a tiny angle, set it to 0")
                 action.xyt[2] = 0.0
             # return
