@@ -144,6 +144,7 @@ class RobotAgent:
         self.current_state = "WAITING"
         self.encoder = get_encoder(parameters["encoder"], parameters["encoder_args"])
         self.obs_count = 0
+        self.obs_history = []
         self.guarantee_instance_is_reachable = (
             parameters.guarantee_instance_is_reachable
         )
@@ -178,6 +179,11 @@ class RobotAgent:
                 derivative_filter_threshold=parameters.get(
                     "derivative_filter_threshold", 0.5
                 ),
+                instance_memory_kwargs={
+                    "min_pixels_for_instance_view": parameters.get(
+                        "min_pixels_for_instance_view", 100
+                    )
+                },
             )
 
         # Create planning space
@@ -451,6 +457,7 @@ class RobotAgent:
     def update(self, visualize_map=False):
         """Step the data collector. Get a single observation of the world. Remove bad points, such as those from too far or too near the camera. Update the 3d world representation."""
         obs = self.robot.get_observation()
+        self.obs_history.append(obs)
         self.obs_count += 1
         obs_count = self.obs_count
         # Semantic prediction
@@ -465,7 +472,7 @@ class RobotAgent:
         if self.chat is not None:
             publish_obs(self.space, self.path, self.current_state, obs_count)
 
-        self.save_svm(".")
+        # self.save_svm(".")
         # TODO: remove stupid debug things
         # instances = self.voxel_map.get_instances()
         # for ins in instances:
@@ -486,7 +493,8 @@ class RobotAgent:
         Args:
             instance(Instance): an object in the world
             verbose(bool): extra info is printed
-            instance_ind(int): if >= 0 we will try to use this to retrieve stored plans"""
+            instance_ind(int): if >= 0 we will try to use this to retrieve stored plans
+        """
 
         res = None
         if verbose:
@@ -680,7 +688,8 @@ class RobotAgent:
 
         Returns:
             instance_id(int): a unique int identifying this instance
-            instance(Instance): information about a particular object we believe exists"""
+            instance(Instance): information about a particular object we believe exists
+        """
         matching_instances = []
         if goal is None:
             # No goal means no matches
@@ -705,7 +714,8 @@ class RobotAgent:
 
         Returns list of tuples with two members:
             instance_id(int): a unique int identifying this instance
-            instance(Instance): information about a particular object we believe exists"""
+            instance(Instance): information about a particular object we believe exists
+        """
         matches = self.get_found_instances_by_class(
             goal=goal, threshold=threshold, debug=debug
         )
@@ -824,8 +834,8 @@ class RobotAgent:
                 print("Start not valid. back up a bit.")
 
                 # TODO: debug here -- why start is not valid?
-                self.update()
-                self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
+                # self.update()
+                # self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
                 print(f"robot base pose: {self.robot.get_base_pose()}")
 
                 print("--- STARTS ---")
@@ -838,7 +848,6 @@ class RobotAgent:
                         a_goal,
                         self.space.is_valid(a_goal),
                     )
-                breakpoint()
 
                 self.robot.navigate_to([-0.1, 0, 0], relative=True)
                 continue
@@ -883,10 +892,9 @@ class RobotAgent:
                 print("ROBOT IS STUCK! Move back!")
 
                 # help with debug TODO: remove
-                self.update()
-                self.save_svm(".")
+                # self.update()
+                # self.save_svm(".")
                 print(f"robot base pose: {self.robot.get_base_pose()}")
-                # breakpoint()
 
                 r = np.random.randint(3)
                 if r == 0:
@@ -902,7 +910,7 @@ class RobotAgent:
 
             # Append latest observations
             self.update()
-            self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
+            # self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
             if visualize:
                 # After doing everything - show where we will move to
                 self.voxel_map.show()

@@ -17,7 +17,9 @@ min_pad_obstacles: 1  # Do not pad LESS than this amount, for safety.
 
 remove_visited_from_obstacles: False
 min_depth: 0.0
-max_depth: 5.0
+max_depth: 10.0
+
+min_pixels_for_instance_view: 1000
 
 # Point cloud cleanup
 use_median_filter: True
@@ -60,7 +62,7 @@ limited_obs_publish_sleep: 0.5
 # High level stuff: commands to execute 
 # command: "pick up a bottle and put it on the chair"
 # name: "spot"
-exploration_steps: 100
+exploration_steps: 75 # we can potentially increase it to 150 for sim
 # object_to_find: "bottle"
 # location_to_place: "chair"
 
