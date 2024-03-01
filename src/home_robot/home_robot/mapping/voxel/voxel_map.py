@@ -157,7 +157,10 @@ class SparseVoxelMapNavigationSpace(XYT):
         dxy = q1[:2] - q0[:2]
         step = dxy / np.linalg.norm(dxy + self.tolerance) * self.step_size
         xy = q0[:2]
-        if np.linalg.norm(q1[:2] - q0[:2]) > self.step_size:
+        if (
+            np.linalg.norm(q1[:2] - q0[:2]) > self.step_size
+            or angle_difference(q1[-1], q0[-1]) > self.rotation_step_size
+        ):
             # Compute theta looking at new goal point
             new_theta = math.atan2(dxy[1], dxy[0])
             if new_theta < 0:
@@ -171,16 +174,18 @@ class SparseVoxelMapNavigationSpace(XYT):
                 cur_theta = interpolate_angles(
                     cur_theta, new_theta, self.rotation_step_size
                 )
+                # print(4, np.array([xy[0], xy[1], cur_theta]))
                 yield np.array([xy[0], xy[1], cur_theta])
                 angle_diff = angle_difference(new_theta, cur_theta)
 
-            xy = q0[:2] + step
             # First, turn in the right direction
+            # print(3, np.array([xy[0], xy[1], cur_theta]))
             yield np.array([xy[0], xy[1], new_theta])
 
             # Now take steps towards the right goal
             while np.linalg.norm(xy - q1[:2]) > self.step_size:
                 xy = xy + step
+                # print(2, np.array([xy[0], xy[1], new_theta]))
                 yield np.array([xy[0], xy[1], new_theta])
 
             # Update current angle
@@ -193,10 +198,17 @@ class SparseVoxelMapNavigationSpace(XYT):
         while angle_diff > self.rotation_step_size:
             # Interpolate
             cur_theta = interpolate_angles(cur_theta, q1[-1], self.rotation_step_size)
+            # print(1, np.array([xy[0], xy[1], cur_theta]))
             yield np.array([xy[0], xy[1], cur_theta])
             angle_diff = angle_difference(q1[-1], cur_theta)
 
+        # Get to final angle
+        # print(0, np.array([xy[0], xy[1], q1[-1]]))
+        yield np.array([xy[0], xy[1], q1[-1]])
+
         # At the end, rotate into the correct orientation
+        # print("DONE", q1)
+        # breakpoint()
         yield q1
 
     def _get_theta_index(self, theta: float) -> int:
