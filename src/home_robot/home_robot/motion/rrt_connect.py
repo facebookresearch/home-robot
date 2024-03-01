@@ -58,7 +58,6 @@ class RRTConnect(RRT):
         self.nodes_rev.append(TreeNode(goal))
 
         # First step - just run the RRT algo
-        print("Step planner from empty")
         res, _ = self.step_planner(force_sample_goal=True, nodes=self.nodes_fwd)
         # Update the cached nodes for this planner
         self.nodes = self.nodes_fwd
@@ -74,9 +73,6 @@ class RRTConnect(RRT):
                 nodes0, nodes1 = self.nodes_fwd, self.nodes_rev
             # Sample a random point and try to connect both trees
             next_state = self.space.sample()
-            print()
-            print("FINAL GOAL:", self.nodes_rev[0].state)
-            print("TRY TO REACH:", next_state)
             # If they both connect, you won!
             res0, closest_node = self.step_planner(nodes=nodes0, next_state=next_state)
             res1, final_node = self.step_planner(
@@ -98,7 +94,6 @@ class RRTConnect(RRT):
                 # Add reverse path into the tree
                 for node in reversed(path_rev):
                     new_node = TreeNode(node.state, parent)
-                    print("adding node", node.state, "parent =", parent.state)
                     self.nodes.append(new_node)
                     path_fwd.append(new_node)
                     parent = new_node

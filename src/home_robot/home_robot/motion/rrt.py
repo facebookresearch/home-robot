@@ -133,7 +133,6 @@ class RRT(Planner):
         if next_state is None:
             next_state = goal_state if should_sample_goal else self.space.sample()
         closest = self.space.closest_node_to_state(next_state, nodes)
-        print(f"closest state in nodes to {next_state} = {closest.state}")
         for step_state in self.space.extend(closest.state, next_state):
             if not self.validate(step_state):
                 # This did not work
