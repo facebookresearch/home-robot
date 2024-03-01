@@ -203,8 +203,10 @@ class RobotAgent:
         self._cached_plans = {}
 
         # Create a simple motion planner
-        self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
-        if parameters["simplify_plans"]:
+        self.planner = RRTConnect(self.space, self.space.is_valid)
+        if parameters["motion_planner"]["shortcut_plans"]:
+            self.planner = Shortcut(self.planner)
+        if parameters["motion_planner"]["simplify_plans"]:
             self.planner = SimplifyXYT(
                 self.planner, min_step=0.05, max_step=1.0, num_steps=8
             )
