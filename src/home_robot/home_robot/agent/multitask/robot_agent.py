@@ -205,7 +205,9 @@ class RobotAgent:
         # Create a simple motion planner
         self.planner = RRTConnect(self.space, self.space.is_valid)
         if parameters["motion_planner"]["shortcut_plans"]:
-            self.planner = Shortcut(self.planner)
+            self.planner = Shortcut(
+                self.planner, parameters["motion_planner"]["shortcut_iter"]
+            )
         if parameters["motion_planner"]["simplify_plans"]:
             self.planner = SimplifyXYT(
                 self.planner, min_step=0.05, max_step=1.0, num_steps=8

@@ -41,7 +41,8 @@ dilate_obstacle_size: 4  # Used when selecting goals and computing what the "fro
 default_expand_frontier_size: 10  # margin along the frontier where final robot position can be
 motion_planner:
         simplify_plans: False
-        shortcut_plans: False
+        shortcut_plans: True
+        shortcut_iter: 100
 
 # Trajectory following - how closely we follow intermediate waypoints
 # These should be less strict than whatever parameters the low-level controller is using; this will

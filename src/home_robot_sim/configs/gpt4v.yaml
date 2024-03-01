@@ -44,6 +44,7 @@ default_expand_frontier_size: 10  # margin along the frontier where final robot 
 motion_planner:
         shortcut_plans: True
         simplify_plans: True
+        shortcut_iter: 100
 
 # Trajectory following - how closely we follow intermediate waypoints
 # These should be less strict than whatever parameters the low-level controller is using; this will
