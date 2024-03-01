@@ -24,7 +24,7 @@ def plan_to_deltas(xyt0, plan):
     for i, node in enumerate(plan.trajectory):
         xyt1 = node.state
         dxyt = xyt_global_to_base(xyt1, xyt0)
-        print(xyt1, "diff =", dxyt)
+        print((i + 1) / len(plan.trajectory) * 100, xyt1, "diff =", dxyt)
         nonzero = dxyt > tol
         assert np.sum(nonzero) <= 1, "only one value should change in the trajectory"
         xyt0 = xyt1
