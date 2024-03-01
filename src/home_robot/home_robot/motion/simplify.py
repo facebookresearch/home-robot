@@ -11,6 +11,7 @@ import numpy as np
 
 from home_robot.motion.base import Planner, PlanResult
 from home_robot.motion.rrt import TreeNode
+from home_robot.utils.geometry import angle_difference
 
 
 class SimplifyXYT(Planner):
@@ -104,9 +105,9 @@ class SimplifyXYT(Planner):
                         # theta_dist = node.state[-1] - prev_node.state[-1]
                         theta_dist = 0
                     else:
+                        theta_dist = np.abs(angle_difference(prev_theta, cur_theta))
                         if verbose:
-                            print(f"{prev_theta=}, {cur_theta=}")
-                        theta_dist = prev_theta - cur_theta
+                            print(f"{prev_theta=}, {cur_theta=}, {theta_dist=}")
                     dist = np.linalg.norm(node.state[:2] - prev_node.state[:2])
                     cum_dist += dist
                     if verbose:
@@ -177,7 +178,7 @@ if __name__ == "__main__":
     def eval(planner):
         random.seed(0)
         np.random.seed(0)
-        res = planner.plan(start, goal)
+        res = planner.plan(start, goal, verbose=True)
         print("Success:", res.success)
         if res.success:
             print("Plan =")
@@ -187,10 +188,13 @@ if __name__ == "__main__":
         return 0, []
 
     len0, plan0 = eval(planner0)
+    # len0 = 0
     len1, plan1 = eval(planner1)
+    # len1 = 0
     len2, plan2 = eval(planner2)
     print(f"{len0=} {len1=} {len2=}")
 
-    env.show(plan1)
+    if len1 > 0:
+        env.show(plan1)
     if len2 > 0:
         env.show(plan2)
