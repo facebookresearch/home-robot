@@ -156,9 +156,11 @@ class SimplifyXYT(Planner):
                 new_nodes = None
 
         if new_nodes is not None:
-            return PlanResult(True, new_nodes)
+            return PlanResult(True, new_nodes, planner=self)
         else:
-            return PlanResult(False, reason="simplification and verification failed!")
+            return PlanResult(
+                False, reason="simplification and verification failed!", planner=self
+            )
 
 
 if __name__ == "__main__":
@@ -166,7 +168,7 @@ if __name__ == "__main__":
     from home_robot.motion.shortcut import Shortcut
     from home_robot.utils.simple_env import SimpleEnv
 
-    start, goal, obs = np.array([1.0, 1.0]), np.array([9.0, 9.0]), np.array([0.0, 9.0])
+    start, goal, obs = np.array([1.0, 1.0]), np.array([9.0, 9.0]), np.array([2.0, 7.0])
     env = SimpleEnv(obs)
     planner0 = RRTConnect(env.get_space(), env.validate)
     planner1 = Shortcut(planner0)
@@ -181,8 +183,8 @@ if __name__ == "__main__":
             print("Plan =")
             for i, n in enumerate(res.trajectory):
                 print(f"\t{i} = {n.state}")
-
-        return res.get_length(), [node.state for node in res.trajectory]
+            return res.get_length(), [node.state for node in res.trajectory]
+        return 0, []
 
     len0, plan0 = eval(planner0)
     len1, plan1 = eval(planner1)
@@ -190,4 +192,5 @@ if __name__ == "__main__":
     print(f"{len0=} {len1=} {len2=}")
 
     env.show(plan1)
-    env.show(plan2)
+    if len2 > 0:
+        env.show(plan2)

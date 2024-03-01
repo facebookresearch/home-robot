@@ -96,5 +96,5 @@ class RRTConnect(RRT):
                     self.nodes.append(new_node)
                     path_fwd.append(new_node)
                     parent = new_node
-                return PlanResult(True, path_fwd)
-        return PlanResult(False)
+                return PlanResult(True, path_fwd, planner=self)
+        return PlanResult(False, planner=self)

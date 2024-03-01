@@ -16,6 +16,15 @@ from home_robot.agent.multitask.robot_agent import RobotAgent
 from home_robot.mapping import SparseVoxelMap, SparseVoxelMapNavigationSpace
 from home_robot.mapping.voxel import plan_to_frontier
 from home_robot.utils.dummy_stretch_client import DummyStretchClient
+from home_robot.utils.geometry import xyt_global_to_base
+
+
+def plan_to_deltas(xyt0, plan):
+    for i, node in enumerate(plan.trajectory):
+        xyt1 = node.state
+        dxyt = xyt_global_to_base(xyt1, xyt0)
+        print("diff =", dxyt)
+    breakpoint()
 
 
 @click.command()
@@ -84,9 +93,9 @@ def main(
         voxel_map = SparseVoxelMap(resolution=voxel_size)
 
     # TODO: read this from file or something
-    # x0 = np.array([0, 0, 0])
+    x0 = np.array([0, 0, 0])
     # x0 = np.array([2.6091852, 3.2328937, 0.8379814])
-    x0 = np.array([3.1000001, 0.0, 4.2857614])
+    # x0 = np.array([3.1000001, 0.0, 4.2857614])
     # x0 = np.array([0.0, -0.0, 1.5707968])
     # x0 = np.array([1.1499997, -0.60000074, -1.4168407])
     start_xyz = [x0[0], x0[1], 0]
@@ -143,6 +152,8 @@ def main(
                 break
             res = planner.plan(start, goal.cpu().numpy())
             print(i, "sampled", goal, "success =", res.success)
+            if res.success:
+                plan_to_deltas(x0, res)
             # Try to plan
             # res = plan_to_frontier(
             #     start,

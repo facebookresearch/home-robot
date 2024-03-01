@@ -58,4 +58,4 @@ class Shortcut(Planner):
                     self.nodes.append(TreeNode(qi, parent=previous_node))
                     previous_node = self.nodes[-1]
         new_trajectory = res.trajectory[-1].backup()
-        return PlanResult(True, new_trajectory)
+        return PlanResult(True, new_trajectory, planner=self)
