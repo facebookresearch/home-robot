@@ -67,6 +67,10 @@ class SimplifyXYT(Planner):
             # Planning failed so nothing to do here
             return res
 
+        # Is it 2d?
+        assert len(start) == 2 or len(start) == 3, "must be 2d or 3d to use this code"
+        is_2d = len(start) == 2
+
         for step in np.linspace(self.max_step, self.min_step, self.num_steps):
 
             # The last node we explored
@@ -95,12 +99,15 @@ class SimplifyXYT(Planner):
                     new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
                     prev_node = node
                     anchor_node = node
-                    prev_theta = None
+                    prev_theta = None if is_2d else node.state[-1]
                 else:
                     # Check to see if we can simplify by skipping this node, or if we should add it
                     assert prev_node is not None
-                    x, y = prev_node.state[:2] - node.state[:2]
-                    cur_theta = np.arctan2(y, x)
+                    if is_2d:
+                        x, y = prev_node.state[:2] - node.state[:2]
+                        cur_theta = np.arctan2(y, x)
+                    else:
+                        cur_theta = node.state[-1]
                     if prev_theta is None:
                         # theta_dist = node.state[-1] - prev_node.state[-1]
                         theta_dist = 0
@@ -131,7 +138,6 @@ class SimplifyXYT(Planner):
                             )
                             anchor_node = prev_node
                             cum_dist = 0
-
                     else:
                         # We turned, so start again from here
                         if verbose:

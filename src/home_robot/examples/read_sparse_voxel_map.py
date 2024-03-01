@@ -21,7 +21,7 @@ from home_robot.utils.geometry import xyt_global_to_base
 
 
 def plan_to_deltas(xyt0, plan):
-    tol = 1e-8
+    tol = 1e-6
     for i, node in enumerate(plan.trajectory):
         xyt1 = node.state
         dxyt = xyt_global_to_base(xyt1, xyt0)

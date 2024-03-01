@@ -40,7 +40,7 @@ dilate_frontier_size: 3  # Used to shrink the frontier back from the edges of th
 dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
 default_expand_frontier_size: 10  # margin along the frontier where final robot position can be
 motion_planner:
-        simplify_plans: False
+        simplify_plans: True
         shortcut_plans: True
         shortcut_iter: 100
 
