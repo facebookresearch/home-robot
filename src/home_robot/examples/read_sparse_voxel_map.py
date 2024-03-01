@@ -5,6 +5,7 @@
 
 
 import pickle
+import random
 from pathlib import Path
 
 import click
@@ -25,7 +26,7 @@ def plan_to_deltas(xyt0, plan):
         xyt1 = node.state
         dxyt = xyt_global_to_base(xyt1, xyt0)
         print((i + 1) / len(plan.trajectory) * 100, xyt1, "diff =", dxyt)
-        nonzero = dxyt > tol
+        nonzero = np.abs(dxyt) > tol
         assert np.sum(nonzero) <= 1, "only one value should change in the trajectory"
         xyt0 = xyt1
 
@@ -153,7 +154,16 @@ def main(
             if goal is None:
                 # No more positions to sample
                 break
+
+            np.random.seed(0)
+            random.seed(0)
+
+            print()
+            print()
+            print("-" * 20)
             res = planner.plan(start, goal.cpu().numpy())
+            print("start =", start)
+            print("goal =", goal.cpu().numpy())
             print(i, "sampled", goal, "success =", res.success)
             if res.success:
                 plan_to_deltas(x0, res)
