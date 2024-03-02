@@ -19,6 +19,7 @@ class SimplifyXYT(Planner):
 
     # For floating point comparisons
     theta_tol = 1e-8
+    dist_tol = 1e-8
 
     # Debug info
     verbose = False
@@ -70,6 +71,7 @@ class SimplifyXYT(Planner):
         # Is it 2d?
         assert len(start) == 2 or len(start) == 3, "must be 2d or 3d to use this code"
         is_2d = len(start) == 2
+        verbose = True
 
         for step in np.linspace(self.max_step, self.min_step, self.num_steps):
 
@@ -144,10 +146,15 @@ class SimplifyXYT(Planner):
                             print()
                             print("!!!!!!!!")
                             print("we turned")
-                        new_nodes.append(
-                            TreeNode(parent=anchor_node, state=prev_node.state)
-                        )
-                        anchor_node = prev_node
+                            print("dist =", cum_dist)
+                        # Check to see if we moved since the anchor node
+                        if cum_dist > self.dist_tol:
+                            new_nodes.append(
+                                TreeNode(parent=anchor_node, state=prev_node.state)
+                            )
+                            anchor_node = new_nodes[-1]
+                        new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
+                        anchor_node = new_nodes[-1]
                         cum_dist = 0
 
                     if verbose:
