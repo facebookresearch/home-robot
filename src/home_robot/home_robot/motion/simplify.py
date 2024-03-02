@@ -124,13 +124,11 @@ class SimplifyXYT(Planner):
                         print("theta dist =", theta_dist)
                         print("dist", dist)
                         print("cumulative", cum_dist)
-                    if i == res.get_length() - 1:
-                        new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
-                        # We're done
+
+                    added = False
+                    if theta_dist < self.theta_tol:
                         if verbose:
-                            print("===========")
-                        break
-                    elif theta_dist < self.theta_tol:
+                            print(f"{theta_dist=} < {self.theta_tol=}")
                         if cum_dist >= step:
                             # Add it to the stack
                             if verbose:
@@ -138,6 +136,7 @@ class SimplifyXYT(Planner):
                             new_nodes.append(
                                 TreeNode(parent=anchor_node, state=prev_node.state)
                             )
+                            added = True
                             anchor_node = prev_node
                             cum_dist = 0
                     else:
@@ -153,9 +152,21 @@ class SimplifyXYT(Planner):
                                 TreeNode(parent=anchor_node, state=prev_node.state)
                             )
                             anchor_node = new_nodes[-1]
+                            cum_dist = 0
                         new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
+                        added = True
                         anchor_node = new_nodes[-1]
                         cum_dist = 0
+
+                    # Final check to make sure the last node gets added
+                    if not added and i == res.get_length() - 1:
+                        if verbose:
+                            print("Add final node!")
+                        new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
+                        # We're done
+                        if verbose:
+                            print("===========")
+                        break
 
                     if verbose:
                         print("simplified =", [x.state for x in new_nodes])
