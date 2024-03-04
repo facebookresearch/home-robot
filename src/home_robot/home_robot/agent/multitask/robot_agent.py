@@ -657,6 +657,7 @@ class RobotAgent:
 
         # Add some debugging stuff - show what 3d point clouds look like
         if visualize_map_at_start:
+            print("- Visualize map at first timestep")
             self.voxel_map.show()
 
         self.robot.move_to_nav_posture()
@@ -664,10 +665,13 @@ class RobotAgent:
 
         # Move the robot into navigation mode
         self.robot.switch_to_navigation_mode()
-        self.update(visualize_map=visualize_map_at_start)  # Append latest observations
+        print("- Update map after switching to navigation posture")
+        # self.update(visualize_map=visualize_map_at_start)  # Append latest observations
+        self.update(visualize_map=False)  # Append latest observations
 
         # Add some debugging stuff - show what 3d point clouds look like
         if visualize_map_at_start:
+            print("- Visualize map after updating")
             self.voxel_map.show()
 
         self.print_found_classes(goal)
