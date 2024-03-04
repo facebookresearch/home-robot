@@ -159,8 +159,10 @@ class SimplifyXYT(Planner):
                         new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
                         if not is_2d:
                             if not (
-                                anchor_node.state[0] == node.state[0]
-                                and anchor_node.state[1] == node.state[1]
+                                np.abs(anchor_node.state[0] - node.state[0])
+                                < self.dist_tol
+                                and np.abs(anchor_node.state[1] - node.state[1])
+                                < self.dist_tol
                             ):
                                 breakpoint()
                                 raise RuntimeError(
