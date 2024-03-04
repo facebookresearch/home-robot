@@ -5,7 +5,8 @@ encoder_args: "ViT-B/32"
 
 # Sparse Voxel Map parameters
 voxel_size: 0.05
-obs_min_height: 0.05  # Ignore things less than this high when planning motions
+# 0.05 seems too low
+obs_min_height: 0.1  # Ignore things less than this high when planning motions
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
 obs_min_density: 10  # This many points makes it an obstacle
 
