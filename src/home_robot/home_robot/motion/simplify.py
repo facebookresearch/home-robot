@@ -71,7 +71,6 @@ class SimplifyXYT(Planner):
         # Is it 2d?
         assert len(start) == 2 or len(start) == 3, "must be 2d or 3d to use this code"
         is_2d = len(start) == 2
-        verbose = True
 
         for step in np.linspace(self.max_step, self.min_step, self.num_steps):
 
@@ -119,9 +118,6 @@ class SimplifyXYT(Planner):
                         if verbose:
                             print(f"{prev_theta=}, {cur_theta=}, {theta_dist=}")
 
-                    print("update dist")
-                    print(f"{prev_node.state=}")
-                    print(f"{node.state=}")
                     dist = np.linalg.norm(node.state[:2] - prev_node.state[:2])
                     if verbose:
                         print(node.state[-1], prev_node.state[-1])
@@ -164,7 +160,6 @@ class SimplifyXYT(Planner):
                                 and np.abs(anchor_node.state[1] - node.state[1])
                                 < self.dist_tol
                             ):
-                                breakpoint()
                                 raise RuntimeError(
                                     f"Trajectory inconsistent: {anchor_node.state} vs {node.state}"
                                 )
