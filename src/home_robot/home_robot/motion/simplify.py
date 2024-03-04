@@ -97,6 +97,7 @@ class SimplifyXYT(Planner):
                     )
                 # Set the last node in the simplified sequence
                 if anchor_node is None:
+                    print("update anchor")
                     cum_dist = 0
                     new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
                     prev_node = node
@@ -105,18 +106,21 @@ class SimplifyXYT(Planner):
                 else:
                     # Check to see if we can simplify by skipping this node, or if we should add it
                     assert prev_node is not None
+                    # Get the angle we use
                     if is_2d:
                         x, y = prev_node.state[:2] - node.state[:2]
                         cur_theta = np.arctan2(y, x)
                     else:
                         cur_theta = node.state[-1]
+                    # Previous theta handling
                     if prev_theta is None:
-                        # theta_dist = node.state[-1] - prev_node.state[-1]
                         theta_dist = 0
                     else:
                         theta_dist = np.abs(angle_difference(prev_theta, cur_theta))
                         if verbose:
                             print(f"{prev_theta=}, {cur_theta=}, {theta_dist=}")
+
+                    print("update dist")
                     dist = np.linalg.norm(node.state[:2] - prev_node.state[:2])
                     cum_dist += dist
                     if verbose:
@@ -141,11 +145,6 @@ class SimplifyXYT(Planner):
                             cum_dist = 0
                     else:
                         # We turned, so start again from here
-                        if verbose:
-                            print()
-                            print("!!!!!!!!")
-                            print("we turned")
-                            print("dist =", cum_dist)
                         # Check to see if we moved since the anchor node
                         if cum_dist > self.dist_tol:
                             new_nodes.append(
@@ -154,6 +153,15 @@ class SimplifyXYT(Planner):
                             anchor_node = new_nodes[-1]
                             cum_dist = 0
                         new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
+                        if not is_2d:
+                            if not (
+                                anchor_node.state[0] == node.state[0]
+                                and anchor_node.state[1] == node.state[1]
+                            ):
+                                breakpoint()
+                                raise RuntimeError(
+                                    f"Trajectory inconsistent: {anchor_node.state} vs {node.state}"
+                                )
                         added = True
                         anchor_node = new_nodes[-1]
                         cum_dist = 0
@@ -168,16 +176,18 @@ class SimplifyXYT(Planner):
                             print("===========")
                         break
 
-                    if verbose:
-                        print("simplified =", [x.state for x in new_nodes])
+                    # if verbose:
+                    #     print("simplified =", [x.state for x in new_nodes])
                     # breakpoint()
                     prev_node = node
                     prev_theta = cur_theta
 
             # Check to make sure things are spaced out enough
             if self._verify(new_nodes):
+                print("!!!! DONE")
                 break
             else:
+                print("VERIFy FAILED")
                 new_nodes = None
 
         if new_nodes is not None:
