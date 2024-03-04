@@ -97,11 +97,10 @@ class SimplifyXYT(Planner):
                     )
                 # Set the last node in the simplified sequence
                 if anchor_node is None:
-                    print("update anchor")
                     cum_dist = 0
                     new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
-                    prev_node = node
-                    anchor_node = node
+                    prev_node = new_nodes[-1]
+                    anchor_node = new_nodes[-1]
                     prev_theta = None if is_2d else node.state[-1]
                 else:
                     # Check to see if we can simplify by skipping this node, or if we should add it
@@ -121,8 +120,9 @@ class SimplifyXYT(Planner):
                             print(f"{prev_theta=}, {cur_theta=}, {theta_dist=}")
 
                     print("update dist")
+                    print(f"{prev_node.state=}")
+                    print(f"{node.state=}")
                     dist = np.linalg.norm(node.state[:2] - prev_node.state[:2])
-                    cum_dist += dist
                     if verbose:
                         print(node.state[-1], prev_node.state[-1])
                         print("theta dist =", theta_dist)
@@ -142,7 +142,11 @@ class SimplifyXYT(Planner):
                             )
                             added = True
                             anchor_node = prev_node
-                            cum_dist = 0
+                            # Distance from previous to current node, since we're setting anchor to previous node
+                            cum_dist = dist
+                        else:
+                            # Increment distance tracker
+                            cum_dist += dist
                     else:
                         # We turned, so start again from here
                         # Check to see if we moved since the anchor node
@@ -151,7 +155,7 @@ class SimplifyXYT(Planner):
                                 TreeNode(parent=anchor_node, state=prev_node.state)
                             )
                             anchor_node = new_nodes[-1]
-                            cum_dist = 0
+                            cum_dist = dist
                         new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
                         if not is_2d:
                             if not (
@@ -164,6 +168,7 @@ class SimplifyXYT(Planner):
                                 )
                         added = True
                         anchor_node = new_nodes[-1]
+                        # rotated, so there should be no cumulative distance
                         cum_dist = 0
 
                     # Final check to make sure the last node gets added
