@@ -13,10 +13,11 @@ from loguru import logger
 try:
     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
     import grpc
+    from task_rpc_env_pb2_grpc import AgentgRPCStub
+
     import src.rpc
     import src.rpc.task_rpc_env_pb2
-    from src.utils.observations import ObjectImage, Observations, ProtoConverter
-    from task_rpc_env_pb2_grpc import AgentgRPCStub
+    from src.utils.types.observations import Object, Observations, ProtoConverter
 except Exception as e:
     ## Temporary hack until we make accel-cortex pip installable
     print(
@@ -109,7 +110,7 @@ def get_obj_centric_world_representation(
             if isinstance(crop, np.ndarray):
                 crop = torch.from_numpy(crop)
             obs.object_images.append(
-                ObjectImage(
+                Object(
                     crop_id=global_id,
                     image=crop.contiguous(),
                 )
