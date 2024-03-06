@@ -39,8 +39,8 @@ def parse_pick_and_place_plan(world_representation, plan: str):
     if plan == "explore":
         return None, None
 
-    for current_high_level_action in plan.split("; "):
-
+    for current_high_level_action in plan.split("), "):
+        current_high_level_action = current_high_level_action + ")"
         # addtional format checking of whether the current action is in the robot's skill set
         if not any(
             action in current_high_level_action
@@ -49,7 +49,12 @@ def parse_pick_and_place_plan(world_representation, plan: str):
             return None, None
 
         if "pickup" in current_high_level_action:
-            img_id = current_high_level_action.split("(")[1].split(")")[0].split("_")[1]
+            img_id = (
+                current_high_level_action.split("(")[1]
+                .split(")")[0]
+                .split("_")[1]
+                .replace('"', "")
+            )
             if img_id.isnumeric():
                 pick_instance_id = int(
                     world_representation.object_images[int(img_id)].crop_id
@@ -62,7 +67,7 @@ def parse_pick_and_place_plan(world_representation, plan: str):
                 .split(")")[0]
                 .split(", ")[1]
                 .split("_")[1]
-            )
+            ).replace('"', "")
             if img_id.isnumeric():
                 place_instance_id = int(
                     world_representation.object_images[int(img_id)].crop_id
@@ -102,7 +107,7 @@ def get_obj_centric_world_representation(
             obs.object_images.append(
                 ObjectImage(
                     crop_id=global_id,
-                    image=crop.contiguous(),
+                    image=(crop.contiguous() * 256).to(torch.uint8),
                 )
             )
 

@@ -9,7 +9,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import imageio
 import numpy as np
+import quaternion
 import torch
+from habitat.utils.geometry_utils import quaternion_from_coeff
 from home_robot.core.interfaces import (
     ContinuousNavigationAction,
     DiscreteNavigationAction,
@@ -81,13 +83,37 @@ class OvmmSimClient(RobotClient):
             print("NAVIGATE TO", xyt.xyt, relative, blocking)
         self.apply_action(xyt, verbose=verbose)
 
+    def get_agent_current_rotation(self):
+        curr_quat = self.sim.articulated_agent.sim_obj.rotation
+        curr_rotation = [
+            curr_quat.vector.x,
+            curr_quat.vector.y,
+            curr_quat.vector.z,
+            curr_quat.scalar,
+        ]
+        return quaternion_from_coeff(curr_rotation)
+
     def reset(self):
         """Reset everything in the robot's internal state"""
         self.obs = self.env.reset()
+        self.sim = self.env.habitat_env.env.env._env._sim
+        self.start_pos = self.sim.articulated_agent.base_pos
+        self.start_rot = self.get_agent_current_rotation()
+        self.start_pos[1] = 0
+        self.start_trans = np.eye(4)
+        self.start_rot = quaternion.as_rotation_matrix(self.start_rot)
+        self.start_trans[:3, :3] = self.start_rot
+        self.start_trans[:3, 3] = self.start_pos
+        self.start_pose = self.get_base_pose()
         self.video_frames = [self.obs.third_person_image]
         self.num_action_applied = 0
         self.done = False
         self.force_quit = False
+
+    def get_habitat_coordinate(self, point):
+        opengl_point = np.array([point[0], 0, -point[1], 1])
+        hab_point = self.start_trans @ opengl_point
+        return hab_point
 
     def switch_to_navigation_mode(self) -> bool:
         """Apply sim navigation mode action and set internal state"""
@@ -176,13 +202,18 @@ class OvmmSimClient(RobotClient):
             self.obs.third_person_image,
         )
 
+    def add_section_to_videos(self):
+        for i in range(30):
+            self.video_frames.append(torch.zeros(self.video_frames[0].shape))
+            self.fpv_video_frames.append(torch.zeros(self.fpv_video_frames[0].shape))
+
     def make_video(self, path=os.getcwd(), name="debug.mp4"):
         """Save a video for this sim client"""
         imageio.mimsave(os.path.join(path, name), self.video_frames, fps=30)
 
-    def make_fpv_video(self):
+    def make_fpv_video(self, path=os.getcwd(), name="debug_fpv.mp4"):
         """Save a fpv video for this sim client"""
-        imageio.mimsave("debug_fpv.mp4", self.fpv_video_frames, fps=30)
+        imageio.mimsave(os.path.join(path, name), self.fpv_video_frames, fps=30)
 
     def execute_trajectory(
         self,

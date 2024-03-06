@@ -487,6 +487,28 @@ class RobotAgent:
             return PlanResult(success=False, reason="no valid plans found")
         return res
 
+    def teleport_to_instance(self, match: Tuple[int, Instance]):
+        """Use habitat sim to teleport to instance"""
+        self.robot.move_to_nav_posture()
+        instance = match[1]
+        mask = self.voxel_map.mask_from_bounds(instance.bounds)
+
+        for goal in self.space.sample_near_mask(mask, radius_m=0.7):
+            goal_is_valid = self.space.is_valid(goal)
+            if not goal_is_valid:
+                print(" -> resample goal.")
+                continue
+
+            self.robot.env.habitat_env.env.env.habitat_env._sim.articulated_agent.base_pos = self.robot.get_habitat_coordinate(
+                goal
+            )[
+                :3
+            ]
+
+            break
+
+        self.robot.switch_to_manipulation_mode()
+
     def move_to_any_instance(
         self, matches: List[Tuple[int, Instance]], max_try_per_instance=10
     ):
