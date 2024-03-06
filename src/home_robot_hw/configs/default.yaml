@@ -14,7 +14,7 @@ obs_min_density: 10  # This many points makes it an obstacle
 pad_obstacles: 2  # Add this many units (voxel_size) to the area around obstacles
 min_pad_obstacles: 1  # Do not pad LESS than this amount, for safety.
 
-local_radius: 0.6  # Area around the robot to mark as explored (kind of a hack)
+local_radius: 0.8  # Area around the robot to mark as explored (kind of a hack)
 smooth_kernel_size: 2
 remove_visited_from_obstacles: False
 min_depth: 0.5
@@ -29,7 +29,8 @@ derivative_filter_threshold: 0.1
 # use_voxel_filter: True
 
 # Exploration
-in_place_rotation_steps: 8
+# in_place_rotation_steps: 8
+in_place_rotation_steps: 0
 
 # TAMP parameters
 guarantee_instance_is_reachable: True
@@ -41,7 +42,7 @@ dilate_frontier_size: 3  # Used to shrink the frontier back from the edges of th
 dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
 default_expand_frontier_size: 10  # margin along the frontier where final robot position can be
 motion_planner:
-        simplify_plans: True
+        simplify_plans: False
         shortcut_plans: True
         shortcut_iter: 100
 

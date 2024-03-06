@@ -147,7 +147,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         else:
             raise NotImplementedError(f"not supported: {self.extend_mode=}")
 
-    def _extend_separate(self, q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
+    def _extend_separate(
+        self, q0: np.ndarray, q1: np.ndarray, xy_tol: float = 1e-8
+    ) -> np.ndarray:
         """extend towards another configuration in this space.
         TODO: we can set the classes here, right now assuming still np.ndarray"""
         assert len(q0) == 3, f"initial configuration must be 3d, was {q0}"
@@ -157,17 +159,20 @@ class SparseVoxelMapNavigationSpace(XYT):
         dxy = q1[:2] - q0[:2]
         step = dxy / np.linalg.norm(dxy + self.tolerance) * self.step_size
         xy = np.copy(q0[:2])
+        goal_dxy = np.linalg.norm(q1[:2] - q0[:2])
         if (
-            True
-            or np.linalg.norm(q1[:2] - q0[:2]) > self.step_size
-            or angle_difference(q1[-1], q0[-1]) > self.rotation_step_size
+            goal_dxy
+            > xy_tol
+            # or goal_dxy > self.step_size
+            # or angle_difference(q1[-1], q0[-1]) > self.rotation_step_size
         ):
+            # Turn to new goal
             # Compute theta looking at new goal point
             new_theta = math.atan2(dxy[1], dxy[0])
             if new_theta < 0:
                 new_theta += 2 * np.pi
 
-            # TODO: oreint towards the new theta
+            # TODO: orient towards the new theta
             cur_theta = q0[-1]
             angle_diff = angle_difference(new_theta, cur_theta)
             while angle_diff > self.rotation_step_size:
@@ -175,11 +180,13 @@ class SparseVoxelMapNavigationSpace(XYT):
                 cur_theta = interpolate_angles(
                     cur_theta, new_theta, self.rotation_step_size
                 )
+                print("interp ang =", cur_theta, "from =", cur_theta, "to =", new_theta)
                 yield np.array([xy[0], xy[1], cur_theta])
                 angle_diff = angle_difference(new_theta, cur_theta)
 
             # First, turn in the right direction
             next_pt = np.array([xy[0], xy[1], new_theta])
+            # After this we should have finished turning
             yield next_pt
 
             # Now take steps towards the right goal
@@ -189,12 +196,12 @@ class SparseVoxelMapNavigationSpace(XYT):
 
             # Update current angle
             cur_theta = new_theta
+
+            # Finish stepping to goal
+            xy[:2] = q1[:2]
+            yield np.array([xy[0], xy[1], cur_theta])
         else:
             cur_theta = q0[-1]
-
-        # Finish stepping to goal
-        xy[:2] = q1[:2]
-        yield np.array([xy[0], xy[1], cur_theta])
 
         # now interpolate to goal angle
         angle_diff = angle_difference(q1[-1], cur_theta)

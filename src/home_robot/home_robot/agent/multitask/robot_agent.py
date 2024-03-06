@@ -871,7 +871,7 @@ class RobotAgent:
                     self.space,
                     self.voxel_map,
                     try_to_plan_iter=try_to_plan_iter,
-                    visualize=visualize,
+                    visualize=False,  # visualize,
                     expand_frontier_size=self.default_expand_frontier_size,
                 )
 
@@ -879,6 +879,8 @@ class RobotAgent:
             if res.success:
                 no_success_explore = False
                 print("Plan successful!")
+                for i, pt in enumerate(res.trajectory):
+                    print(i, pt.state)
                 all_starts.append(start)
                 all_goals.append(res.trajectory[-1].state)
                 if not dry_run:

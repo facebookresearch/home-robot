@@ -235,12 +235,13 @@ def main(
     finally:
         if show_final_map:
             pc_xyz, pc_rgb = demo.voxel_map.show()
-            obstacles, explored = demo.voxel_map.get_2d_map()
-            plt.subplot(1, 2, 1)
-            plt.imshow(obstacles)
-            plt.subplot(1, 2, 2)
-            plt.imshow(explored)
-            plt.show()
+            # TODO: Segfaults here for some reason
+            # obstacles, explored = demo.voxel_map.get_2d_map()
+            # plt.subplot(1, 2, 1)
+            # plt.imshow(obstacles)
+            # plt.subplot(1, 2, 2)
+            # plt.imshow(explored)
+            # plt.show()
         else:
             pc_xyz, pc_rgb = demo.voxel_map.get_xyz_rgb()
 
