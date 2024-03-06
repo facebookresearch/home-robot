@@ -180,7 +180,7 @@ class SparseVoxelMapNavigationSpace(XYT):
                 cur_theta = interpolate_angles(
                     cur_theta, new_theta, self.rotation_step_size
                 )
-                print("interp ang =", cur_theta, "from =", cur_theta, "to =", new_theta)
+                # print("interp ang =", cur_theta, "from =", cur_theta, "to =", new_theta)
                 yield np.array([xy[0], xy[1], cur_theta])
                 angle_diff = angle_difference(new_theta, cur_theta)
 
