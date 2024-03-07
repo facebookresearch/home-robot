@@ -1,43 +1,39 @@
-root_path = "/home/xiaohan/accel-cortex/exps/debug/2024-02-27-18-06/11/"
+root_path = "/home/xiaohan/accel-cortex/"
 
 import pickle
 
-with open(root_path + "debug_svm.pkl", "rb") as f:
-    svm = pickle.load(f)
-
 import numpy as np
 
-observations = svm.observations
-with open(root_path + "annotation.pkl", "rb") as f:
-    annotation = pickle.load(f)
-with open(root_path + "obs_history.pkl", "rb") as f:
+# with open(root_path + "debug_svm.pkl", "rb") as f:
+#     svm = pickle.load(f)
+
+
+# observations = svm.observations
+# with open(root_path + "annotation.pkl", "rb") as f:
+#     annotation = pickle.load(f)
+with open(root_path + "stretch_output_2024-03-06_15-47-27.pkl", "rb") as f:
     obs_history = pickle.load(f)
 
-print(annotation["task"])
-key_frames = []
-key_obs = []
-for idx, obs in enumerate(observations):
-    perceived_ids = np.unique(obs.obs.task_observations["gt_instance_ids"])
-    for target_id in annotation["object_ids"]:
-        if (target_id + 1) in perceived_ids:
-            print("target observation found")
-            key_frames.append(obs)
-            key_obs.append(obs_history[idx])
+# print(annotation["task"])
+# key_frames = []
+# key_obs = []
+# for idx, obs in enumerate(observations):
+#     perceived_ids = np.unique(obs.obs.task_observations["gt_instance_ids"])
+#     for target_id in annotation["object_ids"]:
+#         if (target_id + 1) in perceived_ids:
+#             print("target observation found")
+#             key_frames.append(obs)
+#             key_obs.append(obs_history[idx])
+# obs = key_frames[-1]
+key_obs = obs_history["obs"]
+obs = key_obs[-1]
 
-obs = key_frames[-1]
 import time
-
-import imageio
-from PIL import Image
-
-image_array = np.array(obs.obs.rgb, dtype=np.uint8)
-print(image_array.shape)
-# image_array = image_array[..., ::-1]
-image = Image.fromarray(image_array)
-
 from pathlib import Path
 
+import imageio
 import yaml
+from PIL import Image
 
 from home_robot.agent.multitask import get_parameters
 from home_robot.mapping.voxel import (
@@ -47,6 +43,12 @@ from home_robot.mapping.voxel import (
 )
 from home_robot.perception import create_semantic_sensor
 from home_robot.perception.encoders import get_encoder
+
+# image_array = np.array(obs.obs.rgb, dtype=np.uint8)
+# print(image_array.shape)
+# # image_array = image_array[..., ::-1]
+# image = Image.fromarray(image_array)
+
 
 parameters = yaml.safe_load(
     Path("/home/xiaohan/home-robot/src/home_robot_sim/configs/gpt4v.yaml").read_text()
@@ -85,7 +87,20 @@ voxel_map = SparseVoxelMap(
 )
 
 voxel_map.reset()
-key_obs = [key_obs[-1]]
+key_obs = [key_obs[4]]
 for idx, obs in enumerate(key_obs):
+
+    image_array = np.array(obs.rgb, dtype=np.uint8)
+    # print(image_array.shape)
+    # # image_array = image_array[..., ::-1]
+    image = Image.fromarray(image_array)
+    image.show()
+
     obs = semantic_sensor.predict(obs)
     voxel_map.add_obs(obs)
+    voxel_map.show(
+        instances=True,
+        height=1000,
+        boxes_plot_together=False,
+        backend="open3d",
+    )
