@@ -147,7 +147,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         else:
             raise NotImplementedError(f"not supported: {self.extend_mode=}")
 
-    def _extend_separate(self, q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
+    def _extend_separate(
+        self, q0: np.ndarray, q1: np.ndarray, xy_tol: float = 1e-8
+    ) -> np.ndarray:
         """extend towards another configuration in this space.
         TODO: we can set the classes here, right now assuming still np.ndarray"""
         assert len(q0) == 3, f"initial configuration must be 3d, was {q0}"
@@ -156,14 +158,21 @@ class SparseVoxelMapNavigationSpace(XYT):
         ), f"final configuration can be 2d or 3d, was {q1}"
         dxy = q1[:2] - q0[:2]
         step = dxy / np.linalg.norm(dxy + self.tolerance) * self.step_size
-        xy = q0[:2]
-        if np.linalg.norm(q1[:2] - q0[:2]) > self.step_size:
+        xy = np.copy(q0[:2])
+        goal_dxy = np.linalg.norm(q1[:2] - q0[:2])
+        if (
+            goal_dxy
+            > xy_tol
+            # or goal_dxy > self.step_size
+            # or angle_difference(q1[-1], q0[-1]) > self.rotation_step_size
+        ):
+            # Turn to new goal
             # Compute theta looking at new goal point
             new_theta = math.atan2(dxy[1], dxy[0])
             if new_theta < 0:
                 new_theta += 2 * np.pi
 
-            # TODO: oreint towards the new theta
+            # TODO: orient towards the new theta
             cur_theta = q0[-1]
             angle_diff = angle_difference(new_theta, cur_theta)
             while angle_diff > self.rotation_step_size:
@@ -171,12 +180,15 @@ class SparseVoxelMapNavigationSpace(XYT):
                 cur_theta = interpolate_angles(
                     cur_theta, new_theta, self.rotation_step_size
                 )
+                # print("interp ang =", cur_theta, "from =", cur_theta, "to =", new_theta)
                 yield np.array([xy[0], xy[1], cur_theta])
                 angle_diff = angle_difference(new_theta, cur_theta)
 
-            xy = q0[:2] + step
             # First, turn in the right direction
-            yield np.array([xy[0], xy[1], new_theta])
+            next_pt = np.array([xy[0], xy[1], new_theta])
+            # After this we should have finished turning
+            yield next_pt
+
             # Now take steps towards the right goal
             while np.linalg.norm(xy - q1[:2]) > self.step_size:
                 xy = xy + step
@@ -184,6 +196,10 @@ class SparseVoxelMapNavigationSpace(XYT):
 
             # Update current angle
             cur_theta = new_theta
+
+            # Finish stepping to goal
+            xy[:2] = q1[:2]
+            yield np.array([xy[0], xy[1], cur_theta])
         else:
             cur_theta = q0[-1]
 
@@ -194,6 +210,9 @@ class SparseVoxelMapNavigationSpace(XYT):
             cur_theta = interpolate_angles(cur_theta, q1[-1], self.rotation_step_size)
             yield np.array([xy[0], xy[1], cur_theta])
             angle_diff = angle_difference(q1[-1], cur_theta)
+
+        # Get to final angle
+        yield np.array([xy[0], xy[1], q1[-1]])
 
         # At the end, rotate into the correct orientation
         yield q1
@@ -471,8 +490,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         expand_size: int = 5,
         debug: bool = False,
         verbose: bool = False,
-        step_dist: float = 0.5,
-        min_dist: float = 0.5,
+        step_dist: float = 0.1,
+        min_dist: float = 0.1,
     ) -> Optional[torch.Tensor]:
         """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
 
@@ -493,7 +512,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         # from scipy.ndimage.morphology import distance_transform_edt
         m = np.ones_like(traversible)
         start_x, start_y = self.voxel_map.xy_to_grid_coords(xyt[:2]).int().cpu().numpy()
-        if debug:
+        if verbose or debug:
             print("--- Coordinates ---")
             print(f"{xyt=}")
             print(f"{start_x=}, {start_y=}")
@@ -506,6 +525,8 @@ class SparseVoxelMapNavigationSpace(XYT):
         #     pickle.dump(m, f)
         # print (~traversible)
         if not self.has_zero_contour(m):
+            if verbose:
+                print("traversible frontier had zero contour! no where to go.")
             return None
 
         distance_map = skfmm.distance(m, dx=1)
@@ -529,6 +550,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             plt.axis("off")
             plt.show()
 
+        if verbose or debug:
             print(f"-> found {len(distances)} items")
 
         assert len(xs) == len(ys) and len(xs) == len(distances)

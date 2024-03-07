@@ -72,8 +72,12 @@ class OvmmSimClient(RobotClient):
         verbose: bool = False,
     ):
         """Move to xyt in global coordinates or relative coordinates."""
+        print("\n\nnavigate to")
+        print("from =", self.get_base_pose())
+        print("  to =", xyt)
         if not relative:
             xyt = xyt_global_to_base(xyt, self.get_base_pose())
+            print("diff =", xyt)
 
         if type(xyt) != np.ndarray:
             xyt = np.array(xyt)
@@ -152,7 +156,7 @@ class OvmmSimClient(RobotClient):
             return
         xyt0 = self.get_base_pose()
         if verbose:
-            print("STARTED AT:", xyt0)
+            print("\n\nSTARTED AT:", xyt0)
             print("ACTION:", action)
 
         # constraints

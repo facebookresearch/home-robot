@@ -11,6 +11,7 @@ import numpy as np
 
 from home_robot.motion.base import Planner, PlanResult
 from home_robot.motion.rrt import TreeNode
+from home_robot.utils.geometry import angle_difference
 
 
 class SimplifyXYT(Planner):
@@ -18,6 +19,7 @@ class SimplifyXYT(Planner):
 
     # For floating point comparisons
     theta_tol = 1e-8
+    dist_tol = 1e-8
 
     # Debug info
     verbose = False
@@ -66,6 +68,10 @@ class SimplifyXYT(Planner):
             # Planning failed so nothing to do here
             return res
 
+        # Is it 2d?
+        assert len(start) == 2 or len(start) == 3, "must be 2d or 3d to use this code"
+        is_2d = len(start) == 2
+
         for step in np.linspace(self.max_step, self.min_step, self.num_steps):
 
             # The last node we explored
@@ -92,35 +98,37 @@ class SimplifyXYT(Planner):
                 if anchor_node is None:
                     cum_dist = 0
                     new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
-                    prev_node = node
-                    anchor_node = node
-                    prev_theta = None
+                    prev_node = new_nodes[-1]
+                    anchor_node = new_nodes[-1]
+                    prev_theta = None if is_2d else node.state[-1]
                 else:
                     # Check to see if we can simplify by skipping this node, or if we should add it
                     assert prev_node is not None
-                    x, y = prev_node.state[:2] - node.state[:2]
-                    cur_theta = np.arctan2(y, x)
+                    # Get the angle we use
+                    if is_2d:
+                        x, y = prev_node.state[:2] - node.state[:2]
+                        cur_theta = np.arctan2(y, x)
+                    else:
+                        cur_theta = node.state[-1]
+                    # Previous theta handling
                     if prev_theta is None:
-                        # theta_dist = node.state[-1] - prev_node.state[-1]
                         theta_dist = 0
                     else:
+                        theta_dist = np.abs(angle_difference(prev_theta, cur_theta))
                         if verbose:
-                            print(f"{prev_theta=}, {cur_theta=}")
-                        theta_dist = prev_theta - cur_theta
+                            print(f"{prev_theta=}, {cur_theta=}, {theta_dist=}")
+
                     dist = np.linalg.norm(node.state[:2] - prev_node.state[:2])
-                    cum_dist += dist
                     if verbose:
                         print(node.state[-1], prev_node.state[-1])
                         print("theta dist =", theta_dist)
                         print("dist", dist)
                         print("cumulative", cum_dist)
-                    if i == res.get_length() - 1:
-                        new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
-                        # We're done
+
+                    added = False
+                    if theta_dist < self.theta_tol:
                         if verbose:
-                            print("===========")
-                        break
-                    elif theta_dist < self.theta_tol:
+                            print(f"{theta_dist=} < {self.theta_tol=}")
                         if cum_dist >= step:
                             # Add it to the stack
                             if verbose:
@@ -128,37 +136,68 @@ class SimplifyXYT(Planner):
                             new_nodes.append(
                                 TreeNode(parent=anchor_node, state=prev_node.state)
                             )
+                            added = True
                             anchor_node = prev_node
-                            cum_dist = 0
-
+                            # Distance from previous to current node, since we're setting anchor to previous node
+                            cum_dist = dist
+                        else:
+                            # Increment distance tracker
+                            cum_dist += dist
                     else:
                         # We turned, so start again from here
-                        if verbose:
-                            print()
-                            print("!!!!!!!!")
-                            print("we turned")
-                        new_nodes.append(
-                            TreeNode(parent=anchor_node, state=prev_node.state)
-                        )
-                        anchor_node = prev_node
+                        # Check to see if we moved since the anchor node
+                        if cum_dist > self.dist_tol:
+                            new_nodes.append(
+                                TreeNode(parent=anchor_node, state=prev_node.state)
+                            )
+                            anchor_node = new_nodes[-1]
+                            cum_dist = dist
+                        new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
+                        if not is_2d:
+                            if not (
+                                np.abs(anchor_node.state[0] - node.state[0])
+                                < self.dist_tol
+                                and np.abs(anchor_node.state[1] - node.state[1])
+                                < self.dist_tol
+                            ):
+                                raise RuntimeError(
+                                    f"Trajectory inconsistent: {anchor_node.state} vs {node.state}"
+                                )
+                        added = True
+                        anchor_node = new_nodes[-1]
+                        # rotated, so there should be no cumulative distance
                         cum_dist = 0
 
-                    if verbose:
-                        print("simplified =", [x.state for x in new_nodes])
+                    # Final check to make sure the last node gets added
+                    if not added and i == res.get_length() - 1:
+                        if verbose:
+                            print("Add final node!")
+                        new_nodes.append(TreeNode(parent=anchor_node, state=node.state))
+                        # We're done
+                        if verbose:
+                            print("===========")
+                        break
+
+                    # if verbose:
+                    #     print("simplified =", [x.state for x in new_nodes])
                     # breakpoint()
                     prev_node = node
                     prev_theta = cur_theta
 
             # Check to make sure things are spaced out enough
             if self._verify(new_nodes):
+                print("!!!! DONE")
                 break
             else:
+                print("VERIFy FAILED")
                 new_nodes = None
 
         if new_nodes is not None:
-            return PlanResult(True, new_nodes)
+            return PlanResult(True, new_nodes, planner=self)
         else:
-            return PlanResult(False, reason="simplification and verification failed!")
+            return PlanResult(
+                False, reason="simplification and verification failed!", planner=self
+            )
 
 
 if __name__ == "__main__":
@@ -166,7 +205,7 @@ if __name__ == "__main__":
     from home_robot.motion.shortcut import Shortcut
     from home_robot.utils.simple_env import SimpleEnv
 
-    start, goal, obs = np.array([1.0, 1.0]), np.array([9.0, 9.0]), np.array([0.0, 9.0])
+    start, goal, obs = np.array([1.0, 1.0]), np.array([9.0, 9.0]), np.array([2.0, 7.0])
     env = SimpleEnv(obs)
     planner0 = RRTConnect(env.get_space(), env.validate)
     planner1 = Shortcut(planner0)
@@ -175,19 +214,23 @@ if __name__ == "__main__":
     def eval(planner):
         random.seed(0)
         np.random.seed(0)
-        res = planner.plan(start, goal)
+        res = planner.plan(start, goal, verbose=True)
         print("Success:", res.success)
         if res.success:
             print("Plan =")
             for i, n in enumerate(res.trajectory):
                 print(f"\t{i} = {n.state}")
-
-        return res.get_length(), [node.state for node in res.trajectory]
+            return res.get_length(), [node.state for node in res.trajectory]
+        return 0, []
 
     len0, plan0 = eval(planner0)
+    # len0 = 0
     len1, plan1 = eval(planner1)
+    # len1 = 0
     len2, plan2 = eval(planner2)
     print(f"{len0=} {len1=} {len2=}")
 
-    env.show(plan1)
-    env.show(plan2)
+    if len1 > 0:
+        env.show(plan1)
+    if len2 > 0:
+        env.show(plan2)

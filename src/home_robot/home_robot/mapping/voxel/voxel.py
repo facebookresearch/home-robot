@@ -993,6 +993,41 @@ class SparseVoxelMap(object):
     def postprocess_instances(self):
         self.instances.global_box_compression_and_nms(env_id=0)
 
+    def _get_boxes_from_points(self, traversible: torch.Tensor, color: List[float]):
+        """Get colored boxes for a mask"""
+        # Get indices for all traversible locations
+        traversible_indices = np.argwhere(traversible)
+        # Traversible indices will be a 2xN array, so we need to transpose it.
+        # Set to floor/max obs height and bright red
+        traversible_pts = self.grid_coords_to_xy(traversible_indices.T)
+
+        geoms = []
+        for i in range(traversible_pts.shape[0]):
+            center = np.array(
+                [traversible_pts[i, 0], traversible_pts[i, 1], self.obs_min_height]
+            )
+            dimensions = np.array(
+                [self.grid_resolution, self.grid_resolution, self.grid_resolution]
+            )
+            # TODO: remove debugging code
+            # dimensions = np.array([0.1, 0.1, 0.1])
+            # geoms.append(o3d.geometry.AxisAlignedBoundingBox(center - dimensions / 2, center + dimensions / 2))
+            # Create an axis-aligned bounding box at the specified location
+            # box = open3d.geometry.AxisAlignedBoundingBox(
+            #     center - dimensions / 2, center + dimensions / 2
+            # )
+
+            # Create a custom geometry with red color
+            mesh_box = open3d.geometry.TriangleMesh.create_box(
+                width=dimensions[0], height=dimensions[1], depth=dimensions[2]
+            )
+            mesh_box.paint_uniform_color(color)  # Set color to red
+            mesh_box.translate(center)
+
+            # Visualize the red box
+            geoms.append(mesh_box)
+        return geoms
+
     def _get_open3d_geometries(
         self,
         instances: bool,
@@ -1012,6 +1047,14 @@ class SparseVoxelMap(object):
         if orig is None:
             orig = np.zeros(3)
         geoms = create_visualization_geometries(pcd=pcd, orig=orig)
+
+        # Get the explored/traversible area
+        obstacles, explored = self.get_2d_map()
+        traversible = explored & ~obstacles
+
+        geoms += self._get_boxes_from_points(traversible, [0, 1, 0])
+        geoms += self._get_boxes_from_points(obstacles, [1, 0, 0])
+
         if instances:
             for instance_view in self.get_instances():
                 mins, maxs = (

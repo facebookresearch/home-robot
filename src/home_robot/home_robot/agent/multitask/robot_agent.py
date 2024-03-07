@@ -203,8 +203,12 @@ class RobotAgent:
         self._cached_plans = {}
 
         # Create a simple motion planner
-        self.planner = Shortcut(RRTConnect(self.space, self.space.is_valid))
-        if parameters["simplify_plans"]:
+        self.planner = RRTConnect(self.space, self.space.is_valid)
+        if parameters["motion_planner"]["shortcut_plans"]:
+            self.planner = Shortcut(
+                self.planner, parameters["motion_planner"]["shortcut_iter"]
+            )
+        if parameters["motion_planner"]["simplify_plans"]:
             self.planner = SimplifyXYT(
                 self.planner, min_step=0.05, max_step=1.0, num_steps=8
             )
@@ -653,6 +657,7 @@ class RobotAgent:
 
         # Add some debugging stuff - show what 3d point clouds look like
         if visualize_map_at_start:
+            print("- Visualize map at first timestep")
             self.voxel_map.show()
 
         self.robot.move_to_nav_posture()
@@ -660,10 +665,13 @@ class RobotAgent:
 
         # Move the robot into navigation mode
         self.robot.switch_to_navigation_mode()
-        self.update(visualize_map=visualize_map_at_start)  # Append latest observations
+        print("- Update map after switching to navigation posture")
+        # self.update(visualize_map=visualize_map_at_start)  # Append latest observations
+        self.update(visualize_map=False)  # Append latest observations
 
         # Add some debugging stuff - show what 3d point clouds look like
         if visualize_map_at_start:
+            print("- Visualize map after updating")
             self.voxel_map.show()
 
         self.print_found_classes(goal)
@@ -863,7 +871,7 @@ class RobotAgent:
                     self.space,
                     self.voxel_map,
                     try_to_plan_iter=try_to_plan_iter,
-                    visualize=visualize,
+                    visualize=False,  # visualize,
                     expand_frontier_size=self.default_expand_frontier_size,
                 )
 
@@ -871,6 +879,8 @@ class RobotAgent:
             if res.success:
                 no_success_explore = False
                 print("Plan successful!")
+                for i, pt in enumerate(res.trajectory):
+                    print(i, pt.state)
                 all_starts.append(start)
                 all_goals.append(res.trajectory[-1].state)
                 if not dry_run:

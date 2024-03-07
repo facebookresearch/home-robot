@@ -74,6 +74,7 @@ class RRT(Planner):
         """
         assert len(start) == self.space.dof, "invalid start dimensions"
         assert len(goal) == self.space.dof, "invalid goal dimensions"
+        self.reset()
         self.start_time = time.time()
         if not self.validate(start):
             if verbose:
@@ -99,7 +100,7 @@ class RRT(Planner):
             return res
         # Iterate a bunch of times
         for i in range(self.max_iter - 1):
-            res, _ = self.step_planner()
+            res, _ = self.step_planner(nodes=self.nodes)
             if res.success:
                 return res
         return PlanResult(False)
@@ -122,8 +123,7 @@ class RRT(Planner):
             should_sample_goal = True
         else:
             should_sample_goal = random() < self.p_sample_goal
-        if nodes is None:
-            nodes = self.nodes
+
         # Get a new state
         if next_state is not None:
             goal_state = next_state

@@ -42,6 +42,7 @@ class RRTConnect(RRT):
         https://github.com/caelan/motion-planners/blob/master/motion_planners/rrt_connect.py
         """
 
+        self.reset()
         self.start_time = time.time()
         # TODO: support goal sets
         self.goal_state = goal
@@ -96,5 +97,5 @@ class RRTConnect(RRT):
                     self.nodes.append(new_node)
                     path_fwd.append(new_node)
                     parent = new_node
-                return PlanResult(True, path_fwd)
-        return PlanResult(False)
+                return PlanResult(True, path_fwd, planner=self)
+        return PlanResult(False, planner=self)
