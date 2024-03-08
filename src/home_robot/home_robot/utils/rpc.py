@@ -13,11 +13,11 @@ from loguru import logger
 try:
     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
     import grpc
-    from cortex_rpc_pb2_grpc import AgentgRPCStub
 
     import src.rpc
     import src.rpc.cortex_rpc_pb2
     import src.rpc.proto_converter as proto_converter
+    from src.rpc.cortex_rpc_pb2_grpc import AgentgRPCStub
     from src.utils.types.observations import Object, Observations
 
 except Exception as e:
