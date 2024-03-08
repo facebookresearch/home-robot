@@ -13,11 +13,13 @@ from loguru import logger
 try:
     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
     import grpc
-    from task_rpc_env_pb2_grpc import AgentgRPCStub
+    from cortex_rpc_pb2_grpc import AgentgRPCStub
 
     import src.rpc
-    import src.rpc.task_rpc_env_pb2
-    from src.utils.observations import ObjectImage, Observations, ProtoConverter
+    import src.rpc.cortex_rpc_pb2
+    import src.rpc.proto_converter as proto_converter
+    from src.utils.types.observations import Object, Observations
+
 except Exception as e:
     ## Temporary hack until we make accel-cortex pip installable
     print(
@@ -105,7 +107,7 @@ def get_obj_centric_world_representation(
             if isinstance(crop, np.ndarray):
                 crop = torch.from_numpy(crop)
             obs.object_images.append(
-                ObjectImage(
+                Object(
                     crop_id=global_id,
                     image=(crop.contiguous() * 256).to(torch.uint8),
                 )
@@ -131,9 +133,7 @@ def get_vlm_rpc_stub(vlm_server_addr: str, vlm_server_port: int):
 
 def get_output_from_world_representation(stub, world_representation, goal: str):
     return stub.stream_act_on_observations(
-        ProtoConverter.wrap_obs_iterator(
-            episode_id=random.randint(1, 1000000),
+        proto_converter.wrap_obs(
             obs=world_representation,
-            goal=goal,
         )
     )
