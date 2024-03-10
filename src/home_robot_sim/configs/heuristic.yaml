@@ -1,0 +1,76 @@
+# Encoder setup
+# Encoder is used to compute per-object embeddings.
+encoder: "clip"
+encoder_args: "ViT-B/32"
+
+# Sparse Voxel Map parameters
+voxel_size: 0.05
+obs_min_height: 0.1  # Ignore things less than this high
+obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
+obs_min_density: 5  # This many points makes it an obstacle
+local_radius: 1.0  # Area around the robot to mark as explored (kind of a hack)
+smooth_kernel_size: 0
+
+# Padding
+pad_obstacles: 2 # was 5
+min_pad_obstacles: 1  # Do not pad LESS than this amount, for safety.
+
+remove_visited_from_obstacles: False
+min_depth: 0.0
+max_depth: 10.0
+
+min_pixels_for_instance_view: 1000
+
+# Point cloud cleanup
+use_median_filter: True
+median_filter_size: 3
+median_filter_max_error: 0.01
+use_derivative_filter: True
+derivative_filter_threshold: 0.1
+# use_voxel_filter: True
+
+# Exploration
+in_place_rotation_steps: 8
+
+# TAMP parameters
+guarantee_instance_is_reachable: True
+
+# Navigation space - used for motion planning and computing goals.
+step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
+rotation_step_size: 0.1
+dilate_frontier_size: 3  # Used to shrink the frontier back from the edges of the world
+dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
+default_expand_frontier_size: 10  # margin along the frontier where final robot position can be
+motion_planner:
+        shortcut_plans: True
+        simplify_plans: True
+        shortcut_iter: 100
+
+# Trajectory following - how closely we follow intermediate waypoints
+# These should be less strict than whatever parameters the low-level controller is using; this will
+# make sure that the motions end up looking smooth.
+trajectory_pos_err_threshold: 0.15
+trajectory_rot_err_threshold: 0.3
+trajectory_per_step_timeout: 3.0
+
+# User interface
+# Choose one of: (object_to_find, location_to_place), command, or chat
+# Don't use all of them!
+name: "stretch_demo"  # for logging - currently not used
+chat: False
+start_ui_server: False
+vlm_context_length: 1000  # How long messages sent to the vlm server can be if we are using it
+limited_obs_publish_sleep: 0.5
+
+# High level stuff: commands to execute 
+# command: "pick up a bottle and put it on the chair"
+# name: "spot"
+exploration_steps: 10 # we can potentially increase it to 150 for sim
+# object_to_find: "bottle"
+# location_to_place: "chair"
+
+# VLM Query parameters
+sample_strategy: "clip"
+perception_only: False
+planning_only: True
+explore_once: False

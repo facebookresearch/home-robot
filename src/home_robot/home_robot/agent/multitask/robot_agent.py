@@ -10,11 +10,14 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import clip
 import numpy as np
 import torch
 from atomicwrites import atomic_write
 from loguru import logger
 from PIL import Image
+from torchvision import transforms
+from transformers import Owlv2ForObjectDetection, Owlv2Processor
 
 from home_robot.agent.multitask import Parameters
 from home_robot.core.robot import GraspClient, RobotClient
@@ -241,6 +244,15 @@ class RobotAgent:
             self.chat = None
             self._publisher = None
 
+        self.to_pil = transforms.ToPILImage()
+        self.processor = Owlv2Processor.from_pretrained(
+            "google/owlv2-base-patch16-ensemble"
+        )
+        self.model = Owlv2ForObjectDetection.from_pretrained(
+            "google/owlv2-base-patch16-ensemble"
+        )
+        self.owlv2_threshold = 0.2
+
     def get_navigation_space(self) -> ConfigurationSpace:
         """Returns reference to the navigation space."""
         return self.space
@@ -325,6 +337,80 @@ class RobotAgent:
             pickle.dump(self.voxel_map, f)
         print(f"SVM logged to {filename}")
 
+    def template_planning(self, obs, goal):
+        if not obs:
+            return None
+        # TODO: add optional supports for LangSAM, OWLVit etc.
+        return self.planning_with_owlv2(obs, goal)
+
+    def sort_by_clip_similarity(self, obs, text):
+        """Sort the obj-centric world rep by CLIP similarity, return the sorted world rep"""
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model, preprocess = clip.load("ViT-B/32", device=device)
+        text = clip.tokenize([text]).to(device)
+        text_features = model.encode_text(text).float()
+        image_features = []
+        for obj in obs.object_images:
+            image_features.append(
+                model.encode_image(
+                    preprocess(self.to_pil(obj.image.permute(2, 0, 1) / 255.0))
+                    .unsqueeze(0)
+                    .to(device)
+                )
+            )
+        image_features = torch.stack(image_features).squeeze(1).to(device).float()
+        image_features /= image_features.norm(dim=-1, keepdim=True)
+        text_features /= text_features.norm(dim=-1, keepdim=True)
+        similarity = (
+            (100.0 * text_features @ image_features.T).softmax(dim=-1).squeeze(0)
+        )
+        obs.object_images = [x for _, x in sorted(zip(similarity, obs.object_images))]
+        return obs
+
+    def planning_with_owlv2(self, obs, goal):
+        # goal is an OVMM-style query
+        target_obj = goal.split(" ")[1]
+        # start_recep = goal.split(" ")[3]
+        goal_recep = goal.split(" ")[5]
+
+        res = []
+
+        # using owlv2 to make sure the target is detected in the instance image
+        # TODO: add start recep check using coordinates
+        for target in [target_obj, goal_recep]:
+            obs = self.sort_by_clip_similarity(obs, target)
+            img = self.to_pil(obs.object_images[-1].image.permute(2, 0, 1) / 255.0)
+            text = [["a photo of a " + target]]
+            inputs = self.processor(text=text, images=img, return_tensors="pt")
+            outputs = self.model(**inputs)
+            # Target image sizes (height, width) to rescale box predictions [batch_size, 2]
+            target_sizes = torch.Tensor([img.size[::-1]])
+            # Convert outputs (bounding boxes and class logits) to COCO API
+            results = self.processor.post_process_object_detection(
+                outputs=outputs, threshold=0.1, target_sizes=target_sizes
+            )
+            i = 0  # Retrieve predictions for the first image for the corresponding text queries
+            text = text[i]
+            boxes, scores, labels = (
+                results[i]["boxes"],
+                results[i]["scores"],
+                results[i]["labels"],
+            )
+            if len(scores) == 0 or max(scores) < self.owlv2_threshold:
+                print(f"nothing ({target}) detected by owlv2")
+                res.append(None)
+            else:
+                # Print detected objects and rescaled box coordinates
+                for box, score, label in zip(boxes, scores, labels):
+                    box = [round(i, 2) for i in box.tolist()]
+                    print(
+                        f"Detected {text[label]} with confidence {round(score.item(), 3)} at location {box}"
+                    )
+                res.append(obs.object_images[-1].instance_id)
+        if None in res:
+            return "explore"
+        return f"goto(img_{res[0]}); pickup(img_{res[0]}); goto(img_{res[-1]}); placeon(img_{res[0]}, img_{res[-1]})"
+
     def execute_vlm_plan(self):
         """Get plan from vlm and execute it"""
         assert self.rpc_stub is not None, "must have RPC stub to connect to remote VLM"
@@ -340,11 +426,14 @@ class RobotAgent:
         world_representation = get_obj_centric_world_representation(
             instances, self.parameters["vlm_context_length"]
         )
-        output = get_output_from_world_representation(
-            self.rpc_stub, world_representation, self.get_command()
-        )
 
-        plan = output.action
+        # Xiaohan: comment this for now, and change it to owlv2 plan generation
+        # output = get_output_from_world_representation(
+        #     self.rpc_stub, world_representation, self.get_command()
+        # )
+        # plan = output.action
+        # TODO: need testing on real robot: command should only be OVMM-style
+        plan = self.template_planning(world_representation, self.get_command())
 
         def confirm_plan(p):
             return True  # might need to merge demo_refactor to find this function
