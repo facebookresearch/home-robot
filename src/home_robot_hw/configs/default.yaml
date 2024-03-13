@@ -17,21 +17,21 @@ min_pad_obstacles: 1  # Do not pad LESS than this amount, for safety.
 local_radius: 0.8  # Area around the robot to mark as explored (kind of a hack)
 remove_visited_from_obstacles: False
 min_depth: 0.5
-max_depth: 3.0
+max_depth: 2.5
 
 # Point cloud cleanup
 filters:
         smooth_kernel_size: 2
-        use_median_filter: False
+        use_median_filter: True
         median_filter_size: 2
-        median_filter_max_error: 0.1
+        median_filter_max_error: 0.01
         use_derivative_filter: False
         derivative_filter_threshold: 0.1
         # use_voxel_filter: True
 
 # Exploration
-# in_place_rotation_steps: 8
-in_place_rotation_steps: 0
+in_place_rotation_steps: 8
+# in_place_rotation_steps: 0
 
 # TAMP parameters
 guarantee_instance_is_reachable: True
