@@ -173,8 +173,8 @@ class RobotAgent:
                     "remove_visited_from_obstacles", default=False
                 ),
                 obs_min_density=parameters["obs_min_density"],
-                smooth_kernel_size=parameters["smooth_kernel_size"],
                 encoder=self.encoder,
+                smooth_kernel_size=parameters.get("filters/smooth_kernel_size", -1),
                 use_median_filter=parameters.get("filters/use_median_filter", False),
                 median_filter_size=parameters.get("filters/median_filter_size", 5),
                 median_filter_max_error=parameters.get(

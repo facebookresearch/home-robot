@@ -55,12 +55,14 @@ def plan_to_deltas(xyt0, plan):
 )
 @click.option("--show-svm", "-s", type=bool, is_flag=True, default=False)
 @click.option("--pkl-is-svm", "-p", type=bool, is_flag=True, default=False)
+@click.option("--test-planning", type=bool, is_flag=True, default=False)
 def main(
     input_path,
     config_path,
     voxel_size: float = 0.01,
     show_maps: bool = True,
     pkl_is_svm: bool = True,
+    test_planning: bool = False,
     frame: int = -1,
     show_svm: bool = False,
     try_to_plan_iter: int = 10,
@@ -72,6 +74,10 @@ def main(
     if pkl_is_svm:
         with input_path.open("rb") as f:
             loaded_voxel_map = pickle.load(f)
+        if frame >= 0:
+            raise RuntimeError(
+                "cannot pass a target frame if in SVM mode; the whole map will be loaded instead."
+            )
     else:
         loaded_voxel_map = None
 
@@ -136,49 +142,51 @@ def main(
 
         plt.show()
 
-        print("--- Sampling goals ---")
-        start_is_valid = space.is_valid(x0, verbose=True, debug=False)
-        if not start_is_valid:
-            print("you need to manually set the start pose to be valid")
-            return
+        if test_planning:
 
-        # Get frontier sampler
-        sampler = space.sample_closest_frontier(
-            x0, verbose=False, min_dist=0.1, step_dist=0.1
-        )
-        planner = agent.planner
+            print("--- Sampling goals ---")
+            start_is_valid = space.is_valid(x0, verbose=True, debug=False)
+            if not start_is_valid:
+                print("you need to manually set the start pose to be valid")
+                return
 
-        print(f"Closest frontier to {x0}:")
-        start = x0
-        for i, goal in enumerate(sampler):
-            if goal is None:
-                # No more positions to sample
-                break
+            # Get frontier sampler
+            sampler = space.sample_closest_frontier(
+                x0, verbose=False, min_dist=0.1, step_dist=0.1
+            )
+            planner = agent.planner
 
-            np.random.seed(0)
-            random.seed(0)
+            print(f"Closest frontier to {x0}:")
+            start = x0
+            for i, goal in enumerate(sampler):
+                if goal is None:
+                    # No more positions to sample
+                    break
 
-            print()
-            print()
-            print("-" * 20)
-            res = planner.plan(start, goal.cpu().numpy())
-            print("start =", start)
-            print("goal =", goal.cpu().numpy())
-            print(i, "sampled", goal, "success =", res.success)
-            if res.success:
-                plan_to_deltas(x0, res)
-            # Try to plan
-            # res = plan_to_frontier(
-            #     start,
-            #    planner,
-            #    space,
-            #    voxel_map,
-            #    try_to_plan_iter=try_to_plan_iter,
-            #    visualize=False,
-            # )
-            # print("Planning result:", res)
+                np.random.seed(0)
+                random.seed(0)
 
-    print("... done sampling frontier points.")
+                print()
+                print()
+                print("-" * 20)
+                res = planner.plan(start, goal.cpu().numpy())
+                print("start =", start)
+                print("goal =", goal.cpu().numpy())
+                print(i, "sampled", goal, "success =", res.success)
+                if res.success:
+                    plan_to_deltas(x0, res)
+                # Try to plan
+                # res = plan_to_frontier(
+                #     start,
+                #    planner,
+                #    space,
+                #    voxel_map,
+                #    try_to_plan_iter=try_to_plan_iter,
+                #    visualize=False,
+                # )
+                # print("Planning result:", res)
+
+        print("... done sampling frontier points.")
 
 
 if __name__ == "__main__":

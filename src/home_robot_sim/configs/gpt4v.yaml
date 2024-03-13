@@ -23,6 +23,7 @@ min_pixels_for_instance_view: 1000
 
 # Point cloud cleanup - point clouds in simulation are perfect, no need for this
 filters:
+        smooth_kernel_size: 0
         use_median_filter: False
         median_filter_size: 3
         median_filter_max_error: 0.01

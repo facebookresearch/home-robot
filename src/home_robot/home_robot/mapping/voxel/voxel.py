@@ -748,25 +748,26 @@ class SparseVoxelMap(object):
 
         # Also shrink the explored area to build more confidence
         # That we will not collide with anything while moving around
-        if self.dilate_obstacles_kernel is not None:
-            explored = binary_erosion(
-                explored.float().unsqueeze(0).unsqueeze(0),
-                self.dilate_obstacles_kernel,
-            )[0, 0].bool()
+        # if self.dilate_obstacles_kernel is not None:
+        #    explored = binary_erosion(
+        #        explored.float().unsqueeze(0).unsqueeze(0),
+        #        self.dilate_obstacles_kernel,
+        #    )[0, 0].bool()
 
         if self.smooth_kernel_size > 0:
+            # Opening and closing operations here on explore
             explored = binary_erosion(
                 binary_dilation(
                     explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
                 ),
                 self.smooth_kernel,
-            )[0, 0].bool()
-            explored = binary_erosion(
-                binary_dilation(
-                    explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
-                ),
+            )  # [0, 0].bool()
+            explored = binary_dilation(
+                binary_erosion(explored, self.smooth_kernel),
                 self.smooth_kernel,
             )[0, 0].bool()
+
+            # Obstacles just get dilated and eroded
             obstacles = binary_erosion(
                 binary_dilation(
                     obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
