@@ -40,7 +40,7 @@ dependencies:
     - timm
     - pandas>=2
     - mss
-    - transformers  # >=4.36
+    - transformers==4.36.1
     # visualizations and debugging
     - matplotlib>=3
     # Command line tools
