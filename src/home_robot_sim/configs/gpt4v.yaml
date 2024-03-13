@@ -21,13 +21,14 @@ max_depth: 10.0
 
 min_pixels_for_instance_view: 1000
 
-# Point cloud cleanup
-use_median_filter: True
-median_filter_size: 3
-median_filter_max_error: 0.01
-use_derivative_filter: True
-derivative_filter_threshold: 0.1
-# use_voxel_filter: True
+# Point cloud cleanup - point clouds in simulation are perfect, no need for this
+filters:
+        use_median_filter: False
+        median_filter_size: 3
+        median_filter_max_error: 0.01
+        use_derivative_filter: False
+        derivative_filter_threshold: 0.1
+        # use_voxel_filter: True
 
 # Exploration
 in_place_rotation_steps: 8

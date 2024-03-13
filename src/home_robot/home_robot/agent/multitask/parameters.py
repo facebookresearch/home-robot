@@ -15,9 +15,19 @@ class Parameters(object):
 
     def get(self, key: str, default: Any = None):
         """Safe wrapper to dictionary, with defaults"""
-        if default is not None and key not in self.data:
+        if "/" in key:
+            keys = key.split("/")
+            data = self.data[keys[0]]
+            key = keys[-1]
+            if len(keys) > 2:
+                raise NotImplementedError(
+                    f"we dont yet support nested parameters to this depth: {len(keys)}"
+                )
+        else:
+            data = self.data
+        if default is not None and key not in data:
             return default
-        return self.data[key]
+        return data[key]
 
     def __getitem__(self, key: str) -> Any:
         """Just a wrapper to the dictionary"""

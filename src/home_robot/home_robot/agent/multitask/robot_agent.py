@@ -175,12 +175,16 @@ class RobotAgent:
                 obs_min_density=parameters["obs_min_density"],
                 smooth_kernel_size=parameters["smooth_kernel_size"],
                 encoder=self.encoder,
-                use_median_filter=parameters.get("use_median_filter", False),
-                median_filter_size=parameters.get("median_filter_size", 5),
-                median_filter_max_error=parameters.get("median_filter_max_error", 0.01),
-                use_derivative_filter=parameters.get("use_derivative_filter", False),
+                use_median_filter=parameters.get("filters/use_median_filter", False),
+                median_filter_size=parameters.get("filters/median_filter_size", 5),
+                median_filter_max_error=parameters.get(
+                    "filters/median_filter_max_error", 0.01
+                ),
+                use_derivative_filter=parameters.get(
+                    "filters/use_derivative_filter", False
+                ),
                 derivative_filter_threshold=parameters.get(
-                    "derivative_filter_threshold", 0.5
+                    "filters/derivative_filter_threshold", 0.5
                 ),
                 instance_memory_kwargs={
                     "min_pixels_for_instance_view": parameters.get(
