@@ -1,6 +1,6 @@
 numpy <1.24 # certain deprecated operations were used in other deps
 scipy
-sophuspy
+sophuspy <1.0.0
 opencv-python
 pybullet
 trimesh

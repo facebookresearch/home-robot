@@ -15,7 +15,7 @@ install_requires = [
     "open3d",
     "numpy-quaternion",
     "pybind11-global",
-    "sophuspy",
+    "sophuspy==0.0.8",
     "trimesh",
     "pin>=2.6.17",
     "torch_cluster",
