@@ -20,9 +20,9 @@ dependencies:
   - fzf # optional: fancy ctrl + R
   - pip
   - pip:
-    - numpy <1.24 # certain deprecated operations were used in other deps
+    - numpy<1.24 # certain deprecated operations were used in other deps
     - scipy
-    - sophuspy <1.0.0
+    - sophuspy<1.0.0
     - pybullet
     - trimesh<4
     - pytest
