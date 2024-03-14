@@ -189,7 +189,10 @@ class RobotAgent:
                 instance_memory_kwargs={
                     "min_pixels_for_instance_view": parameters.get(
                         "min_pixels_for_instance_view", 100
-                    )
+                    ),
+                    "min_instance_height": parameters.get("min_instance_height", 0.01),
+                    "min_instance_vol": parameters.get("min_instance_vol", 1e-6),
+                    "max_instance_vol": parameters.get("max_instance_vol", 10.0),
                 },
             )
 

@@ -9,6 +9,9 @@ obs_min_height: 0.1  # Ignore things less than this high
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
 obs_min_density: 5  # This many points makes it an obstacle
 local_radius: 1.0  # Area around the robot to mark as explored (kind of a hack)
+min_instance_height: 0.05 # filter out instances that are too flat like floors, walls etc
+min_instance_vol: 1e-4 # filter out instances that are of too small volume
+max_instance_vol: 0.5 # filter out instances that are too large
 
 # Padding
 pad_obstacles: 2 # was 5

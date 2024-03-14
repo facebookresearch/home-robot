@@ -82,25 +82,28 @@ voxel_map = SparseVoxelMap(
     instance_memory_kwargs={
         "min_pixels_for_instance_view": parameters.get(
             "min_pixels_for_instance_view", 100
-        )
+        ),
+        "min_instance_height": parameters.get("min_instance_height", 0.05),
+        "min_instance_vol": parameters.get("min_instance_vol", 1e-6),
+        "max_instance_vol": parameters.get("max_instance_vol", 10.0),
     },
 )
 
 voxel_map.reset()
-key_obs = [key_obs[4]]
+# key_obs = [key_obs[4]]
 for idx, obs in enumerate(key_obs):
 
     image_array = np.array(obs.rgb, dtype=np.uint8)
     # print(image_array.shape)
     # # image_array = image_array[..., ::-1]
     image = Image.fromarray(image_array)
-    image.show()
+    # image.show()
 
     obs = semantic_sensor.predict(obs)
     voxel_map.add_obs(obs)
-    voxel_map.show(
-        instances=True,
-        height=1000,
-        boxes_plot_together=False,
-        backend="open3d",
-    )
+voxel_map.show(
+    instances=True,
+    height=1000,
+    boxes_plot_together=False,
+    backend="open3d",
+)

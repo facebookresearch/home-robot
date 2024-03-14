@@ -131,6 +131,9 @@ class InstanceMemory:
         view_matching_config: ViewMatchingConfig = ViewMatchingConfig(),
         mask_cropped_instances: bool = True,
         crop_padding: float = 1.5,
+        min_instance_vol: float = 1e-6,
+        max_instance_vol: float = 10.0,
+        min_instance_height: float = 0.01,
     ):
         """See class definition for information about InstanceMemory
 
@@ -158,6 +161,10 @@ class InstanceMemory:
         self.global_box_nms_thresh = global_box_nms_thresh
         self.instance_box_compression_drop_prop = instance_box_compression_drop_prop
         self.instance_box_compression_resolution = instance_box_compression_resolution
+
+        self.min_instance_vol = min_instance_vol
+        self.max_instance_vol = max_instance_vol
+        self.min_instance_height = min_instance_height
 
         if isinstance(view_matching_config, dict):
             view_matching_config = ViewMatchingConfig(**view_matching_config)
@@ -791,7 +798,12 @@ class InstanceMemory:
                 bounds = get_bounds(point_cloud_instance)
                 volume = float(box3d_volume_from_bounds(bounds).squeeze())
 
-                if volume < 1e-6:
+                if volume < float(self.min_instance_vol):
+                    warnings.warn(
+                        f"Skipping box with {n_points} points in cloud and {n_points} points in mask and {volume} volume",
+                        UserWarning,
+                    )
+                elif volume > float(self.max_instance_vol):
                     warnings.warn(
                         f"Skipping box with {n_points} points in cloud and {n_points} points in mask and {volume} volume",
                         UserWarning,
@@ -802,7 +814,7 @@ class InstanceMemory:
                         bounds[1][1] - bounds[1][0],
                         bounds[2][1] - bounds[2][0],
                     )
-                    < 0.05
+                    < self.min_instance_height
                 ):
                     warnings.warn(
                         f"Skipping a flat instance with {n_points} points",
