@@ -7,8 +7,8 @@ random.shuffle(lvis_categories)
 current_map = json.load(open("example_cat_map.json"))
 count = 0
 for cat in lvis_categories:
-    if count >= 800:
-        break
+    # if count >= 800:
+    #     break
     if (
         cat["name"] not in current_map["obj_category_to_obj_category_id"]
         and cat["name"] not in current_map["recep_category_to_recep_category_id"]

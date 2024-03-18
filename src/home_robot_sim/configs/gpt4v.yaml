@@ -10,9 +10,14 @@ obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
 obs_min_density: 5  # This many points makes it an obstacle
 local_radius: 1.0  # Area around the robot to mark as explored (kind of a hack)
 smooth_kernel_size: 0
-min_instance_height: 0.05 # filter out instances that are too flat like floors, walls etc
+
+min_instance_thickness: 0.01 # filter out instances that are too flat like floors, walls etc
 min_instance_vol: 1e-4 # filter out instances that are of too small volume
 max_instance_vol: 0.5 # filter out instances that are too large
+min_instance_height: 0.2
+max_instance_height: 1.5
+# open_vocab_cat_map_file: projects/real_world_ovmm/configs/open_vocab_cat_map.json
+open_vocab_cat_map_file: projects/real_world_ovmm/configs/example_cat_map.json
 
 # Padding
 pad_obstacles: 2 # was 5

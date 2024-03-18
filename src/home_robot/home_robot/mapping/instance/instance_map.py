@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import json
 import logging
 import os
 import shutil
@@ -133,7 +134,10 @@ class InstanceMemory:
         crop_padding: float = 1.5,
         min_instance_vol: float = 1e-6,
         max_instance_vol: float = 10.0,
-        min_instance_height: float = 0.01,
+        min_instance_thickness: float = 0.01,
+        min_instance_height: float = 0.1,
+        max_instance_height: float = 1.8,
+        open_vocab_cat_map_file: str = None,
     ):
         """See class definition for information about InstanceMemory
 
@@ -164,7 +168,9 @@ class InstanceMemory:
 
         self.min_instance_vol = min_instance_vol
         self.max_instance_vol = max_instance_vol
+        self.min_instance_thickness = min_instance_thickness
         self.min_instance_height = min_instance_height
+        self.max_instance_height = max_instance_height
 
         if isinstance(view_matching_config, dict):
             view_matching_config = ViewMatchingConfig(**view_matching_config)
@@ -179,6 +185,15 @@ class InstanceMemory:
             shutil.rmtree(self.save_dir, ignore_errors=True)
             os.makedirs(log_dir, exist_ok=log_dir_overwrite_ok)
         self.log_dir = log_dir
+
+        # if open_vocab_cat_map_file:
+        #     with open(open_vocab_cat_map_file) as f:
+        #         open_vocab_cat_map = json.load(f)
+        #     self.open_vocab = list(
+        #         open_vocab_cat_map["obj_category_to_obj_category_id"].keys()
+        #     ) + list(open_vocab_cat_map["recep_category_to_recep_category_id"].keys())
+        #     self.open_vocab += ["wall", "ceiling", "floor", "others"]
+
         self.reset()
 
     def reset(self):
@@ -751,10 +766,11 @@ class InstanceMemory:
             h, w = masked_image.shape[1:]
             cropped_image = self.get_cropped_image(image, bbox)
             instance_mask = self.get_cropped_image(instance_mask.unsqueeze(0), bbox)
-            # instance_mask = instance_mask.bool()
-            # image_array = np.array(cropped_image*instance_mask, dtype=np.uint8)
+
+            # image_array = np.array(cropped_image * instance_mask, dtype=np.uint8)
             # image_debug = Image.fromarray(image_array)
             # image_debug.show()
+
             # get embedding
             if encoder is not None:
                 # embedding = encoder.encode_image(cropped_image).to(cropped_image.device)
@@ -766,6 +782,24 @@ class InstanceMemory:
 
             # im = Image.fromarray(np.array(cropped_image.to(torch.uint8)))
             # im.save('test1.png')
+
+            def get_open_vocab_labels():
+                img_embeddings = (
+                    encoder.encode_image(cropped_image)
+                    .to(cropped_image.device)
+                    .unsqueeze(0)
+                )
+                class_embeddings = torch.cat(
+                    [encoder.encode_text(ovc) for ovc in self.open_vocab]
+                ).to(cropped_image.device)
+                img_embeddings /= img_embeddings.norm(dim=-1, keepdim=True)
+                class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
+                scores = (
+                    (100.0 * img_embeddings @ class_embeddings.T)
+                    .softmax(dim=-1)
+                    .squeeze()
+                )
+                return self.open_vocab[torch.argmax(scores).item()]
 
             def filter_background_preds_using_clip(
                 background_classes=["wall", "ceiling", "floor", "others"],
@@ -779,7 +813,7 @@ class InstanceMemory:
                 class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
                 # print ((100.0 * img_embeddings @ class_embeddings.T).softmax(dim=-1))
 
-            filter_background_preds_using_clip()
+            # filter_background_preds_using_clip()
 
             # get point cloud
             point_mask_downsampled = (
@@ -814,13 +848,27 @@ class InstanceMemory:
                         bounds[1][1] - bounds[1][0],
                         bounds[2][1] - bounds[2][0],
                     )
-                    < self.min_instance_height
+                    < self.min_instance_thickness
                 ):
                     warnings.warn(
                         f"Skipping a flat instance with {n_points} points",
                         UserWarning,
                     )
+                elif (bounds[2][0] + bounds[2][1]) / 2.0 < self.min_instance_height:
+                    warnings.warn(
+                        f"Skipping a instance with low height: {(bounds[2][0] + bounds[2][1]) / 2.0}",
+                        UserWarning,
+                    )
+                elif (bounds[2][0] + bounds[2][1]) / 2.0 > self.max_instance_height:
+                    warnings.warn(
+                        f"Skipping a instance with high height: {(bounds[2][0] + bounds[2][1]) / 2.0}",
+                        UserWarning,
+                    )
                 else:
+                    # # get open-vocab labels
+                    # open_vocab_label = get_open_vocab_labels()
+                    # print(f"open vocab detected as: {open_vocab_label}")
+
                     # get instance view
                     instance_view = InstanceView(
                         bbox=bbox,
@@ -835,6 +883,7 @@ class InstanceMemory:
                         score=score,
                         bounds=bounds,  # .cpu().numpy(),
                         pose=pose,
+                        # open_vocab_label=open_vocab_label,
                     )
                     # append instance view to list of instance views
                     self.unprocessed_views[env_id][instance_id.item()] = instance_view
