@@ -81,11 +81,11 @@ def main(
     else:
         loaded_voxel_map = None
 
+    dummy_robot = DummyStretchClient()
     if len(config_path) > 0:
         print("- Load parameters")
         parameters = get_parameters(config_path)
         print(parameters)
-        dummy_robot = DummyStretchClient()
         agent = RobotAgent(
             dummy_robot,
             None,
@@ -113,11 +113,21 @@ def main(
     if agent is not None:
         print("Agent loaded:", agent)
         # Display with agent overlay
-        if show_svm:
-            voxel_map.show(instances=True, orig=start_xyz)
-        obstacles, explored = voxel_map.get_2d_map(debug=False)
         space = agent.get_navigation_space()
-        # TODO: read the parameter from the agent
+
+        if show_svm:
+            x0 = np.array([0, 0, 0])
+            x1 = np.array([0, 0, np.pi / 4])
+            x2 = np.array([0.5, 0.5, np.pi / 4])
+            footprint = dummy_robot.get_robot_model().get_footprint()
+            print(f"{x0} valid = {space.is_valid(x0)}")
+            voxel_map.show(instances=True, orig=start_xyz, xyt=x0, footprint=footprint)
+            print(f"{x1} valid = {space.is_valid(x1)}")
+            voxel_map.show(instances=True, orig=start_xyz, xyt=x1, footprint=footprint)
+            print(f"{x2} valid = {space.is_valid(x2)}")
+            voxel_map.show(instances=True, orig=start_xyz, xyt=x2, footprint=footprint)
+
+        obstacles, explored = voxel_map.get_2d_map(debug=False)
         frontier, outside, traversible = space.get_frontier()
 
         plt.subplot(2, 2, 1)

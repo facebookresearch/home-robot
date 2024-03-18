@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import copy
 import logging
+import math
 import pickle
 from collections import namedtuple
 from pathlib import Path
@@ -20,7 +21,7 @@ from torch import Tensor
 
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.instance import Instance, InstanceMemory, InstanceView
-from home_robot.motion import PlanResult, RobotModel
+from home_robot.motion import Footprint, PlanResult, RobotModel
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
@@ -994,29 +995,40 @@ class SparseVoxelMap(object):
     def postprocess_instances(self):
         self.instances.global_box_compression_and_nms(env_id=0)
 
-    def _get_boxes_from_points(self, traversible: torch.Tensor, color: List[float]):
+    def _get_boxes_from_points(
+        self,
+        traversible: torch.Tensor,
+        color: List[float],
+        is_map: bool = True,
+        height: float = 0.0,
+        offset: Optional[np.ndarray] = None,
+    ):
         """Get colored boxes for a mask"""
         # Get indices for all traversible locations
         traversible_indices = np.argwhere(traversible)
         # Traversible indices will be a 2xN array, so we need to transpose it.
         # Set to floor/max obs height and bright red
-        traversible_pts = self.grid_coords_to_xy(traversible_indices.T)
+        if is_map:
+            traversible_pts = self.grid_coords_to_xy(traversible_indices.T)
+        else:
+            traversible_pts = (
+                traversible_indices.T - np.ceil([d / 2 for d in traversible.shape])
+            ) * self.grid_resolution
+        if offset is not None:
+            traversible_pts += offset
 
         geoms = []
         for i in range(traversible_pts.shape[0]):
             center = np.array(
-                [traversible_pts[i, 0], traversible_pts[i, 1], self.obs_min_height]
+                [
+                    traversible_pts[i, 0],
+                    traversible_pts[i, 1],
+                    self.obs_min_height + height,
+                ]
             )
             dimensions = np.array(
                 [self.grid_resolution, self.grid_resolution, self.grid_resolution]
             )
-            # TODO: remove debugging code
-            # dimensions = np.array([0.1, 0.1, 0.1])
-            # geoms.append(o3d.geometry.AxisAlignedBoundingBox(center - dimensions / 2, center + dimensions / 2))
-            # Create an axis-aligned bounding box at the specified location
-            # box = open3d.geometry.AxisAlignedBoundingBox(
-            #     center - dimensions / 2, center + dimensions / 2
-            # )
 
             # Create a custom geometry with red color
             mesh_box = open3d.geometry.TriangleMesh.create_box(
@@ -1034,6 +1046,8 @@ class SparseVoxelMap(object):
         instances: bool,
         orig: Optional[np.ndarray] = None,
         norm: float = 255.0,
+        xyt: Optional[np.ndarray] = None,
+        footprint: Optional[Footprint] = None,
         **backend_kwargs,
     ):
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
@@ -1055,6 +1069,15 @@ class SparseVoxelMap(object):
 
         geoms += self._get_boxes_from_points(traversible, [0, 1, 0])
         geoms += self._get_boxes_from_points(obstacles, [1, 0, 0])
+
+        if xyt is not None and footprint is not None:
+            geoms += self._get_boxes_from_points(
+                footprint.get_rotated_mask(self.grid_resolution, xyt[2]),
+                [0, 0, 1],
+                is_map=False,
+                height=0.1,
+                offset=xyt[:2],
+            )
 
         if instances:
             for instance_view in self.get_instances():
@@ -1098,17 +1121,71 @@ class SparseVoxelMap(object):
                 geoms.append(wireframe)
         return geoms
 
+    def _get_o3d_robot_footprint_geometry(
+        self,
+        xyt: np.ndarray,
+        dimensions: Optional[np.ndarray] = None,
+        length_offset: float = 0,
+    ):
+        """Get a 3d mesh cube for the footprint of the robot. But this does not work very well for whatever reason."""
+        # Define the dimensions of the cube
+        if dimensions is None:
+            dimensions = np.array(
+                [0.2, 0.2, 0.2]
+            )  # Cube dimensions (length, width, height)
+
+        x, y, theta = xyt
+        # theta = theta - np.pi/2
+
+        # Create a custom mesh cube with the specified dimensions
+        mesh_cube = open3d.geometry.TriangleMesh.create_box(
+            width=dimensions[0], height=dimensions[1], depth=dimensions[2]
+        )
+
+        # Define the transformation matrix for position and orientation
+        rotation_matrix = np.array(
+            [
+                [math.cos(theta), -math.sin(theta), 0],
+                [math.sin(theta), math.cos(theta), 0],
+                [0, 0, 1],
+            ]
+        )
+        # Calculate the translation offset based on theta
+        length_offset = 0
+        x_offset = length_offset - (dimensions[0] / 2)
+        y_offset = -1 * dimensions[1] / 2
+        dx = (math.cos(theta) * x_offset) + (math.cos(theta - np.pi / 2) * y_offset)
+        dy = (math.sin(theta + np.pi / 2) * y_offset) + (math.sin(theta) * x_offset)
+        translation_vector = np.array(
+            [x + dx, y + dy, 0]
+        )  # Apply offset based on theta
+        transformation_matrix = np.identity(4)
+        transformation_matrix[:3, :3] = rotation_matrix
+        transformation_matrix[:3, 3] = translation_vector
+
+        # Apply the transformation to the cube
+        mesh_cube.transform(transformation_matrix)
+
+        # Set the color of the cube to blue
+        mesh_cube.paint_uniform_color([0.0, 0.0, 1.0])  # Set color to blue
+
+        return mesh_cube
+
     def _show_open3d(
         self,
         instances: bool,
         orig: Optional[np.ndarray] = None,
         norm: float = 255.0,
+        xyt: Optional[np.ndarray] = None,
+        footprint: Optional[Footprint] = None,
         **backend_kwargs,
     ):
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
 
         # get geometries so we can use them
-        geoms = self._get_open3d_geometries(instances, orig, norm)
+        geoms = self._get_open3d_geometries(
+            instances, orig, norm, xyt=xyt, footprint=footprint
+        )
 
         # Show the geometries of where we have explored
         open3d.visualization.draw_geometries(geoms)
