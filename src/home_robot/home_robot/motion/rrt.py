@@ -124,6 +124,10 @@ class RRT(Planner):
         else:
             should_sample_goal = random() < self.p_sample_goal
 
+        # If we do not pass in any nodes, use the planner's stored set of nodes
+        if nodes is None:
+            nodes = self.nodes
+
         # Get a new state
         if next_state is not None:
             goal_state = next_state
