@@ -181,6 +181,7 @@ class SAMPerception(PerceptionModule):
         # show_anns(masks)
         # plt.axis("off")
         # plt.savefig("segmented.png", dpi=100)
+
         masks = sorted(masks, key=lambda x: np.count_nonzero(x), reverse=True)
         if depth_threshold is not None and obs.depth is not None:
             masks = np.array(
@@ -189,6 +190,11 @@ class SAMPerception(PerceptionModule):
         semantic_map, instance_map = overlay_masks(
             masks, np.zeros(masks.shape[0]), (height, width)
         )
+
+        # # detect open-vocab labels
+        # embedding = encoder.encode_image(cropped_image * instance_mask).to(
+        #     cropped_image.device
+        # )
 
         obs.semantic = semantic_map.astype(int)
         obs.instance = instance_map.astype(int)

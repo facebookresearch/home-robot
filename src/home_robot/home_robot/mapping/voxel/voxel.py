@@ -1193,3 +1193,67 @@ class SparseVoxelMap(object):
         # Returns xyz and rgb for further inspection
         points, _, _, rgb = self.voxel_pcd.get_pointcloud()
         return points, rgb
+
+    def get_ins_center_pos(self, idx):
+        return torch.mean(self.get_instances()[idx].point_cloud, axis=0)
+
+    def near(self, ins_a, ins_b):
+        dist = torch.pairwise_distance(
+            self.get_ins_center_pos(ins_a), self.get_ins_center_pos(ins_b)
+        ).item()
+        if dist < 0.3:  # TODO: set this in config
+            return True
+        return False
+
+    def on(self, ins_a, ins_b):
+        if (
+            self.near(ins_a, ins_b)
+            and self.get_ins_center_pos(ins_a)[2] > self.get_ins_center_pos(ins_b)[2]
+        ):
+            return True
+        return False
+
+    def extract_symbolic_spatial_info(self):
+        """Extract pairwise symbolic spatial relationship between instances using heurisitcs"""
+        instances = self.get_instances()
+        relationships = []
+        for idx_a, ins_a in enumerate(instances):
+            for idx_b, ins_b in enumerate(instances):
+                if idx_a == idx_b:
+                    continue
+                # if self.on(idx_a, idx_b):
+                #     relationships.append((idx_a, idx_b, "on"))
+                if self.near(idx_a, idx_b):
+                    relationships.append((idx_a, idx_b, "near"))
+
+        # show symbolic relationships
+        for idx_a, idx_b, rel in relationships:
+            import matplotlib.pyplot as plt
+
+            plt.subplot(1, 2, 1)
+            plt.imshow(
+                (
+                    instances[idx_a].get_best_view().cropped_image
+                    * instances[idx_a].get_best_view().mask
+                    / 255.0
+                )
+                .detach()
+                .cpu()
+                .numpy()
+            )
+            plt.title("Instance A is " + rel)
+            plt.axis("off")
+            plt.subplot(1, 2, 2)
+            plt.imshow(
+                (
+                    instances[idx_b].get_best_view().cropped_image
+                    * instances[idx_b].get_best_view().mask
+                    / 255.0
+                )
+                .detach()
+                .cpu()
+                .numpy()
+            )
+            plt.title("Instance B")
+            plt.axis("off")
+            plt.show()

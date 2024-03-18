@@ -190,9 +190,16 @@ class RobotAgent:
                     "min_pixels_for_instance_view": parameters.get(
                         "min_pixels_for_instance_view", 100
                     ),
-                    "min_instance_height": parameters.get("min_instance_height", 0.01),
+                    "min_instance_thickness": parameters.get(
+                        "min_instance_thickness", 0.01
+                    ),
                     "min_instance_vol": parameters.get("min_instance_vol", 1e-6),
                     "max_instance_vol": parameters.get("max_instance_vol", 10.0),
+                    "min_instance_height": parameters.get("min_instance_height", 0.1),
+                    "max_instance_height": parameters.get("max_instance_height", 1.8),
+                    "open_vocab_cat_map_file": parameters.get(
+                        "open_vocab_cat_map_file", None
+                    ),
                 },
             )
 

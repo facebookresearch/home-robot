@@ -11,7 +11,7 @@ import numpy as np
 # observations = svm.observations
 # with open(root_path + "annotation.pkl", "rb") as f:
 #     annotation = pickle.load(f)
-with open(root_path + "stretch_output_2024-03-06_15-47-27.pkl", "rb") as f:
+with open(root_path + "stretch_output_2024-03-13_15-23-13.pkl", "rb") as f:
     obs_history = pickle.load(f)
 
 # print(annotation["task"])
@@ -83,27 +83,29 @@ voxel_map = SparseVoxelMap(
         "min_pixels_for_instance_view": parameters.get(
             "min_pixels_for_instance_view", 100
         ),
-        "min_instance_height": parameters.get("min_instance_height", 0.05),
+        "min_instance_thickness": parameters.get("min_instance_thickness", 0.05),
         "min_instance_vol": parameters.get("min_instance_vol", 1e-6),
         "max_instance_vol": parameters.get("max_instance_vol", 10.0),
+        "min_instance_height": parameters.get("min_instance_height", 0.1),
+        "max_instance_height": parameters.get("max_instance_height", 1.8),
+        "open_vocab_cat_map_file": parameters.get("open_vocab_cat_map_file", None),
     },
 )
 
 voxel_map.reset()
-# key_obs = [key_obs[4]]
+key_obs = [key_obs[5]]
 for idx, obs in enumerate(key_obs):
 
     image_array = np.array(obs.rgb, dtype=np.uint8)
-    # print(image_array.shape)
-    # # image_array = image_array[..., ::-1]
     image = Image.fromarray(image_array)
-    # image.show()
+    image.show()
 
     obs = semantic_sensor.predict(obs)
     voxel_map.add_obs(obs)
-voxel_map.show(
-    instances=True,
-    height=1000,
-    boxes_plot_together=False,
-    backend="open3d",
-)
+voxel_map.extract_symbolic_spatial_info()
+# voxel_map.show(
+#     instances=True,
+#     height=1000,
+#     boxes_plot_together=False,
+#     backend="open3d",
+# )
