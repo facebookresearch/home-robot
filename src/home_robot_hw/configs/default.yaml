@@ -2,6 +2,7 @@
 # Encoder is used to compute per-object embeddings.
 encoder: "clip"
 encoder_args: "ViT-B/32"
+open_vocab_cat_map_file: projects/real_world_ovmm/configs/example_cat_map.json
 
 # Sparse Voxel Map parameters
 voxel_size: 0.05
