@@ -999,7 +999,7 @@ class RobotAgent:
                 all_starts.append(start)
                 all_goals.append(res.trajectory[-1].state)
                 if visualize:
-                    print("Showing goal location")
+                    print("Showing goal location:")
                     self.voxel_map.show(
                         orig=np.zeros(3),
                         xyt=res.trajectory[-1].state,

@@ -31,8 +31,8 @@ filters:
         # use_voxel_filter: True
 
 # Exploration
-in_place_rotation_steps: 8
-# in_place_rotation_steps: 0
+#in_place_rotation_steps: 8
+in_place_rotation_steps: 0
 
 # TAMP parameters
 guarantee_instance_is_reachable: True
