@@ -1146,7 +1146,10 @@ class SparseVoxelMap(object):
                     continue
                 # if self.on(idx_a, idx_b):
                 #     relationships.append((idx_a, idx_b, "on"))
-                if self.near(idx_a, idx_b):
+                if (
+                    self.near(idx_a, idx_b)
+                    and (idx_b, idx_a, "near") not in relationships
+                ):
                     relationships.append((idx_a, idx_b, "near"))
 
         # show symbolic relationships

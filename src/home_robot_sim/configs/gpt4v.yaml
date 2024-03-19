@@ -69,13 +69,13 @@ trajectory_per_step_timeout: 3.0
 name: "stretch_demo"  # for logging - currently not used
 chat: False
 start_ui_server: False
-vlm_context_length: 75  # How long messages sent to the vlm server can be if we are using it
+vlm_context_length: 20  # How long messages sent to the vlm server can be if we are using it
 limited_obs_publish_sleep: 0.5
 
 # High level stuff: commands to execute 
 # command: "pick up a bottle and put it on the chair"
 # name: "spot"
-exploration_steps: 75 # we can potentially increase it to 150 for sim
+exploration_steps: 5 # we can potentially increase it to 150 for sim
 # object_to_find: "bottle"
 # location_to_place: "chair"
 
@@ -83,4 +83,4 @@ exploration_steps: 75 # we can potentially increase it to 150 for sim
 sample_strategy: "clip"
 perception_only: True
 planning_only: True
-explore_once: True
+explore_once: False
