@@ -879,6 +879,11 @@ class RobotAgent:
         print("- try to motion plan there")
         start = self.robot.get_base_pose()
         goal = np.array([0, 0, 0])
+        print(
+            f"- Current pose is valid: {self.space.is_valid(self.robot.get_base_pose())}"
+        )
+        print(f"-   start pose is valid: {self.space.is_valid(start)}")
+        print(f"-    goal pose is valid: {self.space.is_valid(goal)}")
         res = self.planner.plan(start, goal)
         # if it fails, skip; else, execute a trajectory to this position
         if res.success:
@@ -886,7 +891,7 @@ class RobotAgent:
             self.robot.execute_trajectory([pt.state for pt in res.trajectory])
             print("Done!")
         else:
-            print("Can't go home!")
+            print("Can't go home; planning failed!")
 
     def choose_best_goal_instance(self, goal: str, debug: bool = False) -> Instance:
         instances = self.voxel_map.get_instances()
@@ -1000,8 +1005,10 @@ class RobotAgent:
                 all_goals.append(res.trajectory[-1].state)
                 if visualize:
                     print("Showing goal location:")
+                    robot_center = np.zeros(3)
+                    robot_center[:2] = self.robot.get_base_pose()[:2]
                     self.voxel_map.show(
-                        orig=np.zeros(3),
+                        orig=robot_center,
                         xyt=res.trajectory[-1].state,
                         footprint=self.robot.get_robot_model().get_footprint(),
                     )
@@ -1045,8 +1052,10 @@ class RobotAgent:
             # self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
             if visualize:
                 # After doing everything - show where we will move to
+                robot_center = np.zeros(3)
+                robot_center[:2] = self.robot.get_base_pose()[:2]
                 self.voxel_map.show(
-                    orig=np.zeros(3),
+                    orig=robot_center,
                     xyt=self.robot.get_base_pose(),
                     footprint=self.robot.get_robot_model().get_footprint(),
                 )
