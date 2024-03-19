@@ -313,7 +313,11 @@ class RobotAgent:
                 i += 1
 
             if visualize:
-                self.voxel_map.show()
+                self.voxel_map.show(
+                    orig=np.zeros(3),
+                    xyt=self.robot.get_base_pose(),
+                    footprint=self.robot.get_robot_model().get_footprint(),
+                )
 
         return True
 
@@ -761,7 +765,11 @@ class RobotAgent:
         # Add some debugging stuff - show what 3d point clouds look like
         if visualize_map_at_start:
             print("- Visualize map at first timestep")
-            self.voxel_map.show()
+            self.voxel_map.show(
+                orig=np.zeros(3),
+                xyt=self.robot.get_base_pose(),
+                footprint=self.robot.get_robot_model().get_footprint(),
+            )
 
         self.robot.move_to_nav_posture()
         print("... done.")
@@ -775,7 +783,11 @@ class RobotAgent:
         # Add some debugging stuff - show what 3d point clouds look like
         if visualize_map_at_start:
             print("- Visualize map after updating")
-            self.voxel_map.show()
+            self.voxel_map.show(
+                orig=np.zeros(3),
+                xyt=self.robot.get_base_pose(),
+                footprint=self.robot.get_robot_model().get_footprint(),
+            )
 
         self.print_found_classes(goal)
         return self.get_found_instances_by_class(goal)
@@ -986,6 +998,13 @@ class RobotAgent:
                     print(i, pt.state)
                 all_starts.append(start)
                 all_goals.append(res.trajectory[-1].state)
+                if visualize:
+                    print("Showing goal location")
+                    self.voxel_map.show(
+                        orig=np.zeros(3),
+                        xyt=res.trajectory[-1].state,
+                        footprint=self.robot.get_robot_model().get_footprint(),
+                    )
                 if not dry_run:
                     self.robot.execute_trajectory(
                         [pt.state for pt in res.trajectory],
@@ -1026,7 +1045,12 @@ class RobotAgent:
             # self.save_svm("", filename=f"debug_svm_{i:03d}.pkl")
             if visualize:
                 # After doing everything - show where we will move to
-                self.voxel_map.show()
+                self.voxel_map.show(
+                    orig=np.zeros(3),
+                    xyt=self.robot.get_base_pose(),
+                    footprint=self.robot.get_robot_model().get_footprint(),
+                )
+
             if manual_wait:
                 input("... press enter ...")
 
