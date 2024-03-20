@@ -595,9 +595,9 @@ class RobotAgent:
         self,
         instance: Instance,
         start: np.ndarray,
-        verbose: bool = True,
+        verbose: bool = False,
         instance_id: int = -1,
-        max_try: int = 10,
+        max_tries: int = 10,
     ) -> PlanResult:
         """Move to a specific instance. Goes until a motion plan is found.
 
@@ -612,41 +612,74 @@ class RobotAgent:
             for j, view in enumerate(instance.instance_views):
                 print(f"- instance {instance_id} view {j} at {view.cam_to_world}")
 
-        start_is_valid = self.space.is_valid(start, verbose=True)
+        start_is_valid = self.space.is_valid(start, verbose=False)
         if not start_is_valid:
             return PlanResult(success=False, reason="invalid start state")
 
-        mask = self.voxel_map.mask_from_bounds(instance.bounds)
+        # plan to the sampled goal
+        has_plan = False
+        if instance_id >= 0 and instance_id in self._cached_plans:
+            res = self._cached_plans[instance_id]
+            has_plan = res.success
+            if verbose:
+                print(f"- try retrieving cached plan for {instance_id}: {has_plan=}")
+
+        if not has_plan:
+            # Call planner
+            res = self.plan_to_bounds(instance.bounds, start, verbose, max_tries)
+            if instance_id >= 0:
+                self._cached_plans[instance_id] = res
+
+        # Finally, return plan result
+        return res
+
+    def plan_to_bounds(
+        self,
+        bounds: np.ndarray,
+        start: np.ndarray,
+        verbose: bool = False,
+        max_tries: int = 10,
+    ) -> PlanResult:
+        """Move to be near a bounding box in the world. Goes until a motion plan is found or max_tries is reached.
+
+        Parameters:
+            bounds(np.ndarray): the bounding box to move to
+            start(np.ndarray): the start position
+            verbose(bool): extra info is printed
+            max_tries(int): the maximum number of tries to find a plan
+
+        Returns:
+            PlanResult: the result of the motion planner
+        """
+
+        mask = self.voxel_map.mask_from_bounds(bounds)
         try_count = 0
+        res = None
+        start_is_valid = self.space.is_valid(start, verbose=False)
         for goal in self.space.sample_near_mask(mask, radius_m=0.7):
             goal = goal.cpu().numpy()
-            print("       Start:", start)
-            print("Sampled Goal:", goal)
+            if verbose:
+                print("       Start:", start)
+                print("Sampled Goal:", goal)
             show_goal = np.zeros(3)
             show_goal[:2] = goal[:2]
-            goal_is_valid = self.space.is_valid(goal, verbose=True)
-            print("Start is valid:", start_is_valid)
-            print(" Goal is valid:", goal_is_valid)
+            goal_is_valid = self.space.is_valid(goal, verbose=False)
+            if verbose:
+                print("Start is valid:", start_is_valid)
+                print(" Goal is valid:", goal_is_valid)
             if not goal_is_valid:
-                print(" -> resample goal.")
+                if verbose:
+                    print(" -> resample goal.")
                 continue
 
-            # plan to the sampled goal
-            if instance_id >= 0 and instance_id in self._cached_plans:
-                res = self._cached_plans[instance_id]
-                has_plan = res.success
-                if verbose:
-                    print(
-                        f"- try retrieving cached plan for {instance_id}: {has_plan=}"
-                    )
-            else:
-                has_plan = False
-            if not has_plan:
-                res = self.planner.plan(start, goal)
-            print("Found plan:", res.success)
+            res = self.planner.plan(start, goal, verbose=False)
+            if verbose:
+                print("Found plan:", res.success)
             try_count += 1
-            if res.success or try_count > max_try:
+            if res.success or try_count > max_tries:
                 break
+
+        # Planning failed
         if res is None:
             return PlanResult(success=False, reason="no valid plans found")
         return res
@@ -824,6 +857,34 @@ class RobotAgent:
             if name.lower() == goal.lower():
                 matching_instances.append((i, instance))
         return self.filter_matches(matching_instances, threshold=threshold)
+
+    def get_ranked_instances(
+        self, goal: str, threshold: int = 0, debug: bool = False
+    ) -> List[Tuple[float, int, Instance]]:
+        """Get instances and rank them by similarity to the goal, using our encoder, whatever that is.
+
+        Parameters:
+            goal(str): optional name of the object we want to find
+            threshold(int): number of object attempts we are allowed to do for this object
+            debug(bool): print debug info
+
+        Returns:
+            ranked_matches: list of tuples with three members:
+            score(float): a similarity score between the goal and this instance
+            instance_id(int): a unique int identifying this instance
+            instance(Instance): information about a particular object detection
+        """
+        instances = self.voxel_map.get_instances()
+        goal_emb = self.encode_text(goal)
+        ranked_matches = []
+        for i, instance in enumerate(instances):
+            img_emb = instance.get_image_embedding(
+                aggregation_method="mean", normalize=self.normalize_embeddings
+            ).to(goal_emb.device)
+            score = torch.matmul(goal_emb, img_emb.T).item()
+            ranked_matches.append((score, i, instance))
+        ranked_matches.sort(reverse=True)
+        return ranked_matches
 
     def get_reachable_instances_by_class(
         self, goal: Optional[str], threshold: int = 0, debug: bool = False
