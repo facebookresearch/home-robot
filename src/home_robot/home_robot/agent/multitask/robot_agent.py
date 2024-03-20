@@ -260,6 +260,8 @@ class RobotAgent:
             self.chat = None
             self._publisher = None
 
+        self.openai_key = None
+        self.task = None
         # disable owlvit for now
         # self.to_pil = transforms.ToPILImage()
         # self.processor = Owlv2Processor.from_pretrained(
@@ -324,17 +326,62 @@ class RobotAgent:
 
         return True
 
+    def get_output_from_gpt4v(self, world_rep):
+        import sys
+
+        sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
+        from src.agents.gpt4v_agent.agent import GPT4VAgent
+
+        # TODO: put these into config
+        img_size = 256
+        temperature = 0.2
+        max_tokens = 50
+        with open(
+            os.environ["ACCEL_CORTEX"]
+            + "/src/agents/gpt4v_agent/prompts/prompt_eplan.txt",
+            "r",
+        ) as f:
+            prompt = f.read()
+
+        gpt_agent = GPT4VAgent(
+            cfg=dict(
+                img_size=img_size,
+                prompt=prompt,
+                api_key=self.openai_key,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+        )
+        gpt_agent.reset()
+        plan = gpt_agent.act_on_observations(
+            0, world_rep, goal=self.task, debug_path=None
+        )
+        return plan
+
     def get_plan_from_vlm(self):
         """This is a connection to a remote thing for getting language commands"""
-        assert self.rpc_stub is not None, "must have RPC stub to connect to remote VLM"
-        # This is not a very stable import
-        # So we guard it under this part where it's necessary
         from home_robot.utils.rpc import get_output_from_world_representation
 
-        world_representation = self.get_observations()
-        output = get_output_from_world_representation(
-            self.rpc_stub, world_representation, self.get_command()
-        )
+        if self.parameters["vlm_option"] == "gpt4v":
+            if not self.openai_key:
+                self.openai_key = input(
+                    "You are using GPT4v for planning, please type in your openai key: "
+                )
+            if not self.task:
+                # gpt4v agent has replanning capability, so we save the task here and plan multiple times
+                self.task = self.get_command()
+            world_representation = self.get_observations(task=self.task)
+            output = self.get_output_from_gpt4v(world_representation)
+        else:
+            assert (
+                self.rpc_stub is not None
+            ), "must have RPC stub to connect to remote VLM"
+            world_representation = self.get_observations()
+            # This is not a very stable import
+            # So we guard it under this part where it's necessary
+            output = get_output_from_world_representation(
+                self.rpc_stub, world_representation, self.get_command()
+            )
         return output
 
     def get_observations(self, task=None):

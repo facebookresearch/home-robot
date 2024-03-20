@@ -82,6 +82,7 @@ def do_manipulation_test(demo, object_to_find, location_to_place):
     is_flag=True,
     help="write out images of every object we found",
 )
+@click.option("--parameter-file", default="src/home_robot_hw/configs/default.yaml")
 def main(
     rate,
     visualize,
@@ -102,6 +103,7 @@ def main(
     vlm_server_addr: str = "127.0.0.1",
     vlm_server_port: str = "50054",
     write_instance_images: bool = False,
+    parameter_file: str = "src/home_robot_hw/configs/default.yaml",
     **kwargs,
 ):
     """
@@ -119,25 +121,26 @@ def main(
     output_pcd_filename = output_filename + "_" + formatted_datetime + ".pcd"
     output_pkl_filename = output_filename + "_" + formatted_datetime + ".pkl"
 
+    print("- Load parameters")
+    parameters = get_parameters(parameter_file)
+    print(parameters)
+
+    stub = None
     if use_vlm:
-        try:
-            from home_robot.utils.rpc import get_vlm_rpc_stub
-        except KeyError:
-            print(
-                "Environment not configured for RPC connection! Needs $ACCEL_CORTEX to be set."
-            )
-        stub = get_vlm_rpc_stub(vlm_server_addr, vlm_server_port)
-    else:
-        stub = None
+        if parameters.get("vlm_option", "rpc") == "rpc":
+            try:
+                from home_robot.utils.rpc import get_vlm_rpc_stub
+            except KeyError:
+                print(
+                    "Environment not configured for RPC connection! Needs $ACCEL_CORTEX to be set."
+                )
+            stub = get_vlm_rpc_stub(vlm_server_addr, vlm_server_port)
 
     click.echo("Will connect to a Stretch robot and collect a short trajectory.")
     print("- Connect to Stretch")
     robot = StretchClient()
     robot.nav.navigate_to([0, 0, 0])
 
-    print("- Load parameters")
-    parameters = get_parameters("src/home_robot_hw/configs/default.yaml")
-    print(parameters)
     if explore_iter >= 0:
         parameters["exploration_steps"] = explore_iter
     object_to_find, location_to_place = parameters.get_task_goals()
@@ -187,10 +190,13 @@ def main(
         matches = demo.get_found_instances_by_class(object_to_find)
         print("-> Found", len(matches), f"instances of class {object_to_find}.")
 
-        if stub is not None:
+        if use_vlm:
             print("!!!!!!!!!!!!!!!!!!!!!")
-            print("Query the LLM.")
-            print(demo.get_plan_from_vlm())
+            print("Query the VLM.")
+            print(f"VLM's response: {demo.get_plan_from_vlm()}")
+            input(
+                "# TODO: execute the above plan (seems like we are not doing it right now)"
+            )
 
         if len(matches) == 0:
             print("No matching objects. We're done here.")

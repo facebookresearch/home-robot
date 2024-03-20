@@ -84,6 +84,7 @@ exploration_steps: 5 # we can potentially increase it to 150 for sim
 
 # VLM Query parameters
 sample_strategy: "clip"
+vlm_option: gpt4v
 
 # some parameters in sim
 perception_only: False
