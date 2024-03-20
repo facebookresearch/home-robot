@@ -598,6 +598,7 @@ class RobotAgent:
         verbose: bool = False,
         instance_id: int = -1,
         max_tries: int = 10,
+        radius_m: float = 0.5,
     ) -> PlanResult:
         """Move to a specific instance. Goes until a motion plan is found.
 
@@ -626,7 +627,9 @@ class RobotAgent:
 
         if not has_plan:
             # Call planner
-            res = self.plan_to_bounds(instance.bounds, start, verbose, max_tries)
+            res = self.plan_to_bounds(
+                instance.bounds, start, verbose, max_tries, radius_m
+            )
             if instance_id >= 0:
                 self._cached_plans[instance_id] = res
 
@@ -639,6 +642,7 @@ class RobotAgent:
         start: np.ndarray,
         verbose: bool = False,
         max_tries: int = 10,
+        radius_m: float = 0.5,
     ) -> PlanResult:
         """Move to be near a bounding box in the world. Goes until a motion plan is found or max_tries is reached.
 
@@ -656,7 +660,7 @@ class RobotAgent:
         try_count = 0
         res = None
         start_is_valid = self.space.is_valid(start, verbose=False)
-        for goal in self.space.sample_near_mask(mask, radius_m=0.7):
+        for goal in self.space.sample_near_mask(mask, radius_m=radius_m):
             goal = goal.cpu().numpy()
             if verbose:
                 print("       Start:", start)

@@ -214,7 +214,12 @@ def main(
             print("Found", len(matches), "matches for query", query)
             for score, i, instance in matches:
                 print(f"Try to plan to instance {i} with score {score}")
-                res = agent.plan_to_instance(instance, x0, verbose=False)
+                res = agent.plan_to_instance(instance, x0, verbose=False, radius_m=0.3)
+                if show_instances:
+                    plt.imshow(instance.get_best_view().get_image())
+                    plt.title(f"Instance {i} with score {score}")
+                    plt.axis("off")
+                    plt.show()
                 print(" - Plan result:", res.success)
                 if res.success:
                     print(" - Plan length:", len(res.trajectory))

@@ -90,6 +90,12 @@ class InstanceView:
             masked_image,
         )
 
+    def get_image(self) -> np.ndarray:
+        """Convert image to showable numpy"""
+        img = self.cropped_image.cpu().numpy()
+        assert img.shape[-1] == 3, "Image should be RGB"
+        return img.astype(np.uint8)
+
 
 @dataclass
 class Instance:
