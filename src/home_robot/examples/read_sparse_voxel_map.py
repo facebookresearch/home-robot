@@ -56,6 +56,7 @@ def plan_to_deltas(xyt0, plan):
 @click.option("--show-svm", "-s", type=bool, is_flag=True, default=False)
 @click.option("--pkl-is-svm", "-p", type=bool, is_flag=True, default=False)
 @click.option("--test-planning", type=bool, is_flag=True, default=False)
+@click.option("--show-instances", type=bool, is_flag=True, default=False)
 def main(
     input_path,
     config_path,
@@ -66,11 +67,11 @@ def main(
     frame: int = -1,
     show_svm: bool = False,
     try_to_plan_iter: int = 10,
+    show_instances: bool = False,
 ):
     """Simple script to load a voxel map"""
     input_path = Path(input_path)
     print("Loading:", input_path)
-
     if pkl_is_svm:
         with input_path.open("rb") as f:
             loaded_voxel_map = pickle.load(f)
@@ -117,15 +118,18 @@ def main(
 
         if show_svm:
             x0 = np.array([0, 0, 0])
-            x1 = np.array([0, 0, np.pi / 4])
-            x2 = np.array([0.5, 0.5, np.pi / 4])
             footprint = dummy_robot.get_robot_model().get_footprint()
             print(f"{x0} valid = {space.is_valid(x0)}")
-            voxel_map.show(instances=True, orig=start_xyz, xyt=x0, footprint=footprint)
-            print(f"{x1} valid = {space.is_valid(x1)}")
-            voxel_map.show(instances=True, orig=start_xyz, xyt=x1, footprint=footprint)
-            print(f"{x2} valid = {space.is_valid(x2)}")
-            voxel_map.show(instances=True, orig=start_xyz, xyt=x2, footprint=footprint)
+            voxel_map.show(
+                instances=show_instances, orig=start_xyz, xyt=x0, footprint=footprint
+            )
+            # TODO: remove debug visualization code
+            # x1 = np.array([0, 0, np.pi / 4])
+            # print(f"{x1} valid = {space.is_valid(x1)}")
+            # voxel_map.show(instances=show_instances, orig=start_xyz, xyt=x1, footprint=footprint)
+            # x2 = np.array([0.5, 0.5, np.pi / 4])
+            # print(f"{x2} valid = {space.is_valid(x2)}")
+            # voxel_map.show(instances=show_instances, orig=start_xyz, xyt=x2, footprint=footprint)
 
         obstacles, explored = voxel_map.get_2d_map(debug=False)
         frontier, outside, traversible = space.get_frontier()
