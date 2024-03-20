@@ -99,6 +99,9 @@ class Instance:
     """
 
     name: str = None
+    """sequential global id"""
+    global_id: int = None
+    """category id"""
     category_id: int = None
     """Integer indicating the category"""
     point_cloud: Tensor = None

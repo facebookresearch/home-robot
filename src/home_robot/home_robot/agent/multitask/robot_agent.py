@@ -151,6 +151,8 @@ class RobotAgent:
         self.guarantee_instance_is_reachable = (
             parameters.guarantee_instance_is_reachable
         )
+        self.plan_with_reachable_instances = parameters["plan_with_reachable_instances"]
+        self.use_scene_graph = parameters["plan_with_scene_graph"]
 
         # Expanding frontier - how close to frontier are we allowed to go?
         self.default_expand_frontier_size = parameters["default_expand_frontier_size"]
@@ -258,14 +260,15 @@ class RobotAgent:
             self.chat = None
             self._publisher = None
 
-        self.to_pil = transforms.ToPILImage()
-        self.processor = Owlv2Processor.from_pretrained(
-            "google/owlv2-base-patch16-ensemble"
-        )
-        self.model = Owlv2ForObjectDetection.from_pretrained(
-            "google/owlv2-base-patch16-ensemble"
-        )
-        self.owlv2_threshold = 0.2
+        # disable owlvit for now
+        # self.to_pil = transforms.ToPILImage()
+        # self.processor = Owlv2Processor.from_pretrained(
+        #     "google/owlv2-base-patch16-ensemble"
+        # )
+        # self.model = Owlv2ForObjectDetection.from_pretrained(
+        #     "google/owlv2-base-patch16-ensemble"
+        # )
+        # self.owlv2_threshold = 0.2
 
     def get_navigation_space(self) -> ConfigurationSpace:
         """Returns reference to the navigation space."""
@@ -333,12 +336,22 @@ class RobotAgent:
     def get_observations(self, task=None):
         from home_robot.utils.rpc import get_obj_centric_world_representation
 
-        instances = self.voxel_map.get_instances()
+        if self.plan_with_reachable_instances:
+            instances = self.get_all_reachable_instances()
+        else:
+            instances = self.voxel_map.get_instances()
+
+        scene_graph = None
+        if self.use_scene_graph:
+            scene_graph = self.extract_symbolic_spatial_info(instances)
+
         world_representation = get_obj_centric_world_representation(
             instances,
             self.parameters["vlm_context_length"],
             self.parameters["sample_strategy"],
             task=task,
+            text_features=self.encode_text(task),
+            scene_graph=scene_graph,
         )
         return world_representation
 
@@ -357,30 +370,6 @@ class RobotAgent:
         # TODO: add optional supports for LangSAM, OWLVit etc.
         return self.planning_with_owlv2(obs, goal)
 
-    def sort_by_clip_similarity(self, obs, text):
-        """Sort the obj-centric world rep by CLIP similarity, return the sorted world rep"""
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model, preprocess = clip.load("ViT-B/32", device=device)
-        text = clip.tokenize([text]).to(device)
-        text_features = model.encode_text(text).float()
-        image_features = []
-        for obj in obs.object_images:
-            image_features.append(
-                model.encode_image(
-                    preprocess(self.to_pil(obj.image.permute(2, 0, 1) / 255.0))
-                    .unsqueeze(0)
-                    .to(device)
-                )
-            )
-        image_features = torch.stack(image_features).squeeze(1).to(device).float()
-        image_features /= image_features.norm(dim=-1, keepdim=True)
-        text_features /= text_features.norm(dim=-1, keepdim=True)
-        similarity = (
-            (100.0 * text_features @ image_features.T).softmax(dim=-1).squeeze(0)
-        )
-        obs.object_images = [x for _, x in sorted(zip(similarity, obs.object_images))]
-        return obs
-
     def planning_with_owlv2(self, obs, goal):
         # goal is an OVMM-style query
         target_obj = goal.split(" ")[1]
@@ -392,7 +381,8 @@ class RobotAgent:
         # using owlv2 to make sure the target is detected in the instance image
         # TODO: add start recep check using coordinates
         for target in [target_obj, goal_recep]:
-            obs = self.sort_by_clip_similarity(obs, target)
+            # TODO: implement this
+            # obs = self.sort_by_clip_similarity(obs, target)
             img = self.to_pil(obs.object_images[-1].image.permute(2, 0, 1) / 255.0)
             text = [["a photo of a " + target]]
             inputs = self.processor(text=text, images=img, return_tensors="pt")
@@ -442,12 +432,12 @@ class RobotAgent:
         )
 
         # Xiaohan: comment this for now, and change it to owlv2 plan generation
-        # output = get_output_from_world_representation(
-        #     self.rpc_stub, world_representation, self.get_command()
-        # )
-        # plan = output.action
+        output = get_output_from_world_representation(
+            self.rpc_stub, world_representation, self.get_command()
+        )
+        plan = output.action
         # TODO: need testing on real robot: command should only be OVMM-style
-        plan = self.template_planning(world_representation, self.get_command())
+        # plan = self.template_planning(world_representation, self.get_command())
 
         def confirm_plan(p):
             return True  # might need to merge demo_refactor to find this function
@@ -483,6 +473,7 @@ class RobotAgent:
                 ):
                     place_instance_id = i
                     break
+
         if pick_instance_id is None or place_instance_id is None:
             logger.warn("No instances found - exploring instead")
 
@@ -812,6 +803,84 @@ class RobotAgent:
             if name.lower() == goal.lower():
                 matching_instances.append((i, instance))
         return self.filter_matches(matching_instances, threshold=threshold)
+
+    def get_ins_center_pos(self, idx):
+        return torch.mean(self.voxel_map.get_instances()[idx].point_cloud, axis=0)
+
+    def near(self, ins_a, ins_b):
+        dist = torch.pairwise_distance(
+            self.get_ins_center_pos(ins_a), self.get_ins_center_pos(ins_b)
+        ).item()
+        if dist < self.parameters["max_near_distance"]:
+            return True
+        return False
+
+    def on(self, ins_a, ins_b):
+        if (
+            self.near(ins_a, ins_b)
+            and self.get_ins_center_pos(ins_a)[2] > self.get_ins_center_pos(ins_b)[2]
+        ):
+            return True
+        return False
+
+    def extract_symbolic_spatial_info(self, instances, debug=False):
+        """Extract pairwise symbolic spatial relationship between instances using heurisitcs"""
+        relationships = []
+        for idx_a, ins_a in enumerate(instances):
+            for idx_b, ins_b in enumerate(instances):
+                if idx_a == idx_b:
+                    continue
+                # TODO: add "on", "in" ... relationships
+                if (
+                    self.near(ins_a.global_id, ins_b.global_id)
+                    and (ins_b.global_id, ins_a.global_id, "near") not in relationships
+                ):
+                    relationships.append((ins_a.global_id, ins_b.global_id, "near"))
+
+        # show symbolic relationships
+        if debug:
+            for idx_a, idx_b, rel in relationships:
+                import matplotlib.pyplot as plt
+
+                plt.subplot(1, 2, 1)
+                plt.imshow(
+                    (
+                        instances[idx_a].get_best_view().cropped_image
+                        * instances[idx_a].get_best_view().mask
+                        / 255.0
+                    )
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
+                plt.title("Instance A is " + rel)
+                plt.axis("off")
+                plt.subplot(1, 2, 2)
+                plt.imshow(
+                    (
+                        instances[idx_b].get_best_view().cropped_image
+                        * instances[idx_b].get_best_view().mask
+                        / 255.0
+                    )
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
+                plt.title("Instance B")
+                plt.axis("off")
+                plt.show()
+        return relationships
+
+    def get_all_reachable_instances(self) -> List[Tuple[int, Instance]]:
+        """get all reachable instances with their ids and cache the motion plans"""
+        reachable_matches = []
+        start = self.robot.get_base_pose()
+        for i, instance in enumerate(self.voxel_map.get_instances()):
+            res = self.plan_to_instance(instance, start, instance_id=i)
+            self._cached_plans[i] = res
+            if res.success:
+                reachable_matches.append(instance)
+        return reachable_matches
 
     def get_reachable_instances_by_class(
         self, goal: Optional[str], threshold: int = 0, debug: bool = False

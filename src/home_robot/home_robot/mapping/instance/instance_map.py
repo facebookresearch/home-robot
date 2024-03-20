@@ -490,7 +490,8 @@ class InstanceMemory:
         global_instance = self.instances[env_id].get(global_instance_id, None)
         if global_instance is None:
             global_instance = Instance(
-                score_aggregation_method=self.instance_view_score_aggregation_mode
+                global_id=global_instance_id,
+                score_aggregation_method=self.instance_view_score_aggregation_mode,
             )
             self.instances[env_id][global_instance_id] = global_instance
         global_instance.add_instance_view(instance_view)

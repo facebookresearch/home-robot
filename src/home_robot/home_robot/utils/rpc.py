@@ -95,13 +95,19 @@ def parse_pick_and_place_plan(world_representation, plan: str):
 
 
 def get_obj_centric_world_representation(
-    instance_memory, max_context_length: int, sample_strategy: str, task: str = None
+    instance_memory,
+    max_context_length: int,
+    sample_strategy: str,
+    task: str = None,
+    text_features=None,
+    scene_graph=None,
 ):
     """Get version that LLM can handle - convert images into torch if not already"""
-    obs = Observations(object_images=[])
+    obs = Observations(object_images=[], scene_graph=scene_graph)
     candidate_objects = []
 
-    for global_id, instance in enumerate(instance_memory):
+    for instance in instance_memory:
+        global_id = instance.global_id
         instance_crops = instance.instance_views
         crop = get_best_view(instance_crops)
         features = crop.embedding
@@ -129,16 +135,11 @@ def get_obj_centric_world_representation(
             if task:
                 print(f"clip sampling based on task: {task}")
                 device = "cuda" if torch.cuda.is_available() else "cpu"
-                # device = "cpu"
-                model, preprocess = clip.load("ViT-B/32", device=device)
-                text = clip.tokenize([task]).to(device)
-                text_features = model.encode_text(text).float()
                 image_features = []
                 for obj in candidate_objects:
                     image_features.append(obj[2])
                 image_features = torch.stack(image_features).squeeze(1).to(device)
-                image_features /= image_features.norm(dim=-1, keepdim=True)
-                text_features /= text_features.norm(dim=-1, keepdim=True)
+                # image_features /= image_features.norm(dim=-1, keepdim=True)
                 similarity = (100.0 * text_features @ image_features.T).softmax(dim=-1)
                 _, indices = similarity[0].topk(len(candidate_objects))
                 sorted_objects = []
