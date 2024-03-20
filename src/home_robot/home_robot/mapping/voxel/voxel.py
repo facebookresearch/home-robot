@@ -1072,7 +1072,7 @@ class SparseVoxelMap(object):
 
         if xyt is not None and footprint is not None:
             geoms += self._get_boxes_from_points(
-                footprint.get_rotated_mask(self.grid_resolution, xyt[2]),
+                footprint.get_rotated_mask(self.grid_resolution, float(xyt[2])),
                 [0, 0, 1],
                 is_map=False,
                 height=0.1,

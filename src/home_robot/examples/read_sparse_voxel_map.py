@@ -56,6 +56,9 @@ def plan_to_deltas(xyt0, plan):
 @click.option("--show-svm", "-s", type=bool, is_flag=True, default=False)
 @click.option("--pkl-is-svm", "-p", type=bool, is_flag=True, default=False)
 @click.option("--test-planning", type=bool, is_flag=True, default=False)
+@click.option("--test-sampling", type=bool, is_flag=True, default=False)
+@click.option("--show-instances", type=bool, is_flag=True, default=False)
+@click.option("--query", "-q", type=str, default="")
 def main(
     input_path,
     config_path,
@@ -63,14 +66,16 @@ def main(
     show_maps: bool = True,
     pkl_is_svm: bool = True,
     test_planning: bool = False,
+    test_sampling: bool = False,
     frame: int = -1,
     show_svm: bool = False,
     try_to_plan_iter: int = 10,
+    show_instances: bool = False,
+    query: str = "",
 ):
     """Simple script to load a voxel map"""
     input_path = Path(input_path)
     print("Loading:", input_path)
-
     if pkl_is_svm:
         with input_path.open("rb") as f:
             loaded_voxel_map = pickle.load(f)
@@ -117,15 +122,18 @@ def main(
 
         if show_svm:
             x0 = np.array([0, 0, 0])
-            x1 = np.array([0, 0, np.pi / 4])
-            x2 = np.array([0.5, 0.5, np.pi / 4])
             footprint = dummy_robot.get_robot_model().get_footprint()
             print(f"{x0} valid = {space.is_valid(x0)}")
-            voxel_map.show(instances=True, orig=start_xyz, xyt=x0, footprint=footprint)
-            print(f"{x1} valid = {space.is_valid(x1)}")
-            voxel_map.show(instances=True, orig=start_xyz, xyt=x1, footprint=footprint)
-            print(f"{x2} valid = {space.is_valid(x2)}")
-            voxel_map.show(instances=True, orig=start_xyz, xyt=x2, footprint=footprint)
+            voxel_map.show(
+                instances=show_instances, orig=start_xyz, xyt=x0, footprint=footprint
+            )
+            # TODO: remove debug visualization code
+            # x1 = np.array([0, 0, np.pi / 4])
+            # print(f"{x1} valid = {space.is_valid(x1)}")
+            # voxel_map.show(instances=show_instances, orig=start_xyz, xyt=x1, footprint=footprint)
+            # x2 = np.array([0.5, 0.5, np.pi / 4])
+            # print(f"{x2} valid = {space.is_valid(x2)}")
+            # voxel_map.show(instances=show_instances, orig=start_xyz, xyt=x2, footprint=footprint)
 
         obstacles, explored = voxel_map.get_2d_map(debug=False)
         frontier, outside, traversible = space.get_frontier()
@@ -196,7 +204,40 @@ def main(
                 # )
                 # print("Planning result:", res)
 
-        print("... done sampling frontier points.")
+            print("... done sampling frontier points.")
+        if test_sampling:
+            # Plan to an instance
+            # Query the instances by something first
+            if len(query) == 0:
+                query = input("Enter a query: ")
+            matches = agent.get_ranked_instances(query)
+            print("Found", len(matches), "matches for query", query)
+            for score, i, instance in matches:
+                print(f"Try to plan to instance {i} with score {score}")
+                res = agent.plan_to_instance(instance, x0, verbose=False, radius_m=0.3)
+                if show_instances:
+                    plt.imshow(instance.get_best_view().get_image())
+                    plt.title(f"Instance {i} with score {score}")
+                    plt.axis("off")
+                    plt.show()
+                print(" - Plan result:", res.success)
+                if res.success:
+                    print(" - Plan length:", len(res.trajectory))
+                    break
+            if res is not None and res.success:
+                print("Plan found:")
+                for i, node in enumerate(res.trajectory):
+                    print(i, "/", len(res.trajectory), node.state)
+                footprint = dummy_robot.get_robot_model().get_footprint()
+                sampled_xyt = res.trajectory[-1].state
+                xyz = np.array([sampled_xyt[0], sampled_xyt[1], 0.1])
+                # Display the sampled goal location that we can reach
+                voxel_map.show(
+                    instances=show_instances,
+                    orig=xyz,
+                    xyt=sampled_xyt,
+                    footprint=footprint,
+                )
 
 
 if __name__ == "__main__":
