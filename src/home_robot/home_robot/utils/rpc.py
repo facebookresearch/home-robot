@@ -14,11 +14,11 @@ try:
     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
     import grpc
 
-    import src.rpc
-    import src.rpc.cortex_rpc_pb2
-    import src.rpc.proto_converter as proto_converter
-    from src.rpc.cortex_rpc_pb2_grpc import AgentgRPCStub
-    from src.utils.types.observations import Object, Observations
+    import cortex.rpc
+    import cortex.rpc.cortex_rpc_pb2
+    import cortex.rpc.proto_converter as proto_converter
+    from cortex.rpc.cortex_rpc_pb2_grpc import AgentgRPCStub
+    from cortex.utils.types.observations import Object, Observations
 
 except Exception as e:
     ## Temporary hack until we make accel-cortex pip installable
