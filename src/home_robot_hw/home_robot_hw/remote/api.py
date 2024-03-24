@@ -26,6 +26,10 @@ from .modules.manip import StretchManipulationClient
 from .modules.nav import StretchNavigationClient
 from .ros import StretchRosInterface
 
+HEAD_MOVE_TIME = (
+    2.5  # Wait some time after the head moves to make sure we don't have issues
+)
+
 
 class StretchClient(RobotClient):
     """Defines a ROS-based interface to the real Stretch robot. Collect observations and command the robot."""
@@ -169,6 +173,8 @@ class StretchClient(RobotClient):
         self.manip.goto_joint_positions(
             self.manip._extract_joint_pos(STRETCH_PREGRASP_Q)
         )
+        self.wait()
+        rospy.sleep(HEAD_MOVE_TIME)
         print("- Robot switched to manipulation mode.")
 
     def move_to_demo_pregrasp_posture(self):
@@ -178,6 +184,8 @@ class StretchClient(RobotClient):
         self.manip.goto_joint_positions(
             self.manip._extract_joint_pos(STRETCH_DEMO_PREGRASP_Q)
         )
+        self.wait()
+        rospy.sleep(HEAD_MOVE_TIME)
 
     def move_to_pre_demo_posture(self):
         """Move the arm and head into pre-demo posture: gripper straight, arm way down, head facing the gripper."""
@@ -186,6 +194,8 @@ class StretchClient(RobotClient):
         self.manip.goto_joint_positions(
             self.manip._extract_joint_pos(STRETCH_PREDEMO_Q)
         )
+        self.wait()
+        rospy.sleep(HEAD_MOVE_TIME)
 
     def move_to_nav_posture(self):
         """Move the arm and head into nav mode. The head will be looking front."""
@@ -197,6 +207,8 @@ class StretchClient(RobotClient):
             self.manip._extract_joint_pos(STRETCH_NAVIGATION_Q)
         )
         self.switch_to_navigation_mode()
+        self.wait()
+        rospy.sleep(HEAD_MOVE_TIME)
         print("- Robot switched to navigation mode.")
 
     def move_to_post_nav_posture(self):
@@ -226,6 +238,11 @@ class StretchClient(RobotClient):
         Move to xyt in global coordinates or relative coordinates. Cannot be used in manipulation mode.
         """
         return self.nav.navigate_to(xyt, relative=relative, blocking=blocking)
+
+    def start(self):
+        """Begin by looking down. Returns TRUE to indicate that we should actually be handling this, and are taking some actions to initialize the robot."""
+        self.head.look_down(blocking=True)
+        return True
 
     def get_observation(
         self, rotate_head_pts=False, start_pose: Optional[np.ndarray] = None

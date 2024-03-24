@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 import copy
 import logging
+import math
 import pickle
 from collections import namedtuple
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import open3d as open3d
+import scipy
 import skimage
 import torch
 import trimesh
@@ -19,11 +21,11 @@ from torch import Tensor
 
 from home_robot.core.interfaces import Observations
 from home_robot.mapping.instance import Instance, InstanceMemory, InstanceView
-from home_robot.motion import PlanResult, RobotModel
+from home_robot.motion import Footprint, PlanResult, RobotModel
 from home_robot.perception.encoders import ClipEncoder
 from home_robot.utils.bboxes_3d import BBoxes3D
 from home_robot.utils.data_tools.dict import update
-from home_robot.utils.morphology import binary_dilation, binary_erosion
+from home_robot.utils.morphology import binary_dilation, binary_erosion, get_edges
 from home_robot.utils.point_cloud import (
     create_visualization_geometries,
     numpy_to_pcd,
@@ -84,6 +86,7 @@ class SparseVoxelMap(object):
         obs_min_density (float): The minimum density for observations.
         smooth_kernel_size (int): The size of the smoothing kernel.
         add_local_radius_points (bool): Whether to add local radius points.
+        remove_visited_from_obstacles(bool): subtract out observations potentially of the robot
         local_radius (float): The radius for local points.
         min_depth (float): The minimum depth for observations.
         max_depth (float): The maximum depth for observations.
@@ -114,6 +117,7 @@ class SparseVoxelMap(object):
         obs_min_density: float = 10,
         smooth_kernel_size: int = 2,
         add_local_radius_points: bool = True,
+        remove_visited_from_obstacles: bool = False,
         local_radius: float = 0.15,
         min_depth: float = 0.1,
         max_depth: float = 4.0,
@@ -124,6 +128,11 @@ class SparseVoxelMap(object):
         encoder: Optional[ClipEncoder] = None,
         map_2d_device: str = "cpu",
         use_instance_memory: bool = True,
+        use_median_filter: bool = False,
+        median_filter_size: int = 5,
+        median_filter_max_error: float = 0.01,
+        use_derivative_filter: bool = False,
+        derivative_filter_threshold: float = 0.5,
     ):
         """
         Args:
@@ -137,6 +146,8 @@ class SparseVoxelMap(object):
         self.obs_min_height = obs_min_height
         self.obs_max_height = obs_max_height
         self.obs_min_density = obs_min_density
+
+        # Smoothing kernel params
         self.smooth_kernel_size = smooth_kernel_size
         if self.smooth_kernel_size > 0:
             self.smooth_kernel = torch.nn.Parameter(
@@ -148,11 +159,21 @@ class SparseVoxelMap(object):
             )
         else:
             self.smooth_kernel = None
+
+        # Median filter params
+        self.median_filter_size = median_filter_size
+        self.use_median_filter = use_median_filter
+        self.median_filter_max_error = median_filter_max_error
+
+        # Derivative filter params
+        self.use_derivative_filter = use_derivative_filter
+        self.derivative_filter_threshold = derivative_filter_threshold
+
         self.grid_resolution = grid_resolution
         self.voxel_resolution = resolution
         self.min_depth = min_depth
         self.max_depth = max_depth
-        self.pad_obstacles = pad_obstacles
+        self.pad_obstacles = int(pad_obstacles)
         self.background_instance_label = background_instance_label
         self.instance_memory_kwargs = update(
             copy.deepcopy(self.DEFAULT_INSTANCE_MAP_KWARGS), instance_memory_kwargs
@@ -174,7 +195,8 @@ class SparseVoxelMap(object):
             self.dilate_obstacles_kernel = None
 
         # Add points with local_radius to the voxel map at (0,0,0) unless we receive lidar points
-        self.add_local_radius_points = add_local_radius_points
+        self._add_local_radius_points = add_local_radius_points
+        self._remove_visited_from_obstacles = remove_visited_from_obstacles
         self.local_radius = local_radius
 
         # Create disk for mapping explored areas near the robot - since camera can't always see it
@@ -376,6 +398,14 @@ class SparseVoxelMap(object):
             xyz_frame in VALID_FRAMES
         ), f"frame {xyz_frame} was not valid; should one one of {VALID_FRAMES}"
 
+        # Apply a median filter to remove bad depth values when mapping and exploring
+        # This is not strictly necessary but the idea is to clean up bad pixels
+        if depth is not None and self.use_median_filter:
+            median_depth = torch.from_numpy(
+                scipy.ndimage.median_filter(depth, size=self.median_filter_size)
+            )
+            median_filter_error = (depth - median_depth).abs()
+
         # Get full_world_xyz
         if xyz is not None:
             if xyz_frame == "camera":
@@ -415,10 +445,19 @@ class SparseVoxelMap(object):
             )
         )
 
-        # filter depth
         valid_depth = torch.full_like(rgb[:, 0], fill_value=True, dtype=torch.bool)
         if depth is not None:
             valid_depth = (depth > self.min_depth) & (depth < self.max_depth)
+
+            if self.use_derivative_filter:
+                edges = get_edges(depth, threshold=self.derivative_filter_threshold)
+                valid_depth = valid_depth & ~edges
+
+            if self.use_median_filter:
+                valid_depth = (
+                    valid_depth
+                    & (median_filter_error < self.median_filter_max_error).bool()
+                )
 
         # Add instance views to memory
         if self.use_instance_memory:
@@ -449,8 +488,9 @@ class SparseVoxelMap(object):
         if world_xyz.nelement() > 0:
             self.voxel_pcd.add(world_xyz, features=feats, rgb=rgb, weights=None)
 
-        # TODO: just get this from camera_pose?
-        self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))
+        if self._add_local_radius_points:
+            # TODO: just get this from camera_pose?
+            self._update_visited(camera_pose[:3, 3].to(self.map_2d_device))
         if base_pose is not None:
             self._update_visited(base_pose.to(self.map_2d_device))
 
@@ -572,7 +612,7 @@ class SparseVoxelMap(object):
         else:
             raise NotImplementedError("unsupported data type for tensor:", tensor)
 
-    def read_from_pickle(self, filename: str):
+    def read_from_pickle(self, filename: str, num_frames: int = -1):
         """Read from a pickle file as above. Will clear all currently stored data first."""
         self.reset_cache()
         if isinstance(filename, str):
@@ -580,17 +620,33 @@ class SparseVoxelMap(object):
         assert filename.exists(), f"No file found at {filename}"
         with filename.open("rb") as f:
             data = pickle.load(f)
-        for camera_pose, xyz, rgb, feats, depth, base_pose, obs, K, world_xyz in zip(
-            data["camera_poses"],
-            data["xyz"],
-            data["rgb"],
-            data["feats"],
-            data["depth"],
-            data["base_poses"],
-            data["obs"],
-            data["camera_K"],
-            data["world_xyz"],
+        for i, (
+            camera_pose,
+            xyz,
+            rgb,
+            feats,
+            depth,
+            base_pose,
+            obs,
+            K,
+            world_xyz,
+        ) in enumerate(
+            zip(
+                data["camera_poses"],
+                data["xyz"],
+                data["rgb"],
+                data["feats"],
+                data["depth"],
+                data["base_poses"],
+                data["obs"],
+                data["camera_K"],
+                data["world_xyz"],
+            )
         ):
+            # Handle the case where we dont actually want to load everything
+            if num_frames > 0 and i >= num_frames:
+                break
+
             camera_pose = self.fix_data_type(camera_pose)
             xyz = self.fix_data_type(xyz)
             rgb = self.fix_data_type(rgb)
@@ -671,6 +727,11 @@ class SparseVoxelMap(object):
         obstacle_voxels = voxels[:, :, min_height:]
         obstacles_soft = torch.sum(obstacle_voxels, dim=-1)
         obstacles = obstacles_soft > self.obs_min_density
+
+        if self._remove_visited_from_obstacles:
+            # Remove "visited" points containing observations of the robot
+            obstacles *= (1 - self._visited).bool()
+
         if self.dilate_obstacles_kernel is not None:
             obstacles = binary_dilation(
                 obstacles.float().unsqueeze(0).unsqueeze(0),
@@ -686,19 +747,28 @@ class SparseVoxelMap(object):
         explored_soft += self._visited
         explored = explored_soft > 0
 
+        # Also shrink the explored area to build more confidence
+        # That we will not collide with anything while moving around
+        # if self.dilate_obstacles_kernel is not None:
+        #    explored = binary_erosion(
+        #        explored.float().unsqueeze(0).unsqueeze(0),
+        #        self.dilate_obstacles_kernel,
+        #    )[0, 0].bool()
+
         if self.smooth_kernel_size > 0:
+            # Opening and closing operations here on explore
             explored = binary_erosion(
                 binary_dilation(
                     explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
                 ),
                 self.smooth_kernel,
-            )[0, 0].bool()
-            explored = binary_erosion(
-                binary_dilation(
-                    explored.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
-                ),
+            )  # [0, 0].bool()
+            explored = binary_dilation(
+                binary_erosion(explored, self.smooth_kernel),
                 self.smooth_kernel,
             )[0, 0].bool()
+
+            # Obstacles just get dilated and eroded
             obstacles = binary_erosion(
                 binary_dilation(
                     obstacles.float().unsqueeze(0).unsqueeze(0), self.smooth_kernel
@@ -813,8 +883,15 @@ class SparseVoxelMap(object):
         from pytorch3d.vis.plotly_vis import AxisArgs, plot_scene
 
         from home_robot.utils.bboxes_3d_plotly import plot_scene_with_bboxes
+        from home_robot.utils.plotly_vis.camera import (
+            add_camera_poses,
+            colormap_to_rgb_strings,
+        )
 
         points, rgb = self.get_xyz_rgb()
+
+        # TODO: Xiaohan--need to normalize for older versions of pytorch3d. remove before merge
+        rgb = rgb / 128.0
 
         traces = {}
 
@@ -860,7 +937,7 @@ class SparseVoxelMap(object):
             zaxis={"backgroundcolor": "rgb(200, 200, 230)"},
             axis_args=AxisArgs(showgrid=True),
             pointcloud_marker_size=3,
-            pointcloud_max_points=200_000,
+            pointcloud_max_points=800_000,
             boxes_plot_together=True,
             boxes_wireframe_width=3,
             aspectmode="cube",
@@ -869,6 +946,9 @@ class SparseVoxelMap(object):
             plots={"Global scene": traces},
             **update(_default_plot_args, plot_scene_kwargs),
         )
+        # Show cameras
+        poses = [obs.camera_pose for obs in self.observations]
+        add_camera_poses(fig, poses)
         return fig
 
     def sample_explored(self) -> Optional[np.ndarray]:
@@ -915,11 +995,59 @@ class SparseVoxelMap(object):
     def postprocess_instances(self):
         self.instances.global_box_compression_and_nms(env_id=0)
 
-    def _show_open3d(
+    def _get_boxes_from_points(
+        self,
+        traversible: torch.Tensor,
+        color: List[float],
+        is_map: bool = True,
+        height: float = 0.0,
+        offset: Optional[np.ndarray] = None,
+    ):
+        """Get colored boxes for a mask"""
+        # Get indices for all traversible locations
+        traversible_indices = np.argwhere(traversible)
+        # Traversible indices will be a 2xN array, so we need to transpose it.
+        # Set to floor/max obs height and bright red
+        if is_map:
+            traversible_pts = self.grid_coords_to_xy(traversible_indices.T)
+        else:
+            traversible_pts = (
+                traversible_indices.T - np.ceil([d / 2 for d in traversible.shape])
+            ) * self.grid_resolution
+        if offset is not None:
+            traversible_pts += offset
+
+        geoms = []
+        for i in range(traversible_pts.shape[0]):
+            center = np.array(
+                [
+                    traversible_pts[i, 0],
+                    traversible_pts[i, 1],
+                    self.obs_min_height + height,
+                ]
+            )
+            dimensions = np.array(
+                [self.grid_resolution, self.grid_resolution, self.grid_resolution]
+            )
+
+            # Create a custom geometry with red color
+            mesh_box = open3d.geometry.TriangleMesh.create_box(
+                width=dimensions[0], height=dimensions[1], depth=dimensions[2]
+            )
+            mesh_box.paint_uniform_color(color)  # Set color to red
+            mesh_box.translate(center)
+
+            # Visualize the red box
+            geoms.append(mesh_box)
+        return geoms
+
+    def _get_open3d_geometries(
         self,
         instances: bool,
         orig: Optional[np.ndarray] = None,
         norm: float = 255.0,
+        xyt: Optional[np.ndarray] = None,
+        footprint: Optional[Footprint] = None,
         **backend_kwargs,
     ):
         """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
@@ -934,6 +1062,23 @@ class SparseVoxelMap(object):
         if orig is None:
             orig = np.zeros(3)
         geoms = create_visualization_geometries(pcd=pcd, orig=orig)
+
+        # Get the explored/traversible area
+        obstacles, explored = self.get_2d_map()
+        traversible = explored & ~obstacles
+
+        geoms += self._get_boxes_from_points(traversible, [0, 1, 0])
+        geoms += self._get_boxes_from_points(obstacles, [1, 0, 0])
+
+        if xyt is not None and footprint is not None:
+            geoms += self._get_boxes_from_points(
+                footprint.get_rotated_mask(self.grid_resolution, float(xyt[2])),
+                [0, 0, 1],
+                is_map=False,
+                height=0.1,
+                offset=xyt[:2],
+            )
+
         if instances:
             for instance_view in self.get_instances():
                 mins, maxs = (
@@ -974,7 +1119,77 @@ class SparseVoxelMap(object):
                 # Get the colors and add to wireframe
                 wireframe.colors = open3d.utility.Vector3dVector(colors)
                 geoms.append(wireframe)
+        return geoms
+
+    def _get_o3d_robot_footprint_geometry(
+        self,
+        xyt: np.ndarray,
+        dimensions: Optional[np.ndarray] = None,
+        length_offset: float = 0,
+    ):
+        """Get a 3d mesh cube for the footprint of the robot. But this does not work very well for whatever reason."""
+        # Define the dimensions of the cube
+        if dimensions is None:
+            dimensions = np.array(
+                [0.2, 0.2, 0.2]
+            )  # Cube dimensions (length, width, height)
+
+        x, y, theta = xyt
+        # theta = theta - np.pi/2
+
+        # Create a custom mesh cube with the specified dimensions
+        mesh_cube = open3d.geometry.TriangleMesh.create_box(
+            width=dimensions[0], height=dimensions[1], depth=dimensions[2]
+        )
+
+        # Define the transformation matrix for position and orientation
+        rotation_matrix = np.array(
+            [
+                [math.cos(theta), -math.sin(theta), 0],
+                [math.sin(theta), math.cos(theta), 0],
+                [0, 0, 1],
+            ]
+        )
+        # Calculate the translation offset based on theta
+        length_offset = 0
+        x_offset = length_offset - (dimensions[0] / 2)
+        y_offset = -1 * dimensions[1] / 2
+        dx = (math.cos(theta) * x_offset) + (math.cos(theta - np.pi / 2) * y_offset)
+        dy = (math.sin(theta + np.pi / 2) * y_offset) + (math.sin(theta) * x_offset)
+        translation_vector = np.array(
+            [x + dx, y + dy, 0]
+        )  # Apply offset based on theta
+        transformation_matrix = np.identity(4)
+        transformation_matrix[:3, :3] = rotation_matrix
+        transformation_matrix[:3, 3] = translation_vector
+
+        # Apply the transformation to the cube
+        mesh_cube.transform(transformation_matrix)
+
+        # Set the color of the cube to blue
+        mesh_cube.paint_uniform_color([0.0, 0.0, 1.0])  # Set color to blue
+
+        return mesh_cube
+
+    def _show_open3d(
+        self,
+        instances: bool,
+        orig: Optional[np.ndarray] = None,
+        norm: float = 255.0,
+        xyt: Optional[np.ndarray] = None,
+        footprint: Optional[Footprint] = None,
+        **backend_kwargs,
+    ):
+        """Show and return bounding box information and rgb color information from an explored point cloud. Uses open3d."""
+
+        # get geometries so we can use them
+        geoms = self._get_open3d_geometries(
+            instances, orig, norm, xyt=xyt, footprint=footprint
+        )
 
         # Show the geometries of where we have explored
         open3d.visualization.draw_geometries(geoms)
+
+        # Returns xyz and rgb for further inspection
+        points, _, _, rgb = self.voxel_pcd.get_pointcloud()
         return points, rgb

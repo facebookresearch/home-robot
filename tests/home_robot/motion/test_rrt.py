@@ -109,8 +109,8 @@ if __name__ == "__main__":
     goal = np.array([9, 9])
     obs = np.array([0, 9])
     # TODO: enable for debugging
-    # test_rrt_simple_env(start, goal, obs, visualize=True)
-    # test_shortcut_rrt_simple_env(start, goal, obs, visualize=True)
+    test_rrt_simple_env(start, goal, obs, visualize=True)
+    test_shortcut_rrt_simple_env(start, goal, obs, visualize=True)
     test_rrt_connect_simple_env(start, goal, obs, visualize=True)
     test_shortcut_rrt_connect_simple_env(start, goal, obs, visualize=True)
 

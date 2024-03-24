@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import json
 import logging
 import os
 import shutil
@@ -15,6 +16,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import cv2
 import numpy as np
 import torch
+from PIL import Image
 from torch import Tensor
 
 from home_robot.core.interfaces import Observations
@@ -46,12 +48,12 @@ class ViewMatchingConfig:
     within_class: bool = True
 
     box_match_mode: Bbox3dOverlapMethodEnum = Bbox3dOverlapMethodEnum.ONE_SIDED_IOU
-    box_overlap_eps: float = 1e-6
+    box_overlap_eps: float = 1e-7
     box_min_iou_thresh: float = 0.4
-    box_overlap_weight: float = 1.0
+    box_overlap_weight: float = 0.15
 
     visual_similarity_weight: float = 1.0
-    min_similarity_thresh: float = 0.1
+    min_similarity_thresh: float = 0.8
 
 
 def get_similarity(
@@ -70,23 +72,24 @@ def get_similarity(
         overlap_eps=view_matching_config.box_overlap_eps,
         mode=view_matching_config.box_match_mode,
     )
-
+    # print (f'bbox score: {overlap_similarity}')
     similarity = overlap_similarity * view_matching_config.box_overlap_weight
 
     if view_matching_config.visual_similarity_weight > 0.0:
         visual_similarity = dot_product_similarity(
             visual_embedding1, visual_embedding2, normalize=False
         )
+        # print (f'clip score: {visual_similarity}')
         # Handle the case where there is no embedding to examine
         # If we return visual similarity, only then do we use it
         if visual_similarity is not None:
             visual_similarity[
                 overlap_similarity < view_matching_config.box_min_iou_thresh
             ] = 0.0
+            # print (f'valid clip score: {visual_similarity}')
             similarity += (
                 visual_similarity * view_matching_config.visual_similarity_weight
             )
-
     return similarity
 
 
@@ -129,6 +132,12 @@ class InstanceMemory:
         view_matching_config: ViewMatchingConfig = ViewMatchingConfig(),
         mask_cropped_instances: bool = True,
         crop_padding: float = 1.5,
+        min_instance_vol: float = 1e-6,
+        max_instance_vol: float = 10.0,
+        min_instance_thickness: float = 0.01,
+        min_instance_height: float = 0.1,
+        max_instance_height: float = 1.8,
+        open_vocab_cat_map_file: str = None,
     ):
         """See class definition for information about InstanceMemory
 
@@ -157,6 +166,12 @@ class InstanceMemory:
         self.instance_box_compression_drop_prop = instance_box_compression_drop_prop
         self.instance_box_compression_resolution = instance_box_compression_resolution
 
+        self.min_instance_vol = min_instance_vol
+        self.max_instance_vol = max_instance_vol
+        self.min_instance_thickness = min_instance_thickness
+        self.min_instance_height = min_instance_height
+        self.max_instance_height = max_instance_height
+
         if isinstance(view_matching_config, dict):
             view_matching_config = ViewMatchingConfig(**view_matching_config)
         self.view_matching_config = view_matching_config
@@ -170,6 +185,15 @@ class InstanceMemory:
             shutil.rmtree(self.save_dir, ignore_errors=True)
             os.makedirs(log_dir, exist_ok=log_dir_overwrite_ok)
         self.log_dir = log_dir
+
+        # if open_vocab_cat_map_file:
+        #     with open(open_vocab_cat_map_file) as f:
+        #         open_vocab_cat_map = json.load(f)
+        #     self.open_vocab = list(
+        #         open_vocab_cat_map["obj_category_to_obj_category_id"].keys()
+        #     ) + list(open_vocab_cat_map["recep_category_to_recep_category_id"].keys())
+        #     self.open_vocab += ["wall", "ceiling", "floor", "others"]
+
         self.reset()
 
     def reset(self):
@@ -336,6 +360,9 @@ class InstanceMemory:
                     if self.view_matching_config.within_class
                     else None
                 )
+                # image_array = np.array(instance_view.cropped_image, dtype=np.uint8)
+                # image_debug = Image.fromarray(image_array)
+                # image_debug.show()
                 if instance_view.embedding is not None:
                     instance_view_embedding = instance_view.embedding / torch.norm(
                         instance_view.embedding, dim=-1, keepdim=True
@@ -389,7 +416,6 @@ class InstanceMemory:
                     text_embedding2=None,
                     view_matching_config=self.view_matching_config,
                 )
-
                 max_similarity, matched_idx = similarity.max(dim=1)
                 total_weight = (
                     self.view_matching_config.visual_similarity_weight
@@ -464,7 +490,8 @@ class InstanceMemory:
         global_instance = self.instances[env_id].get(global_instance_id, None)
         if global_instance is None:
             global_instance = Instance(
-                score_aggregation_method=self.instance_view_score_aggregation_mode
+                global_id=global_instance_id,
+                score_aggregation_method=self.instance_view_score_aggregation_mode,
             )
             self.instances[env_id][global_instance_id] = global_instance
         global_instance.add_instance_view(instance_view)
@@ -669,7 +696,7 @@ class InstanceMemory:
                 continue
             # get instance mask
             instance_mask = instance_seg == instance_id
-
+            # print (np.count_nonzero(instance_mask))
             category_id = None
             if instance_classes is not None:
                 category_id = instance_classes[instance_id]
@@ -740,13 +767,54 @@ class InstanceMemory:
             h, w = masked_image.shape[1:]
             cropped_image = self.get_cropped_image(image, bbox)
             instance_mask = self.get_cropped_image(instance_mask.unsqueeze(0), bbox)
-            # instance_mask = instance_mask.bool()
+
+            # image_array = np.array(cropped_image * instance_mask, dtype=np.uint8)
+            # image_debug = Image.fromarray(image_array)
+            # image_debug.show()
 
             # get embedding
             if encoder is not None:
-                embedding = encoder.encode_image(cropped_image).to(cropped_image.device)
+                # embedding = encoder.encode_image(cropped_image).to(cropped_image.device)
+                embedding = encoder.encode_image(cropped_image * instance_mask).to(
+                    cropped_image.device
+                )
             else:
                 embedding = None
+
+            # im = Image.fromarray(np.array(cropped_image.to(torch.uint8)))
+            # im.save('test1.png')
+
+            def get_open_vocab_labels():
+                img_embeddings = (
+                    encoder.encode_image(cropped_image)
+                    .to(cropped_image.device)
+                    .unsqueeze(0)
+                )
+                class_embeddings = torch.cat(
+                    [encoder.encode_text(ovc) for ovc in self.open_vocab]
+                ).to(cropped_image.device)
+                img_embeddings /= img_embeddings.norm(dim=-1, keepdim=True)
+                class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
+                scores = (
+                    (100.0 * img_embeddings @ class_embeddings.T)
+                    .softmax(dim=-1)
+                    .squeeze()
+                )
+                return self.open_vocab[torch.argmax(scores).item()]
+
+            def filter_background_preds_using_clip(
+                background_classes=["wall", "ceiling", "floor", "others"],
+                clip_threshold=1,
+            ):
+                img_embeddings = embedding.unsqueeze(0)
+                class_embeddings = torch.cat(
+                    [encoder.encode_text(bgc) for bgc in background_classes]
+                ).to(cropped_image.device)
+                img_embeddings /= img_embeddings.norm(dim=-1, keepdim=True)
+                class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
+                # print ((100.0 * img_embeddings @ class_embeddings.T).softmax(dim=-1))
+
+            # filter_background_preds_using_clip()
 
             # get point cloud
             point_mask_downsampled = (
@@ -765,12 +833,43 @@ class InstanceMemory:
                 bounds = get_bounds(point_cloud_instance)
                 volume = float(box3d_volume_from_bounds(bounds).squeeze())
 
-                if volume < 1e-6:
+                if volume < float(self.min_instance_vol):
                     warnings.warn(
                         f"Skipping box with {n_points} points in cloud and {n_points} points in mask and {volume} volume",
                         UserWarning,
                     )
+                elif volume > float(self.max_instance_vol):
+                    warnings.warn(
+                        f"Skipping box with {n_points} points in cloud and {n_points} points in mask and {volume} volume",
+                        UserWarning,
+                    )
+                elif (
+                    min(
+                        bounds[0][1] - bounds[0][0],
+                        bounds[1][1] - bounds[1][0],
+                        bounds[2][1] - bounds[2][0],
+                    )
+                    < self.min_instance_thickness
+                ):
+                    warnings.warn(
+                        f"Skipping a flat instance with {n_points} points",
+                        UserWarning,
+                    )
+                elif (bounds[2][0] + bounds[2][1]) / 2.0 < self.min_instance_height:
+                    warnings.warn(
+                        f"Skipping a instance with low height: {(bounds[2][0] + bounds[2][1]) / 2.0}",
+                        UserWarning,
+                    )
+                elif (bounds[2][0] + bounds[2][1]) / 2.0 > self.max_instance_height:
+                    warnings.warn(
+                        f"Skipping a instance with high height: {(bounds[2][0] + bounds[2][1]) / 2.0}",
+                        UserWarning,
+                    )
                 else:
+                    # # get open-vocab labels
+                    # open_vocab_label = get_open_vocab_labels()
+                    # print(f"open vocab detected as: {open_vocab_label}")
+
                     # get instance view
                     instance_view = InstanceView(
                         bbox=bbox,
@@ -785,9 +884,15 @@ class InstanceMemory:
                         score=score,
                         bounds=bounds,  # .cpu().numpy(),
                         pose=pose,
+                        # open_vocab_label=open_vocab_label,
                     )
                     # append instance view to list of instance views
                     self.unprocessed_views[env_id][instance_id.item()] = instance_view
+            else:
+                warnings.warn(
+                    f"Skipping a small instance with {n_mask} pixels",
+                    UserWarning,
+                )
 
             # save cropped image with timestep in filename
             if self.debug_visualize:

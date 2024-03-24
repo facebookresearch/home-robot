@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -56,20 +56,28 @@ class SparseVoxelMapNavigationSpace(XYT):
         else:
             self.dof = 2
 
-        self.dilate_explored_kernel = torch.nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(dilate_frontier_size))
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .float(),
-            requires_grad=False,
-        )
-        self.dilate_obstacles_kernel = torch.nn.Parameter(
-            torch.from_numpy(skimage.morphology.disk(dilate_obstacle_size))
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .float(),
-            requires_grad=False,
-        )
+        self._kernels = {}
+
+        if dilate_frontier_size > 0:
+            self.dilate_explored_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(dilate_frontier_size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.dilate_explored_kernel = None
+        if dilate_obstacle_size > 0:
+            self.dilate_obstacles_kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(dilate_obstacle_size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+        else:
+            self.dilate_obstacles_kernel = None
 
     def draw_state_on_grid(
         self, img: np.ndarray, state: np.ndarray, weight: int = 10
@@ -139,7 +147,9 @@ class SparseVoxelMapNavigationSpace(XYT):
         else:
             raise NotImplementedError(f"not supported: {self.extend_mode=}")
 
-    def _extend_separate(self, q0: np.ndarray, q1: np.ndarray) -> np.ndarray:
+    def _extend_separate(
+        self, q0: np.ndarray, q1: np.ndarray, xy_tol: float = 1e-8
+    ) -> np.ndarray:
         """extend towards another configuration in this space.
         TODO: we can set the classes here, right now assuming still np.ndarray"""
         assert len(q0) == 3, f"initial configuration must be 3d, was {q0}"
@@ -148,14 +158,21 @@ class SparseVoxelMapNavigationSpace(XYT):
         ), f"final configuration can be 2d or 3d, was {q1}"
         dxy = q1[:2] - q0[:2]
         step = dxy / np.linalg.norm(dxy + self.tolerance) * self.step_size
-        xy = q0[:2]
-        if np.linalg.norm(q1[:2] - q0[:2]) > self.step_size:
+        xy = np.copy(q0[:2])
+        goal_dxy = np.linalg.norm(q1[:2] - q0[:2])
+        if (
+            goal_dxy
+            > xy_tol
+            # or goal_dxy > self.step_size
+            # or angle_difference(q1[-1], q0[-1]) > self.rotation_step_size
+        ):
+            # Turn to new goal
             # Compute theta looking at new goal point
             new_theta = math.atan2(dxy[1], dxy[0])
             if new_theta < 0:
                 new_theta += 2 * np.pi
 
-            # TODO: oreint towards the new theta
+            # TODO: orient towards the new theta
             cur_theta = q0[-1]
             angle_diff = angle_difference(new_theta, cur_theta)
             while angle_diff > self.rotation_step_size:
@@ -163,12 +180,15 @@ class SparseVoxelMapNavigationSpace(XYT):
                 cur_theta = interpolate_angles(
                     cur_theta, new_theta, self.rotation_step_size
                 )
+                # print("interp ang =", cur_theta, "from =", cur_theta, "to =", new_theta)
                 yield np.array([xy[0], xy[1], cur_theta])
                 angle_diff = angle_difference(new_theta, cur_theta)
 
-            xy = q0[:2] + step
             # First, turn in the right direction
-            yield np.array([xy[0], xy[1], new_theta])
+            next_pt = np.array([xy[0], xy[1], new_theta])
+            # After this we should have finished turning
+            yield next_pt
+
             # Now take steps towards the right goal
             while np.linalg.norm(xy - q1[:2]) > self.step_size:
                 xy = xy + step
@@ -176,6 +196,10 @@ class SparseVoxelMapNavigationSpace(XYT):
 
             # Update current angle
             cur_theta = new_theta
+
+            # Finish stepping to goal
+            xy[:2] = q1[:2]
+            yield np.array([xy[0], xy[1], cur_theta])
         else:
             cur_theta = q0[-1]
 
@@ -186,6 +210,9 @@ class SparseVoxelMapNavigationSpace(XYT):
             cur_theta = interpolate_angles(cur_theta, q1[-1], self.rotation_step_size)
             yield np.array([xy[0], xy[1], cur_theta])
             angle_diff = angle_difference(q1[-1], cur_theta)
+
+        # Get to final angle
+        yield np.array([xy[0], xy[1], q1[-1]])
 
         # At the end, rotate into the correct orientation
         yield q1
@@ -211,7 +238,7 @@ class SparseVoxelMapNavigationSpace(XYT):
     def is_valid(
         self,
         state: torch.Tensor,
-        is_safe_threshold=0.95,
+        is_safe_threshold=1.0,
         debug: bool = False,
         verbose: bool = False,
     ) -> bool:
@@ -247,7 +274,7 @@ class SparseVoxelMapNavigationSpace(XYT):
         p_is_safe = (
             torch.sum((crop_exp & mask) | ~mask) / (mask.shape[0] * mask.shape[1])
         ).item()
-        is_safe = p_is_safe > is_safe_threshold
+        is_safe = p_is_safe >= is_safe_threshold
         if verbose:
             print(f"{collision=}, {is_safe=}, {p_is_safe=}, {is_safe_threshold=}")
 
@@ -296,11 +323,6 @@ class SparseVoxelMapNavigationSpace(XYT):
         obstacles, explored = self.voxel_map.get_2d_map()
 
         # Extract edges from our explored mask
-
-        # TODO: we might still need this, but should set it separately when not exploring
-        # less_explored = binary_erosion(
-        #     explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
-        # )[0, 0]
 
         # Radius computed from voxel map measurements
         radius = np.ceil(radius_m / self.voxel_map.grid_resolution)
@@ -376,44 +398,69 @@ class SparseVoxelMapNavigationSpace(XYT):
         # We failed to find anything useful
         return None
 
-    def sample_closest_frontier(
-        self,
-        xyt: np.ndarray,
-        max_tries: int = 1000,
-        expand_size: int = 5,
-        debug: bool = False,
-        verbose: bool = False,
-        step_dist: float = 0.5,
-        min_dist: float = 0.5,
-    ) -> Optional[torch.Tensor]:
-        """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
-
-        Args:
-            xyt(np.ndrray): [x, y, theta] of the agent; must be of size 2 or 3.
-            max_tries(int): number of attempts to make for rejection sampling
-            debug(bool): show visualizations of frontiers
-            step_dist(float): how far apart in geo dist these points should be
+    def has_zero_contour(self, phi):
         """
+        Check if a zero contour exists in the given phi array.
 
-        assert (
-            len(xyt) == 2 or len(xyt) == 3
-        ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
+        Parameters:
+        - phi: 2D NumPy array with boolean values.
+
+        Returns:
+        - True if a zero contour exists, False otherwise.
+        """
+        # Check if there are True and False values in the array
+        has_true_values = np.any(phi)
+        has_false_values = np.any(~phi)
+
+        # Return True if both True and False values are present
+        return has_true_values and has_false_values
+
+    def _get_kernel(self, size: int):
+        """Return a kernel for expanding/shrinking areas."""
+        if size <= 0:
+            return None
+        if size not in self._kernels:
+            kernel = torch.nn.Parameter(
+                torch.from_numpy(skimage.morphology.disk(size))
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float(),
+                requires_grad=False,
+            )
+            self._kernels[size] = kernel
+        return self._kernels[size]
+
+    def get_frontier(
+        self, expand_size: int = 5, debug: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Compute frontier regions of the map"""
 
         obstacles, explored = self.voxel_map.get_2d_map()
         # Extract edges from our explored mask
         obstacles = binary_dilation(
             obstacles.float().unsqueeze(0).unsqueeze(0), self.dilate_obstacles_kernel
         )[0, 0].bool()
+        less_explored = binary_erosion(
+            explored.float().unsqueeze(0).unsqueeze(0), self.dilate_explored_kernel
+        )[0, 0]
+
         # Get the masks from our 3d map
-        edges = get_edges(explored)
+        edges = get_edges(less_explored)
 
         # Do not explore obstacles any more
         traversible = explored & ~obstacles
         frontier_edges = edges & ~obstacles
-        expanded_frontier = binary_dilation(
-            frontier_edges.float().unsqueeze(0).unsqueeze(0),
-            self.dilate_explored_kernel,
-        )[0, 0].bool()
+
+        kernel = self._get_kernel(expand_size)
+        if kernel is not None:
+            expanded_frontier = binary_dilation(
+                frontier_edges.float().unsqueeze(0).unsqueeze(0),
+                kernel,
+            )[0, 0].bool()
+        else:
+            # This is a bad idea, planning will probably fail
+            expanded_frontier = frontier_edges
+
         outside_frontier = expanded_frontier & ~explored
         frontier = expanded_frontier & ~obstacles & explored
 
@@ -434,16 +481,54 @@ class SparseVoxelMapNavigationSpace(XYT):
             plt.title("just frontiers")
             plt.show()
 
+        return frontier, outside_frontier, traversible
+
+    def sample_closest_frontier(
+        self,
+        xyt: np.ndarray,
+        max_tries: int = 1000,
+        expand_size: int = 5,
+        debug: bool = False,
+        verbose: bool = False,
+        step_dist: float = 0.1,
+        min_dist: float = 0.1,
+    ) -> Optional[torch.Tensor]:
+        """Sample a valid location on the current frontier using FMM planner to compute geodesic distance. Returns points in order until it finds one that's valid.
+
+        Args:
+            xyt(np.ndrray): [x, y, theta] of the agent; must be of size 2 or 3.
+            max_tries(int): number of attempts to make for rejection sampling
+            debug(bool): show visualizations of frontiers
+            step_dist(float): how far apart in geo dist these points should be
+        """
+        assert (
+            len(xyt) == 2 or len(xyt) == 3
+        ), f"xyt must be of size 2 or 3 instead of {len(xyt)}"
+
+        frontier, outside_frontier, traversible = self.get_frontier(
+            expand_size=expand_size, debug=debug
+        )
+
         # from scipy.ndimage.morphology import distance_transform_edt
         m = np.ones_like(traversible)
         start_x, start_y = self.voxel_map.xy_to_grid_coords(xyt[:2]).int().cpu().numpy()
-        if debug:
+        if verbose or debug:
             print("--- Coordinates ---")
             print(f"{xyt=}")
             print(f"{start_x=}, {start_y=}")
 
         m[start_x, start_y] = 0
         m = np.ma.masked_array(m, ~traversible)
+
+        # import pickle
+        # with open('debug_m.pkl', 'wb') as f:
+        #     pickle.dump(m, f)
+        # print (~traversible)
+        if not self.has_zero_contour(m):
+            if verbose:
+                print("traversible frontier had zero contour! no where to go.")
+            return None
+
         distance_map = skfmm.distance(m, dx=1)
         frontier_map = distance_map.copy()
         # Masks are the areas we are ignoring - ignore everything but the frontiers
@@ -465,6 +550,7 @@ class SparseVoxelMapNavigationSpace(XYT):
             plt.axis("off")
             plt.show()
 
+        if verbose or debug:
             print(f"-> found {len(distances)} items")
 
         assert len(xs) == len(ys) and len(xs) == len(distances)
@@ -638,6 +724,22 @@ class SparseVoxelMapNavigationSpace(XYT):
 
         # We failed to find anything useful
         yield None
+
+    def show(
+        self,
+        instances: bool = False,
+        orig: Optional[np.ndarray] = None,
+        norm: float = 255.0,
+        backend: str = "open3d",
+    ):
+        """Tool for debugging map representations that we have created"""
+        geoms = self.voxel_map._get_open3d_geometries(instances, orig, norm)
+
+        # lazily import open3d - it's a tough dependency
+        import open3d
+
+        # Show the geometries of where we have explored
+        open3d.visualization.draw_geometries(geoms)
 
     def sample_valid_location(self, max_tries: int = 100) -> Optional[torch.Tensor]:
         """Return a state that's valid and that we can move to.

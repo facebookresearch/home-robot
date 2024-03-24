@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from home_robot.utils.config import get_config
 
@@ -13,7 +13,23 @@ class Parameters(object):
     def __init__(self, **kwargs):
         self.data = kwargs
 
-    def __getitem__(self, key: str):
+    def get(self, key: str, default: Any = None):
+        """Safe wrapper to dictionary, with defaults"""
+        if "/" in key:
+            keys = key.split("/")
+            data = self.data[keys[0]]
+            key = keys[-1]
+            if len(keys) > 2:
+                raise NotImplementedError(
+                    f"we dont yet support nested parameters to this depth: {len(keys)}"
+                )
+        else:
+            data = self.data
+        if default is not None and key not in data:
+            return default
+        return data[key]
+
+    def __getitem__(self, key: str) -> Any:
         """Just a wrapper to the dictionary"""
         return self.data[key]
 

@@ -19,6 +19,7 @@ def plan_to_frontier(
     try_to_plan_iter: int = 10,
     debug: bool = False,
     verbose: bool = False,
+    expand_frontier_size: int = 10,
 ) -> PlanResult:
     """Simple helper function for planning to the frontier during exploration.
 
@@ -32,10 +33,13 @@ def plan_to_frontier(
     res = None
     start_is_valid = space.is_valid(start)
     print("\n----------- Planning to frontier -----------")
+    print("Starting at:", start)
     print("Start is valid:", start_is_valid)
     if not start_is_valid:
         return PlanResult(False, reason="invalid start state")
-    for goal in space.sample_closest_frontier(start, verbose=verbose, debug=debug):
+    for goal in space.sample_closest_frontier(
+        start, verbose=verbose, debug=debug, expand_size=expand_frontier_size
+    ):
         if goal is None:
             failed = True
             break

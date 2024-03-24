@@ -2,6 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
+import math
 import os
 import shutil
 import time
@@ -31,6 +32,7 @@ class OvmmSimClient(RobotClient):
     class so the sim can be used with the cortex demo code"""
 
     _success_tolerance = 1e-4
+    _zero_tolerance = 1e-8
 
     def __init__(
         self,
@@ -48,6 +50,7 @@ class OvmmSimClient(RobotClient):
         self.hab_info = None
 
         self.video_frames = []
+        self.fpv_video_frames = []
 
         if is_stretch_robot:
             self._robot_model = HelloStretchKinematics(
@@ -58,10 +61,8 @@ class OvmmSimClient(RobotClient):
                 ee_link_name=None,
                 manip_mode_controlled_joints=None,
             )
-
-        self.debug_path = os.path.join(os.getcwd(), "frames")
-        shutil.rmtree(self.debug_path, ignore_errors=True)
-        os.makedirs(self.debug_path, exist_ok=True)
+        self.num_action_applied = 0
+        self.force_quit = False
 
     def navigate_to(
         self,
@@ -71,23 +72,32 @@ class OvmmSimClient(RobotClient):
         verbose: bool = False,
     ):
         """Move to xyt in global coordinates or relative coordinates."""
+        print("\n\nnavigate to")
+        print("from =", self.get_base_pose())
+        print("  to =", xyt)
         if not relative:
             xyt = xyt_global_to_base(xyt, self.get_base_pose())
+            print("diff =", xyt)
 
-        if type(xyt) == np.ndarray:
-            xyt = ContinuousNavigationAction(xyt)
-        elif type(xyt) == list:
-            xyt = ContinuousNavigationAction(np.array(xyt))
+        if type(xyt) != np.ndarray:
+            xyt = np.array(xyt)
 
+        xyt = ContinuousNavigationAction(xyt)
         if verbose:
             print("NAVIGATE TO", xyt.xyt, relative, blocking)
+
+        print("Before:", self.get_base_pose())
         self.apply_action(xyt, verbose=verbose)
+        print("After:", self.get_base_pose())
 
     def reset(self):
         """Reset everything in the robot's internal state"""
         self.obs = self.env.reset()
         self.video_frames = [self.obs.third_person_image]
+        self.fpv_video_frames = [self.obs.rgb]
+        self.num_action_applied = 0
         self.done = False
+        self.force_quit = False
 
     def switch_to_navigation_mode(self) -> bool:
         """Apply sim navigation mode action and set internal state"""
@@ -115,6 +125,7 @@ class OvmmSimClient(RobotClient):
         """Return object_to_find and location_to_place"""
         return (
             self.obs.task_observations["object_name"],
+            self.obs.task_observations["start_recep_name"],
             self.obs.task_observations["place_recep_name"],
         )
 
@@ -130,12 +141,44 @@ class OvmmSimClient(RobotClient):
         """xyt position of robot"""
         return np.array([self.obs.gps[0], self.obs.gps[1], self.obs.compass[0]])
 
+    def episode_over(self):
+        return (
+            self.num_action_applied
+            >= self.env.config["habitat"]["environment"]["max_episode_steps"]
+        )
+
     def apply_action(self, action, verbose: bool = False):
+        verbose = True
         """Actually send the action to the simulator."""
+        if self.episode_over():
+            print("habitat env is closed, so the robot can't take any actions")
+            self.force_quit = True
+            return
         xyt0 = self.get_base_pose()
         if verbose:
-            print("STARTED AT:", xyt0)
+            print("\n\nSTARTED AT:", xyt0)
+            print("ACTION:", action)
+
+        # constraints
+        if isinstance(action, ContinuousNavigationAction):
+            for axis, delta in enumerate(action.xyt[:2]):
+                if abs(delta) < 0.1 and abs(delta) > self._zero_tolerance:
+                    print(
+                        "the robot is trying to make tiny movement along an axis, set it to 0"
+                    )
+                    action.xyt[axis] = 0.0
+            if (
+                abs(action.xyt[2]) <= math.radians(5)
+                and abs(action.xyt[2]) > self._zero_tolerance
+            ):
+                print("the robot is trying to rotate by a tiny angle, set it to 0")
+                action.xyt[2] = 0.0
+            # return
+            if verbose:
+                print("NEW ACTION:", action)
+
         self.obs, self.done, self.hab_info = self.env.apply_action(action)
+        self.num_action_applied += 1
         if verbose:
             print("MOVED TO:", self.get_base_pose())
         xyt1 = self.get_base_pose()
@@ -149,6 +192,8 @@ class OvmmSimClient(RobotClient):
         else:
             self._last_motion_failed = True
         self.video_frames.append(self.obs.third_person_image)
+        self.fpv_video_frames.append(self.obs.rgb)
+
         # self.save_frame()
 
     def last_motion_failed(self):
@@ -161,9 +206,13 @@ class OvmmSimClient(RobotClient):
             self.obs.third_person_image,
         )
 
-    def make_video(self):
+    def make_video(self, path=os.getcwd(), name="debug.mp4"):
         """Save a video for this sim client"""
-        imageio.mimsave("debug.mp4", self.video_frames, fps=30)
+        imageio.mimsave(os.path.join(path, name), self.video_frames, fps=30)
+
+    def make_fpv_video(self):
+        """Save a fpv video for this sim client"""
+        imageio.mimsave("debug_fpv.mp4", self.fpv_video_frames, fps=30)
 
     def execute_trajectory(
         self,
@@ -180,7 +229,7 @@ class OvmmSimClient(RobotClient):
             assert (
                 len(pt) == 3 or len(pt) == 2
             ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
-            self.navigate_to(pt, relative)
+            self.navigate_to(pt, relative, verbose=verbose)
             if self.last_motion_failed():
                 return False
         return True
@@ -204,6 +253,8 @@ class SimGraspPlanner(GraspClient):
 
     def try_grasping(self, object_goal: Optional[str] = None) -> bool:
         """Grasp the object by snapping object in sim"""
+        if object_goal:
+            pass
         self.robot_client.apply_action(DiscreteNavigationAction.SNAP_OBJECT)
         return True
 

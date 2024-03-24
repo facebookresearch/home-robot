@@ -34,3 +34,7 @@ def interpolate_angles(
     step = min(delta, step_size) * direction
     interpolated_angle = start_angle + step
     return interpolated_angle % PI2
+
+
+if __name__ == "__main__":
+    print(interpolate_angles(4.628, 4.28))

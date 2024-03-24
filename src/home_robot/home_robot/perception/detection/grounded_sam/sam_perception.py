@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import supervision as sv
@@ -49,6 +50,22 @@ _DEFAULT_MASK_GENERATOR_KWARGS = dict(
     crop_n_layers=1,
     crop_n_points_downscale_factor=2,
 )
+
+
+def show_anns(anns):
+    if len(anns) == 0:
+        return
+    sorted_anns = anns
+    ax = plt.gca()
+    ax.set_autoscale_on(False)
+
+    img = np.ones((sorted_anns[0].shape[0], sorted_anns[0].shape[1], 4))
+    img[:, :, 3] = 0
+    for ann in sorted_anns:
+        m = ann
+        color_mask = np.concatenate([np.random.random(3), [0.35]])
+        img[m] = color_mask
+    ax.imshow(img)
 
 
 class SAMPerception(PerceptionModule):
@@ -99,8 +116,14 @@ class SAMPerception(PerceptionModule):
         """
         self.custom_vocabulary = new_vocab
 
-    def generate(self, image):
-        return self.mask_generator.generate(image)
+    def generate(self, image, min_area=1000):
+        masks = self.mask_generator.generate(image)
+        returned_masks = []
+        for mask in masks:
+            # filter out masks that are too small
+            if mask["area"] >= min_area:
+                returned_masks.append(mask["segmentation"])
+        return returned_masks
 
     # Prompting SAM with detected boxes
     def segment(self, image: np.ndarray, xyxy: np.ndarray) -> np.ndarray:
@@ -121,3 +144,66 @@ class SAMPerception(PerceptionModule):
             index = np.argmax(scores)
             result_masks.append(masks[index])
         return np.array(result_masks)
+
+    def predict(
+        self,
+        obs: Observations,
+        depth_threshold: Optional[float] = None,
+        draw_instance_predictions: bool = False,
+    ) -> np.ndarray:
+        """
+        Get masks using SAM
+        Arguments:
+            image: image of shape (H, W, 3)
+        Returns:
+            masks: masks of shape (N, H, W)
+        """
+        height, width, _ = obs.rgb.shape
+        image = obs.rgb
+        if not image.dtype == np.uint8:
+            if image.max() <= 1.0:
+                image = image * 255.0
+            image = image.astype(np.uint8)
+
+        masks = np.array(self.generate(image))
+
+        # from PIL import Image
+        # for mask in masks:
+        #     mm = np.expand_dims(mask, axis=-1)
+        #     image_array = np.array(mm * image, dtype=np.uint8)
+        #     image_debug = Image.fromarray(image_array)
+        #     image_debug.show()
+        #     breakpoint()
+
+        # plt.figure(figsize=(20, 20))
+        # plt.imshow(image)
+        # plt.savefig("original.png", dpi=100)
+        # show_anns(masks)
+        # plt.axis("off")
+        # plt.savefig("segmented.png", dpi=100)
+
+        masks = sorted(masks, key=lambda x: np.count_nonzero(x), reverse=True)
+        if depth_threshold is not None and obs.depth is not None:
+            masks = np.array(
+                [filter_depth(mask, obs.depth, depth_threshold) for mask in masks]
+            )
+        semantic_map, instance_map = overlay_masks(
+            masks, np.zeros(masks.shape[0]), (height, width)
+        )
+
+        # # detect open-vocab labels
+        # embedding = encoder.encode_image(cropped_image * instance_mask).to(
+        #     cropped_image.device
+        # )
+
+        obs.semantic = semantic_map.astype(int)
+        obs.instance = instance_map.astype(int)
+        if obs.task_observations is None:
+            obs.task_observations = dict()
+        obs.task_observations["instance_map"] = instance_map
+
+        # random filling object classes -- right now using cups
+        obs.task_observations["instance_classes"] = np.full(masks.shape[0], 31)
+        obs.task_observations["instance_scores"] = np.ones(masks.shape[0])
+        obs.task_observations["semantic_frame"] = None
+        return obs

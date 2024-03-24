@@ -2,29 +2,32 @@
 # Encoder is used to compute per-object embeddings.
 encoder: "clip"
 encoder_args: "ViT-B/32"
-open_vocab_cat_map_file: projects/real_world_ovmm/configs/example_cat_map.json
 
 # Sparse Voxel Map parameters
 voxel_size: 0.05
-# 0.05 seems too low
-obs_min_height: 0.1  # Ignore things less than this high when planning motions
+obs_min_height: 0.1  # Ignore things less than this high
 obs_max_height: 1.8  # Ignore things over this height (eg ceilings)
-obs_min_density: 10  # This many points makes it an obstacle
+obs_min_density: 5  # This many points makes it an obstacle
+local_radius: 1.0  # Area around the robot to mark as explored (kind of a hack)
+min_instance_height: 0.05 # filter out instances that are too flat like floors, walls etc
+min_instance_vol: 1e-4 # filter out instances that are of too small volume
+max_instance_vol: 0.5 # filter out instances that are too large
 
 # Padding
-pad_obstacles: 2  # Add this many units (voxel_size) to the area around obstacles
+pad_obstacles: 2 # was 5
 min_pad_obstacles: 1  # Do not pad LESS than this amount, for safety.
 
-local_radius: 0.8  # Area around the robot to mark as explored (kind of a hack)
 remove_visited_from_obstacles: False
-min_depth: 0.5
-max_depth: 2.5
+min_depth: 0.0
+max_depth: 10.0
+
+min_pixels_for_instance_view: 1000
 
 # Point cloud cleanup
 filters:
-        smooth_kernel_size: 2
-        use_median_filter: True
-        median_filter_size: 2
+        smooth_kernel_size: 0
+        use_median_filter: False
+        median_filter_size: 3
         median_filter_max_error: 0.01
         use_derivative_filter: False
         derivative_filter_threshold: 0.1
@@ -32,23 +35,19 @@ filters:
 
 # Exploration
 in_place_rotation_steps: 8
-# in_place_rotation_steps: 0
 
 # TAMP parameters
 guarantee_instance_is_reachable: True
-plan_with_reachable_instances: True
-plan_with_scene_graph: True
-max_near_distance: 0.3
 
 # Navigation space - used for motion planning and computing goals.
-step_size: 0.1
-rotation_step_size: 0.2 
+step_size: 0.1  # (originally .1, we can make it all the way to 2 maybe actually) 
+rotation_step_size: 0.1
 dilate_frontier_size: 3  # Used to shrink the frontier back from the edges of the world
 dilate_obstacle_size: 4  # Used when selecting goals and computing what the "frontier" is 
 default_expand_frontier_size: 10  # margin along the frontier where final robot position can be
 motion_planner:
-        simplify_plans: False
         shortcut_plans: True
+        simplify_plans: True
         shortcut_iter: 100
 
 # Trajectory following - how closely we follow intermediate waypoints
@@ -64,12 +63,18 @@ trajectory_per_step_timeout: 3.0
 name: "stretch_demo"  # for logging - currently not used
 chat: False
 start_ui_server: False
-vlm_context_length: 20  # How long messages sent to the vlm server can be if we are using it
+vlm_context_length: 1000  # How long messages sent to the vlm server can be if we are using it
 limited_obs_publish_sleep: 0.5
 
 # High level stuff: commands to execute 
-command: "pick up a bottle and put it on the chair"
-name: "stretch"
-exploration_steps: 10
-object_to_find: "bottle"
-location_to_place: "chair"
+# command: "pick up a bottle and put it on the chair"
+# name: "spot"
+exploration_steps: 10 # we can potentially increase it to 150 for sim
+# object_to_find: "bottle"
+# location_to_place: "chair"
+
+# VLM Query parameters
+sample_strategy: "clip"
+perception_only: False
+planning_only: True
+explore_once: False

@@ -20,9 +20,9 @@ dependencies:
   - fzf # optional: fancy ctrl + R
   - pip
   - pip:
-    - numpy <1.24 # certain deprecated operations were used in other deps
+    - numpy<1.24 # certain deprecated operations were used in other deps
     - scipy
-    - sophuspy
+    - sophuspy<1.0.0
     - pybullet
     - trimesh<4
     - pytest
@@ -40,6 +40,7 @@ dependencies:
     - timm
     - pandas>=2
     - mss
+    - transformers==4.36.1
     # visualizations and debugging
     - matplotlib>=3
     # Command line tools
