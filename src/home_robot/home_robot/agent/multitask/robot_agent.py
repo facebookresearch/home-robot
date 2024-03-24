@@ -358,7 +358,7 @@ class RobotAgent:
         )
         return plan
 
-    def get_plan_from_vlm(self):
+    def get_plan_from_vlm(self, current_pose=None, show_plan=False):
         """This is a connection to a remote thing for getting language commands"""
         from home_robot.utils.rpc import get_output_from_world_representation
 
@@ -367,16 +367,48 @@ class RobotAgent:
                 self.openai_key = input(
                     "You are using GPT4v for planning, please type in your openai key: "
                 )
-            if not self.task:
+            if not self.task or not self.parameters["replanning"]:
                 # gpt4v agent has replanning capability, so we save the task here and plan multiple times
                 self.task = self.get_command()
-            world_representation = self.get_observations(task=self.task)
+            world_representation = self.get_observations(
+                task=self.task, current_pose=current_pose
+            )
             output = self.get_output_from_gpt4v(world_representation)
+            if show_plan:
+                import re
+
+                import matplotlib.pyplot as plt
+
+                if output == "explore":
+                    print(
+                        ">>>>>> gpt4v cannot find a plan, the robot should explore more >>>>>>>>>"
+                    )
+                elif output == "gpt4v API error":
+                    print(
+                        ">>>>>> there is something wrong with the gpt4v api >>>>>>>>>"
+                    )
+                else:
+                    actions = output.split("; ")
+                    for action_id, action in enumerate(actions):
+                        crop_id = int(re.search(r"img_(\d+)", action).group(1))
+                        global_id = world_representation.object_images[
+                            crop_id
+                        ].instance_id
+                        plt.subplot(1, len(actions), action_id + 1)
+                        plt.imshow(
+                            self.voxel_map.get_instances()[global_id]
+                            .get_best_view()
+                            .get_image()
+                        )
+                        plt.title(action.split("(")[0] + f" instance {global_id}")
+                        plt.axis("off")
+                    plt.suptitle(self.task)
+                    plt.show()
         else:
             assert (
                 self.rpc_stub is not None
             ), "must have RPC stub to connect to remote VLM"
-            world_representation = self.get_observations()
+            world_representation = self.get_observations(current_pose=current_pose)
             # This is not a very stable import
             # So we guard it under this part where it's necessary
             output = get_output_from_world_representation(
@@ -384,11 +416,11 @@ class RobotAgent:
             )
         return output
 
-    def get_observations(self, task=None):
+    def get_observations(self, task=None, current_pose=None):
         from home_robot.utils.rpc import get_obj_centric_world_representation
 
         if self.plan_with_reachable_instances:
-            instances = self.get_all_reachable_instances()
+            instances = self.get_all_reachable_instances(current_pose=current_pose)
         else:
             instances = self.voxel_map.get_instances()
 
@@ -967,10 +999,12 @@ class RobotAgent:
                 plt.show()
         return relationships
 
-    def get_all_reachable_instances(self) -> List[Tuple[int, Instance]]:
+    def get_all_reachable_instances(
+        self, current_pose=None
+    ) -> List[Tuple[int, Instance]]:
         """get all reachable instances with their ids and cache the motion plans"""
         reachable_matches = []
-        start = self.robot.get_base_pose()
+        start = self.robot.get_base_pose() if current_pose is None else current_pose
         for i, instance in enumerate(self.voxel_map.get_instances()):
             res = self.plan_to_instance(instance, start, instance_id=i)
             self._cached_plans[i] = res

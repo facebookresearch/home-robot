@@ -57,6 +57,7 @@ def plan_to_deltas(xyt0, plan):
 @click.option("--pkl-is-svm", "-p", type=bool, is_flag=True, default=False)
 @click.option("--test-planning", type=bool, is_flag=True, default=False)
 @click.option("--test-sampling", type=bool, is_flag=True, default=False)
+@click.option("--test-vlm", type=bool, is_flag=True, default=False)
 @click.option("--show-instances", type=bool, is_flag=True, default=False)
 @click.option("--query", "-q", type=str, default="")
 def main(
@@ -67,6 +68,7 @@ def main(
     pkl_is_svm: bool = True,
     test_planning: bool = False,
     test_sampling: bool = False,
+    test_vlm: bool = False,
     frame: int = -1,
     show_svm: bool = False,
     try_to_plan_iter: int = 10,
@@ -108,7 +110,8 @@ def main(
         voxel_map = SparseVoxelMap(resolution=voxel_size)
 
     # TODO: read this from file or something
-    x0 = np.array([0, 0, 0])
+    # x0 = np.array([0, 0, 0])
+    x0 = np.array([1, 0, 0])
     # x0 = np.array([2.6091852, 3.2328937, 0.8379814])
     # x0 = np.array([3.1000001, 0.0, 4.2857614])
     # x0 = np.array([0.0, -0.0, 1.5707968])
@@ -121,7 +124,7 @@ def main(
         space = agent.get_navigation_space()
 
         if show_svm:
-            x0 = np.array([0, 0, 0])
+            # x0 = np.array([0, 0, 0])
             footprint = dummy_robot.get_robot_model().get_footprint()
             print(f"{x0} valid = {space.is_valid(x0)}")
             voxel_map.show(
@@ -238,6 +241,17 @@ def main(
                     xyt=sampled_xyt,
                     footprint=footprint,
                 )
+
+        if test_vlm:
+            start_is_valid = space.is_valid(x0, verbose=True, debug=False)
+            if not start_is_valid:
+                print("you need to manually set the start pose to be valid")
+                return
+            while True:
+                try:
+                    agent.get_plan_from_vlm(current_pose=x0, show_plan=True)
+                except KeyboardInterrupt:
+                    break
 
 
 if __name__ == "__main__":
