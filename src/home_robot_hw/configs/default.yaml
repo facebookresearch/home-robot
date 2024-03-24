@@ -36,6 +36,9 @@ in_place_rotation_steps: 8
 
 # TAMP parameters
 guarantee_instance_is_reachable: True
+plan_with_reachable_instances: True
+plan_with_scene_graph: True
+max_near_distance: 0.3
 
 # Navigation space - used for motion planning and computing goals.
 step_size: 0.1
