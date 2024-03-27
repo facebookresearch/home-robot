@@ -7,24 +7,28 @@ import random
 import sys
 
 import clip
+
+# try:
+#     sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
+#     import grpc
+#     import src.rpc
+#     import src.rpc.task_rpc_env_pb2
+#     from src.utils.observations import ObjectImage, Observations, ProtoConverter
+#     from task_rpc_env_pb2_grpc import AgentgRPCStub
+# except Exception as e:
+#     ## Temporary hack until we make accel-cortex pip installable
+#     print(
+#         "Make sure path to accel-cortex base folder is set in the ACCEL_CORTEX environment variable."
+#     )
+#     print("If you do not know what that means, this code is not for you!")
+#     raise (e)
+import grpc
 import numpy as np
 import torch
 from loguru import logger
 
-try:
-    sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
-    import grpc
-    import src.rpc
-    import src.rpc.task_rpc_env_pb2
-    from src.utils.observations import ObjectImage, Observations, ProtoConverter
-    from task_rpc_env_pb2_grpc import AgentgRPCStub
-except Exception as e:
-    ## Temporary hack until we make accel-cortex pip installable
-    print(
-        "Make sure path to accel-cortex base folder is set in the ACCEL_CORTEX environment variable."
-    )
-    print("If you do not know what that means, this code is not for you!")
-    raise (e)
+from home_robot.utils.cortex_obs import ObjectImage, Observations, ProtoConverter
+from home_robot.utils.task_rpc_env_pb2_grpc import AgentgRPCStub
 
 
 def get_best_view(images, metric: str = "area"):

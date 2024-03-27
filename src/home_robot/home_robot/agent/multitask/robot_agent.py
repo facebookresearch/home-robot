@@ -329,21 +329,19 @@ class RobotAgent:
     def get_output_from_gpt4v(self, world_rep):
         import sys
 
-        sys.path.append(os.path.expanduser(os.environ["ACCEL_CORTEX"]))
-        from src.agents.gpt4v_agent.agent import GPT4VAgent
+        from home_robot.utils.cortex_gpt4v_agent import CortexGPT4VAgent
 
         # TODO: put these into config
         img_size = 256
         temperature = 0.2
         max_tokens = 50
         with open(
-            os.environ["ACCEL_CORTEX"]
-            + "/src/agents/gpt4v_agent/prompts/prompt_eplan.txt",
+            "src/home_robot/home_robot/agent/multitask/prompt_eplan.txt",
             "r",
         ) as f:
             prompt = f.read()
 
-        gpt_agent = GPT4VAgent(
+        gpt_agent = CortexGPT4VAgent(
             cfg=dict(
                 img_size=img_size,
                 prompt=prompt,
@@ -358,7 +356,9 @@ class RobotAgent:
         )
         return plan
 
-    def get_plan_from_vlm(self, current_pose=None, show_plan=False):
+    def get_plan_from_vlm(
+        self, current_pose=None, show_plan=False, plan_file="vlm_plan.txt"
+    ):
         """This is a connection to a remote thing for getting language commands"""
         from home_robot.utils.rpc import get_output_from_world_representation
 
@@ -414,6 +414,10 @@ class RobotAgent:
             output = get_output_from_world_representation(
                 self.rpc_stub, world_representation, self.get_command()
             )
+        if self.parameters["save_vlm_plan"]:
+            with open(plan_file, "w") as f:
+                f.write(output)
+            print(f"Task plan generated from VLMs has been written to {plan_file}")
         return output
 
     def get_observations(self, task=None, current_pose=None):

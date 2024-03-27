@@ -86,6 +86,7 @@ exploration_steps: 5 # we can potentially increase it to 150 for sim
 sample_strategy: "clip"
 vlm_option: gpt4v
 replanning: False # if replanning is True, the robot agent will memorize the task that is given at the first place
+save_vlm_plan: True
 
 # some parameters in sim
 perception_only: False

@@ -82,3 +82,6 @@ projects/habitat_ovmm/configs/agent/generated/*
 
 # Emacs
 *~
+
+# VLM output
+vlm_plan.txt
