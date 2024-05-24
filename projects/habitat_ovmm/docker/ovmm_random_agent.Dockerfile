@@ -1,4 +1,4 @@
-FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023
+FROM fairembodied/habitat-challenge:homerobot-ovmm-challenge-2024-ubuntu22.04-v2
 
 # install baseline agent requirements
 RUN /bin/bash -c "\

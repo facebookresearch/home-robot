@@ -5,18 +5,19 @@
 from setuptools import find_packages, setup
 
 install_requires = [
+    "mkl==2024.0",
     "numpy<1.24",
-    "scipy",
+    "scipy==1.13.0",
     "hydra-core",
     "yacs",
-    "h5py",
+    "h5py==3.11.0",
     "pybullet",
     "pygifsicle",
     "open3d",
     "numpy-quaternion",
     "pybind11-global",
     "sophuspy==0.0.8",
-    "trimesh",
+    "trimesh==3.23.5",
     "pin>=2.6.17",
     "torch_cluster",
     "torch_scatter",

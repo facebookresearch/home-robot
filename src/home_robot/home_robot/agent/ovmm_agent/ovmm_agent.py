@@ -473,7 +473,8 @@ class OpenVocabManipAgent(ObjectNavAgent):
             if pick_step == 0:
                 action = DiscreteNavigationAction.MANIPULATION_MODE
             elif pick_step < self.max_pick_attempts:
-                print("pick attempt", pick_step)
+                if self.verbose:
+                    print("pick attempt", pick_step)
                 # If we have not seen an object mask to try to grasp...
                 if not obs.task_observations["prev_grasp_success"]:
                     action = DiscreteNavigationAction.PICK_OBJECT
@@ -572,25 +573,18 @@ class OpenVocabManipAgent(ObjectNavAgent):
         action = None
         while action is None:
             if self.states[0] == Skill.NAV_TO_OBJ:
-                print(f"step: {self.timesteps[0]} -- nav to obj")
                 action, info, new_state = self._nav_to_obj(obs, info)
             elif self.states[0] == Skill.GAZE_AT_OBJ:
-                print(f"step: {self.timesteps[0]} -- gaze at obj")
                 action, info, new_state = self._gaze_at_obj(obs, info)
             elif self.states[0] == Skill.PICK:
-                print(f"step: {self.timesteps[0]} -- pick")
                 action, info, new_state = self._pick(obs, info)
             elif self.states[0] == Skill.NAV_TO_REC:
-                print(f"step: {self.timesteps[0]} -- nav to rec")
                 action, info, new_state = self._nav_to_rec(obs, info)
             elif self.states[0] == Skill.GAZE_AT_REC:
-                print(f"step: {self.timesteps[0]} -- gaze at rec")
                 action, info, new_state = self._gaze_at_rec(obs, info)
             elif self.states[0] == Skill.PLACE:
-                print(f"step: {self.timesteps[0]} -- place")
                 action, info, new_state = self._place(obs, info)
             elif self.states[0] == Skill.FALL_WAIT:
-                print(f"step: {self.timesteps[0]} -- fall wait")
                 action, info, new_state = self._fall_wait(obs, info)
             else:
                 raise ValueError

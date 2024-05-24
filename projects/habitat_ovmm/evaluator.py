@@ -341,10 +341,14 @@ class OVMMEvaluator(PPOTrainer):
 
         import grpc
 
-        from home_robot_hw.utils.eval_ai import evaluation_pb2, evaluation_pb2_grpc
+        try:
+            import evaluation_pb2
+            import evaluation_pb2_grpc
+        except ImportError:
+            from home_robot_hw.utils.eval_ai import evaluation_pb2, evaluation_pb2_grpc
 
         # Wait for the remote environment to be up and running
-        time.sleep(1)
+        time.sleep(60)
 
         def grpc_dumps(entity):
             return pickle.dumps(entity)
