@@ -25,6 +25,10 @@ class Footprint:
         self.length_offset = length_offset
         self.width_offset = width_offset
 
+    def get_box(self) -> np.ndarray:
+        """Get a 3d footprint box for visuals"""
+        return np.array([self.length, self.width, 0.2])
+
     def get_mask(
         self, resolution: float, device: Optional[torch.device] = None
     ) -> torch.Tensor:

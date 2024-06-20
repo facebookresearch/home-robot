@@ -126,6 +126,7 @@ class StretchNavigationClient(AbstractControlModule):
             ), "base trajectory needs to be 2-3 dimensions: x, y, and (optionally) theta"
             just_xy = len(pt) == 2
             self.navigate_to(pt, relative, position_only=just_xy, blocking=False)
+            print(i, pt, f"{relative=} {just_xy=}")
             self.wait_for_waypoint(
                 pt,
                 pos_err_threshold=pos_err_threshold,

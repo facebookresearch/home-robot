@@ -12,15 +12,26 @@ This just defines the standard interface for a motion planner
 """
 
 
+class Planner(ABC):
+    """planner base class - placeholder"""
+
+    pass
+
+
 class PlanResult(object):
     """Stores motion plan. Can be extended."""
 
     def __init__(
-        self, success, trajectory: Optional[List] = None, reason: Optional[str] = None
+        self,
+        success,
+        trajectory: Optional[List] = None,
+        reason: Optional[str] = None,
+        planner: Optional[Planner] = None,
     ):
         self.success = success
         self.trajectory = trajectory
         self.reason = reason
+        self.planner = planner
 
     def get_success(self):
         """Was the trajectory planning successful?"""
@@ -29,6 +40,12 @@ class PlanResult(object):
     def get_trajectory(self, *args, **kwargs) -> Optional[List]:
         """Return the trajectory"""
         return self.trajectory
+
+    def get_length(self):
+        """Length of a plan"""
+        if not self.success:
+            return 0
+        return len(self.trajectory)
 
 
 class Planner(ABC):

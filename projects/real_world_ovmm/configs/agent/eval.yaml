@@ -20,6 +20,7 @@ ENVIRONMENT:
   num_receptacles: 21
   # category_map_file: data/datasets/floorplanner/rearrange/v3/val/cat_map.json
   category_map_file: projects/real_world_ovmm/configs/example_cat_map.json
+  # category_map_file: projects/real_world_ovmm/configs/lvis_cat_map.json
   use_detic_viz: True
 
 AGENT:
@@ -29,7 +30,8 @@ AGENT:
   radius: 0.05            # robot radius (in meters)
   fall_wait_steps: 0      # number of steps to wait after the object has been dropped
   clip_embeddings_file: data/objects/clip_embeddings.pickle
-  detection_module: detic
+  # detection_module: detic
+  detection_module: mobile_sam
 
   VISION:
     confidence_threshold: 0.45 # detic object detection confidence threshold

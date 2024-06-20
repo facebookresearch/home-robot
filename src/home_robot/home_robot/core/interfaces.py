@@ -58,6 +58,9 @@ class ContinuousNavigationAction(Action):
             )
         self.xyt = xyt
 
+    def __str__(self):
+        return f"xyt={self.xyt}"
+
 
 class ContinuousFullBodyAction:
     xyt: np.ndarray

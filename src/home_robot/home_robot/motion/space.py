@@ -53,6 +53,8 @@ class ConfigurationSpace(ABC):
         """returns closest node to a given state"""
         min_dist = float("Inf")
         min_node = None
+        if nodes is None:
+            return None
         for node in nodes:
             dist = self.distance(node.state, state)
             if dist < min_dist:

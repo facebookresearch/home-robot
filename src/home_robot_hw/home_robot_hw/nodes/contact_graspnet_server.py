@@ -43,7 +43,7 @@ GRIPPER_LENGTH = 0.1
 
 
 def setup_gpu():
-    """Prepare GPUs for use with contact graspnet."""
+    """Configure GPUs for use by contact graspnet"""
     gpus = tf.config.list_physical_devices("GPU")
     if gpus:
         # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
