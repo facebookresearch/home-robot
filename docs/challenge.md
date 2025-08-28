@@ -3,7 +3,7 @@
 ## 🏠🤖 Challenge  🚀
 The objective of the HomeRobot: OVMM Challenge is to create a platform that enables researchers to develop agents that can navigate unfamiliar environments, manipulate novel objects, and move away from closed object classes towards open-vocabulary natural language. This challenge aims to facilitate cross-cutting research in embodied AI using recent advances in machine learning, computer vision, natural language, and robotics.
 
-Check out the [Neurips 2023 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
+Check out the [CVPR 2024 HomeRobot Open-Vocabulary Mobile Manipulation Challenge!](https://aihabitat.org/challenge/2023_homerobot_ovmm/)
 
 ### Participation Guidelines
 
@@ -50,12 +50,10 @@ Make sure you have [Docker](https://docs.docker.com/engine/install/ubuntu/) with
         && bash submission.sh \
         "
     ```
-    *Note:* we provide 2 versions of the base Docker image participants may build from:
-    - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-ubuntu22.04` (alias of `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023`)
-    - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-ubuntu20.04`
-    - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023-cpu` (a ubuntu 22.04 cpu-only version; you will not need GPUs when using this)
+    *Note:* we provide the following version of the base Docker image participants may build from:
+    - `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2024-ubuntu22.04-v2` 
 
-    These differ in Ubuntu version and the choice between CPU or GPU for running torch code. Our example baseline Docker image uses `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2023` as a base image. But participants may use any of the base Docker images listed above.
+    More docker images for other GPU versions and with a choice between CPU or GPU for running torch code can be made available in future. Our example baseline Docker image uses the same `fairembodied/habitat-challenge:homerobot-ovmm-challenge-2024-ubuntu22.04-v2` as a base image. 
 
 1. Build your Docker image using:
 
@@ -152,21 +150,21 @@ Simulation agents will be evaluated on an AWS EC2 p2.xlarge instance which has a
 ```
 # For minival submissions
 # With a public submission, anyone can see your score
-evalai push <image>:<tag> --phase neurips-ovmm-minival-2023-2100
+evalai push <image>:<tag> --phase homerobot-ovmm-minival-2024-2278
 # You can also make a private submission - no one but you and the organizers can see the results
-evalai push <image>:<tag> --phase neurips-ovmm-minival-2023-2100 --private
+evalai push <image>:<tag> --phase homerobot-ovmm-minival-2024-2278 --private
 
 # For standard test submissions
 # With a public submission, anyone can see your score
-evalai push <image>:<tag> --phase neurips-ovmm-test-standard-2023-2100
+evalai push <image>:<tag> --phase homerobot-ovmm-test-standard-2024-2278
 # Make a private submission - no one but you and the organizers can see the result
-evalai push <image>:<tag> --phase neurips-ovmm-test-standard-2023-2100 --private
+evalai push <image>:<tag> --phase homerobot-ovmm-test-standard-2024-2278 --private
 
 # For challenge submissions - YOU ONLY HAVE 5 SUMBMISSIONS EVER!
 # BE VERY CAREFUL ATTEMPTING THIS! Again, you only get five (5) attempts for the whole challenge
-evalai push <image>:<tag> --phase neurips-ovmm-test-challenge-2023-2100
+evalai push <image>:<tag> --phase homerobot-ovmm-test-challenge-2024-2278
 # Alternately, make a private submission 
-evalai push <image>:<tag> --phase neurips-ovmm-test-challenge-2023-2100 --private
+evalai push <image>:<tag> --phase homerobot-ovmm-test-challenge-2024-2278 --private
 ```
 
 ### DD-PPO Training Starter Code

@@ -95,11 +95,11 @@ export HABITAT_SIM_LOG=quiet
 
 set -x
 python -u -m habitat_baselines.run \
-   --exp-config habitat-baselines/habitat_baselines/config/ovmm/rl_skill.yaml \
-   --run-type train benchmark/ovmm=<skill_name> \
+   --config-name=ovmm/<skill_base_config>.yaml \
+   habitat_baselines.evaluate=False benchmark/ovmm=<skill_name> \
    habitat_baselines.checkpoint_folder=data/new_checkpoints/ovmm/<skill_name>
 ```
-Here `<skill_name>` should be one of `gaze`, `place`, `nav_to_obj` or `nav_to_rec`.
+Here `<skill_name>` should be one of `gaze`, `place`, `nav_to_obj` or `nav_to_rec`, <skill_base_config> should be `rl_cont_skill` for `gaze`/`place` and `rl_discrete_skill` for `nav_to_obj`/`nav_to_rec`
 
 To run on a cluster with SLURM using distributed training run the following script. While this is not necessary, if you have access to a cluster, it can significantly speed up training. To run on multiple machines in a SLURM cluster run the following script: change `#SBATCH --nodes $NUM_OF_MACHINES` to the number of machines and `#SBATCH --ntasks-per-node $NUM_OF_GPUS` and `$SBATCH --gres $NUM_OF_GPUS` to specify the number of GPUS to use per requested machine.
 
@@ -121,8 +121,8 @@ export MAGNUM_LOG=quiet
 export HABITAT_SIM_LOG=quiet
 set -x
 python -u -m habitat_baselines.run \
-   --exp-config habitat-baselines/habitat_baselines/config/ovmm/rl_skill.yaml \
-   --run-type train benchmark/ovmm=<skill_name> \
+   --config-name=ovmm/<skill_base_config>.yaml \
+   habitat_baselines.evaluate=False benchmark/ovmm=<skill_name> \
    habitat_baselines.checkpoint_folder=data/new_checkpoints/ovmm/<skill_name>
 ```
 

@@ -464,7 +464,6 @@ class ObjectNavAgent(Agent):
         info = {
             **planner_inputs[0],
             **vis_inputs[0],
-            "short_term_goal": short_term_goal,
         }
 
         return action, info

@@ -45,7 +45,8 @@ class FMMPlanner:
         if vis_dir is None:
             vis_dir = default_vis_dir
         self.vis_dir = vis_dir
-        os.makedirs(self.vis_dir, exist_ok=True)
+        if self.print_images:
+            os.makedirs(self.vis_dir, exist_ok=True)
 
         self.scale = scale
         self.step_size = step_size

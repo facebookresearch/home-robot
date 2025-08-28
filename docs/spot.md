@@ -4,15 +4,15 @@
 
 ### Requirements
 
-+ Home robot - [Demo branch](https://github.com/facebookresearch/home-robot/tree/demo)
-+ Spot sim2real - [Jay's fork with no_habitat branch](https://github.com/jdvakil/spot-sim2real)
++ Home robot
++ Spot sim2real
 
 ### Steps
 
 #### Home-Robot
 ```
 git clone https://github.com/facebookresearch/home-robot.git --recursive
-cd home-robot && git checkout demo-refactor
+cd home-robot
 ```
 
 ```
@@ -50,7 +50,7 @@ Change this env variable to your cuda -- `CUDA_HOME=/usr/local/cuda-<version_tag
 
 ```
 cd src/third_party/spot-sim2real
-git checkout no_habitat
+git checkout main
 ```
 ##### Installing spot sim2real packages
 
@@ -64,6 +64,12 @@ cd ../spot_rl_experiments
 python generate_executables.py
 pip install -e .
 ```
+```
+# Generate module
+cd ../perception_and_utils_root/
+pip install -e . && cd ../
+```
+
 ```
 pip install bosdyn-api  bosdyn-client transforms3d einops gym==0.23.1 vtk scikit-image open3d natsort scikit-fmm pandas==2.1.1 atomicwrites loguru
 ```
