@@ -1,0 +1,70 @@
+name: facebookresearch/home-robot/main
+on:
+  push:
+    branches:
+    - main
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.0
+      - name: Running precommit checks
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+          run: |
+            pip install pre-commit
+            pre-commit install-hooks
+            pre-commit run --all-files
+  home_robot:
+    runs-on: ubuntu-latest
+    env:
+      FPS_THRESHOLD: 900
+    steps:
+    - uses: actions/checkout@v4.1.0
+    - name: Install system deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends build-essential vim ca-certificates python3-dev autotools-dev libicu-dev libbz2-dev libboost-all-dev pandoc
+    - name: Setup Conda environment
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        activate-environment: env_home_robot
+    - name: Run tests
+      run: |
+        conda install -n env_home_robot -y -c conda-forge pinocchio>=2.6.17
+        pip install torch 'pypandoc<1.8'
+        pip install -e src/home_robot
+        cd tests/home_robot
+        pytest .
+  home_robot_sim:
+    runs-on: ubuntu-latest
+    env:
+      FPS_THRESHOLD: 900
+    steps:
+    - uses: actions/checkout@v4.1.0
+    - name: Install system deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends build-essential vim ca-certificates libbullet-dev libjpeg-dev libglm-dev libegl1-mesa-dev xorg-dev freeglut3-dev libhdf5-dev
+    - name: Sync submodules
+      run: |
+        git submodule sync
+        git submodule update --init src/third_party/habitat-lab
+    - name: Setup Conda environment
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        activate-environment: env_home_robot
+    - name: Install home-robot-sim dependencies & download data
+      run: |
+        conda install -n env_home_robot -y -c conda-forge pinocchio>=2.6.17
+        pip install -e src/third_party/habitat-lab
+        python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path data/
+        mkdir -p tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
+        mv data/scene_datasets/mp3d_example/17DRP5sb8fy tests/home_robot_sim/data/scene_datasets/mp3d_example/mp3d
+    - name: Install libraries and run tests
+      run: |
+        sudo pip install -e src/home_robot
+        sudo pip install -e src/home_robot_sim
+        cd tests/home_robot_sim
+        pytest .
